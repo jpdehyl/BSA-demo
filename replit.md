@@ -35,6 +35,7 @@ Preferred communication style: Simple, everyday language.
 - Critical: Build Twilio integration before auth to prevent webhook interference
 
 ### Database Schema (Key Tables)
+- `session` - PostgreSQL session storage for connect-pg-simple (sid, sess, expire)
 - `users` - Authentication and role management
 - `managers` - Sales manager directory
 - `sdrs` - Sales development representatives
@@ -44,6 +45,11 @@ Preferred communication style: Simple, everyday language.
 - `liveCoachingTips` - AI-generated coaching suggestions
 - `researchPackets` - AI-researched lead intelligence
 - `conversations/messages` - Gemini chat integration
+
+### Session Configuration (Production)
+- **Trust Proxy**: `app.set("trust proxy", 1)` in server/index.ts - Required for secure cookies behind Replit's reverse proxy
+- **Session Store**: connect-pg-simple with PostgreSQL `session` table
+- **Cookie Settings**: secure: true, httpOnly: true, sameSite: "lax", maxAge: 30 days
 
 ### Build System
 - Development: `tsx` for TypeScript execution
