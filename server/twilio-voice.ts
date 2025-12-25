@@ -106,8 +106,8 @@ export function registerTwilioVoiceRoutes(app: Express): void {
       track: "both_tracks",
       partialResults: true,
       languageCode: "en-US",
-      transcriptionCallback: `${baseUrl}/twilio/transcription`,
-      statusCallback: `${baseUrl}/twilio/transcription/status`,
+      webhookUrl: `${baseUrl}/twilio/transcription`,
+      statusCallbackUrl: `${baseUrl}/twilio/transcription/status`,
     } as any);
 
     const dial = twiml.dial({

@@ -1,14 +1,12 @@
 import type { Express, Request, Response } from "express";
 import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "http";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { storage } from "./storage";
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY!,
-  httpOptions: {
-    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
-  },
+const genAI = new GoogleGenerativeAI(process.env.AI_INTEGRATIONS_GEMINI_API_KEY || "");
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }, {
+  baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
 });
 
 const activeConnections = new Map<string, Set<WebSocket>>();
@@ -73,26 +71,16 @@ export function broadcastToUser(userId: string, message: object): void {
 
 async function generateCoachingTip(transcript: string, sessionId: string): Promise<string | null> {
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              text: `You are an expert sales coach analyzing a live sales call. Based on the following transcript, provide ONE brief, actionable coaching tip for the sales representative. Keep it under 50 words and make it immediately actionable.
+    const prompt = `You are an expert sales coach analyzing a live sales call. Based on the following transcript, provide ONE brief, actionable coaching tip for the sales representative. Keep it under 50 words and make it immediately actionable.
 
 Transcript:
 ${transcript}
 
-Provide only the coaching tip, no preamble.`,
-            },
-          ],
-        },
-      ],
-    });
+Provide only the coaching tip, no preamble.`;
 
-    const tip = response.text?.trim();
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const tip = response.text()?.trim();
     
     if (tip && sessionId) {
       await storage.createLiveCoachingTip({
