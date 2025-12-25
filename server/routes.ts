@@ -31,8 +31,6 @@ export async function registerRoutes(
 ): Promise<Server> {
   app.use(express.urlencoded({ extended: true }));
 
-  registerTwilioVoiceRoutes(app);
-
   app.use(
     session({
       store: new MemoryStoreSession({
@@ -214,6 +212,8 @@ export async function registerRoutes(
       res.status(500).json({ message: "Failed to fetch leads" });
     }
   });
+
+  registerTwilioVoiceRoutes(app);
 
   return httpServer;
 }

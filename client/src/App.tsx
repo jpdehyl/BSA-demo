@@ -14,6 +14,7 @@ import LandingPage from "@/pages/landing";
 import LoginPage from "@/pages/login";
 import SignupPage from "@/pages/signup";
 import DashboardPage from "@/pages/dashboard";
+import CoachingPage from "@/pages/coaching";
 
 function LoadingScreen() {
   return (
@@ -159,7 +160,7 @@ function Router() {
       <Route path="/coaching">
         <ProtectedRoute>
           <DashboardLayout>
-            <PlaceholderPage title="Live Coaching" />
+            <CoachingPage />
           </DashboardLayout>
         </ProtectedRoute>
       </Route>
