@@ -22,9 +22,10 @@ type CallState = "idle" | "ready" | "connecting" | "ringing" | "on-call" | "disc
 interface SoftphoneProps {
   onCallStart?: (phoneNumber: string) => void;
   onCallEnd?: () => void;
+  isAuthenticated?: boolean;
 }
 
-export function Softphone({ onCallStart, onCallEnd }: SoftphoneProps) {
+export function Softphone({ onCallStart, onCallEnd, isAuthenticated = false }: SoftphoneProps) {
   const [device, setDevice] = useState<Device | null>(null);
   const [activeCall, setActiveCall] = useState<Call | null>(null);
   const [callState, setCallState] = useState<CallState>("idle");
@@ -108,7 +109,9 @@ export function Softphone({ onCallStart, onCallEnd }: SoftphoneProps) {
   }, [device, isInitializing, toast]);
 
   useEffect(() => {
-    initializeDevice();
+    if (isAuthenticated) {
+      initializeDevice();
+    }
 
     return () => {
       if (device) {
@@ -118,7 +121,7 @@ export function Softphone({ onCallStart, onCallEnd }: SoftphoneProps) {
         clearInterval(durationIntervalRef.current);
       }
     };
-  }, []);
+  }, [isAuthenticated]);
 
   const startDurationTimer = () => {
     setCallDuration(0);
