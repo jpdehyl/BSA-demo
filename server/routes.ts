@@ -3,8 +3,10 @@ import express from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
 import MemoryStore from "memorystore";
+import connectPgSimple from "connect-pg-simple";
 import bcrypt from "bcrypt";
 import { storage } from "./storage";
+import { pool } from "./db";
 import { insertUserSchema } from "@shared/schema";
 import { z } from "zod";
 import { registerTwilioVoiceRoutes } from "./twilio-voice";
@@ -18,6 +20,7 @@ declare module "express-session" {
 }
 
 const MemoryStoreSession = MemoryStore(session);
+const PgSession = connectPgSimple(session);
 
 const SALT_ROUNDS = 12;
 
@@ -32,18 +35,26 @@ export async function registerRoutes(
 ): Promise<Server> {
   app.use(express.urlencoded({ extended: true }));
 
+  const sessionStore = process.env.NODE_ENV === "production"
+    ? new PgSession({
+        pool: pool,
+        tableName: "session",
+        createTableIfMissing: true,
+      })
+    : new MemoryStoreSession({
+        checkPeriod: 86400000,
+      });
+
   app.use(
     session({
-      store: new MemoryStoreSession({
-        checkPeriod: 86400000,
-      }),
+      store: sessionStore,
       secret: process.env.SESSION_SECRET || "lead-intel-secret-key-change-in-prod",
       resave: false,
       saveUninitialized: false,
       cookie: {
         secure: process.env.NODE_ENV === "production",
         httpOnly: true,
-        maxAge: 7 * 24 * 60 * 60 * 1000,
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
         sameSite: "lax",
       },
     })
