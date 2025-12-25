@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
-import logoPath from "@assets/logo1_1766695321240.jpg";
+import logoPath from "@assets/logo_1766696202008.png";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
