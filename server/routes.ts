@@ -111,8 +111,14 @@ export async function registerRoutes(
       req.session.userId = user.id;
       req.session.userRole = user.role;
 
-      const { password: _, ...userWithoutPassword } = user;
-      res.status(201).json({ user: userWithoutPassword });
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ message: "Registration failed - session error" });
+        }
+        const { password: _, ...userWithoutPassword } = user;
+        res.status(201).json({ user: userWithoutPassword });
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
@@ -140,9 +146,19 @@ export async function registerRoutes(
 
       req.session.userId = user.id;
       req.session.userRole = user.role;
+      
+      console.log("Login successful - Session ID:", req.sessionID);
+      console.log("Login successful - User ID set:", user.id);
 
-      const { password: _, ...userWithoutPassword } = user;
-      res.json({ user: userWithoutPassword });
+      req.session.save((err) => {
+        if (err) {
+          console.error("Session save error:", err);
+          return res.status(500).json({ message: "Login failed - session error" });
+        }
+        console.log("Session saved successfully");
+        const { password: _, ...userWithoutPassword } = user;
+        res.json({ user: userWithoutPassword });
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
@@ -164,6 +180,9 @@ export async function registerRoutes(
   });
 
   app.get("/api/auth/me", async (req: Request, res: Response) => {
+    console.log("Auth/me request - Session ID:", req.sessionID);
+    console.log("Auth/me request - User ID in session:", req.session?.userId);
+    
     if (!req.session.userId) {
       return res.json({ user: null });
     }
