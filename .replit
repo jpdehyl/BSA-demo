@@ -40,3 +40,9 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_database:1.0.0", "javascript_gemini_ai_integrations:2.0.0"]
+
+[userenv]
+
+[userenv.shared]
+TWILIO_PHONE_NUMBER = "+18157433066"
+LOCAL_TIMEZONE = "Los Angeles"
