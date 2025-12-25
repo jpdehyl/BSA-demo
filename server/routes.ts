@@ -174,39 +174,9 @@ export async function registerRoutes(
     });
   });
 
-  // Debug endpoint to check session state
-  app.get("/api/debug/session", (req: Request, res: Response) => {
-    res.json({
-      sessionId: req.sessionID,
-      userId: req.session?.userId || null,
-      userRole: req.session?.userRole || null,
-      cookieHeader: req.headers.cookie ? "present" : "missing",
-      isProduction: process.env.NODE_ENV === "production",
-      trustProxy: req.app.get("trust proxy"),
-      protocol: req.protocol,
-      secure: req.secure,
-      xForwardedProto: req.headers["x-forwarded-proto"],
-    });
-  });
-
   app.get("/api/auth/me", async (req: Request, res: Response) => {
-    console.log("Auth/me request - Session ID:", req.sessionID);
-    console.log("Auth/me request - User ID in session:", req.session?.userId);
-    console.log("Auth/me request - Cookie header:", req.headers.cookie);
-    console.log("Auth/me request - Protocol:", req.protocol, "Secure:", req.secure);
-    
     if (!req.session.userId) {
-      return res.json({ 
-        user: null,
-        _debug: {
-          sessionId: req.sessionID?.substring(0, 8) + "...",
-          hasCookie: !!req.headers.cookie,
-          protocol: req.protocol,
-          secure: req.secure,
-          trustProxy: req.app.get("trust proxy"),
-          xForwardedProto: req.headers["x-forwarded-proto"],
-        }
-      });
+      return res.json({ user: null });
     }
 
     try {
