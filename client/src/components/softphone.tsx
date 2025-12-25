@@ -147,19 +147,34 @@ export function Softphone({ onCallStart, onCallEnd, isAuthenticated = false }: S
     onCallEnd?.();
   };
 
+  const formatPhoneNumber = (number: string): string => {
+    const digitsOnly = number.replace(/\D/g, '');
+    if (digitsOnly.length === 10) {
+      return `+1${digitsOnly}`;
+    } else if (digitsOnly.length === 11 && digitsOnly.startsWith('1')) {
+      return `+${digitsOnly}`;
+    } else if (number.startsWith('+')) {
+      return number;
+    }
+    return `+${digitsOnly}`;
+  };
+
   const makeCall = async () => {
     if (!device || !phoneNumber) return;
 
     try {
       setCallState("connecting");
+      
+      const formattedNumber = formatPhoneNumber(phoneNumber);
+      console.log("Calling:", formattedNumber);
 
       await apiRequest("POST", "/api/voice/call", {
-        toNumber: phoneNumber,
+        toNumber: formattedNumber,
       });
 
       const call = await device.connect({
         params: {
-          To: phoneNumber,
+          To: formattedNumber,
         },
       });
 
