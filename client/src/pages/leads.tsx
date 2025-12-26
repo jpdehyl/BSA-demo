@@ -431,27 +431,14 @@ function DossierSection({
   );
 }
 
-const DEFAULT_LEADS_SPREADSHEET_ID = "1dEbs4B7oucHJmA8U0-VehfzQN3Yt54RRs6VQlWNxX2I";
-
 function ImportModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const [spreadsheetId, setSpreadsheetId] = useState(DEFAULT_LEADS_SPREADSHEET_ID);
   const [isImporting, setIsImporting] = useState(false);
   const { toast } = useToast();
-
-  const previewQuery = useQuery<{
-    headers: string[];
-    previewRows: string[][];
-    totalRows: number;
-    columnMapping: Record<string, number>;
-  }>({
-    queryKey: ["/api/leads/import/preview", spreadsheetId],
-    enabled: false,
-  });
 
   const handleImport = async () => {
     setIsImporting(true);
     try {
-      const res = await apiRequest("POST", "/api/leads/import", { spreadsheetId });
+      const res = await apiRequest("POST", "/api/leads/import", {});
       const response = await res.json();
       
       toast({
@@ -464,7 +451,7 @@ function ImportModal({ open, onOpenChange }: { open: boolean; onOpenChange: (ope
     } catch (error) {
       toast({
         title: "Import failed",
-        description: "Could not import leads from the spreadsheet",
+        description: "Could not import leads from the spreadsheet. Please check Google credentials.",
         variant: "destructive",
       });
     } finally {
@@ -474,49 +461,39 @@ function ImportModal({ open, onOpenChange }: { open: boolean; onOpenChange: (ope
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
             Import Leads from Google Sheets
           </DialogTitle>
           <DialogDescription>
-            Connect to a Google Spreadsheet to import lead data
+            Import lead data from the configured Hawk Ridge Systems leads spreadsheet
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium">Spreadsheet ID</label>
-            <Input
-              placeholder="Enter Google Spreadsheet ID"
-              value={spreadsheetId}
-              onChange={(e) => setSpreadsheetId(e.target.value)}
-              className="mt-1"
-              data-testid="input-spreadsheet-id"
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Find this in the spreadsheet URL: docs.google.com/spreadsheets/d/<strong>[ID]</strong>/edit
-            </p>
-          </div>
-
           <div className="p-3 bg-muted/50 rounded-md text-sm">
-            <p className="font-medium mb-2">Required columns:</p>
+            <p className="font-medium mb-2">The import will look for these columns:</p>
             <ul className="list-disc list-inside text-muted-foreground space-y-1">
-              <li>Company Name</li>
-              <li>Contact Name</li>
-              <li>Email</li>
+              <li>Company Name (required)</li>
+              <li>Contact Name (required)</li>
+              <li>Email (required)</li>
             </ul>
             <p className="mt-2 text-muted-foreground">
               Optional: Title, Phone, LinkedIn, Website, Industry, Size
             </p>
           </div>
 
+          <p className="text-sm text-muted-foreground">
+            Duplicate leads (by email) will be automatically skipped.
+          </p>
+
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button onClick={handleImport} disabled={!spreadsheetId || isImporting} data-testid="button-confirm-import">
+            <Button onClick={handleImport} disabled={isImporting} data-testid="button-confirm-import">
               {isImporting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

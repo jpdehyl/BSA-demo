@@ -90,10 +90,9 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
 
   app.get("/api/leads/import/preview", requireAuth, async (req: Request, res: Response) => {
     try {
-      const spreadsheetId = req.query.spreadsheetId as string | undefined;
       const range = (req.query.range as string) || "Sheet1!A:Z";
       
-      const { headers, rows, totalRows } = await fetchLeadsFromSheet(spreadsheetId, range);
+      const { headers, rows, totalRows } = await fetchLeadsFromSheet(undefined, range);
       const columnMapping = detectColumnMapping(headers);
       
       const previewRows = rows.slice(0, 5);
@@ -106,14 +105,13 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
       });
     } catch (error) {
       console.error("Sheets preview error:", error);
-      res.status(500).json({ message: "Failed to preview spreadsheet. Check Google credentials." });
+      res.status(500).json({ message: "Failed to preview spreadsheet. Check Google credentials and LEADS_SPREADSHEET_ID." });
     }
   });
 
   app.get("/api/leads/import/spreadsheet-info", requireAuth, async (req: Request, res: Response) => {
     try {
-      const spreadsheetId = req.query.spreadsheetId as string | undefined;
-      const info = await getSpreadsheetInfo(spreadsheetId);
+      const info = await getSpreadsheetInfo();
       res.json(info);
     } catch (error) {
       console.error("Spreadsheet info error:", error);
@@ -123,9 +121,9 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
 
   app.post("/api/leads/import", requireAuth, async (req: Request, res: Response) => {
     try {
-      const { spreadsheetId, range, columnMapping } = req.body;
+      const { range, columnMapping } = req.body;
       
-      const { headers, rows } = await fetchLeadsFromSheet(spreadsheetId, range || "Sheet1!A:Z");
+      const { headers, rows } = await fetchLeadsFromSheet(undefined, range || "Sheet1!A:Z");
       const { leads: parsedLeads, skipped, errors } = parseLeadsFromSheet(headers, rows, columnMapping);
       
       const existingEmails = new Set<string>();
