@@ -90,7 +90,12 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
 
   app.get("/api/leads/import/preview", requireAuth, async (req: Request, res: Response) => {
     try {
-      const range = (req.query.range as string) || "Sheet1!A:Z";
+      let range = req.query.range as string | undefined;
+      if (!range) {
+        const info = await getSpreadsheetInfo();
+        const firstSheet = info.sheets[0]?.title || "Sheet1";
+        range = `${firstSheet}!A:Z`;
+      }
       
       const { headers, rows, totalRows } = await fetchLeadsFromSheet(undefined, range);
       const columnMapping = detectColumnMapping(headers);
@@ -123,7 +128,14 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
     try {
       const { range, columnMapping } = req.body;
       
-      const { headers, rows } = await fetchLeadsFromSheet(undefined, range || "Sheet1!A:Z");
+      let sheetRange = range;
+      if (!sheetRange) {
+        const info = await getSpreadsheetInfo();
+        const firstSheet = info.sheets[0]?.title || "Sheet1";
+        sheetRange = `${firstSheet}!A:Z`;
+      }
+      
+      const { headers, rows } = await fetchLeadsFromSheet(undefined, sheetRange);
       const { leads: parsedLeads, skipped, errors } = parseLeadsFromSheet(headers, rows, columnMapping);
       
       const existingEmails = new Set<string>();
