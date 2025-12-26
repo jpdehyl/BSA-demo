@@ -1,37 +1,45 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 import { 
   Search, 
-  Plus, 
   Phone, 
   Mail, 
   Building2, 
   User, 
-  FileSearch, 
   Loader2,
   ExternalLink,
-  Briefcase,
   Target,
   MessageSquare,
-  HelpCircle,
   Shield,
-  Lightbulb,
   Upload,
   AlertTriangle,
   TrendingUp,
-  Link2,
   Globe,
-  CheckCircle2,
   Clock,
-  Crosshair
+  Crosshair,
+  Flame,
+  Zap,
+  Snowflake,
+  RefreshCw,
+  ChevronRight,
+  Briefcase,
+  MapPin,
+  Users,
+  DollarSign,
+  Award,
+  HelpCircle,
+  Sparkles,
+  Database
 } from "lucide-react";
+import { SiLinkedin, SiX } from "react-icons/si";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -66,23 +74,21 @@ export default function LeadsPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/leads", selectedLead?.id] });
-      toast({ title: "Research complete", description: "Lead dossier has been generated" });
+      toast({ title: "Intel Gathered", description: "Lead dossier compiled successfully" });
     },
     onError: () => {
-      toast({ title: "Research failed", description: "Could not generate research for this lead", variant: "destructive" });
+      toast({ title: "Intel Failed", description: "Could not compile lead dossier", variant: "destructive" });
     },
   });
 
   useEffect(() => {
     if (selectedLead && leads.length > 0) {
       const updatedLead = leads.find(l => l.id === selectedLead.id);
-      if (updatedLead && (updatedLead.hasResearch !== selectedLead.hasResearch || 
-          updatedLead.contactLinkedIn !== selectedLead.contactLinkedIn ||
-          updatedLead.contactPhone !== selectedLead.contactPhone)) {
+      if (updatedLead) {
         setSelectedLead(updatedLead);
       }
     }
-  }, [leads, selectedLead]);
+  }, [leads, selectedLead?.id]);
 
   const filteredLeads = leads.filter(lead => 
     lead.contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -90,260 +96,87 @@ export default function LeadsPage() {
     lead.contactEmail.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "new": return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
-      case "contacted": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
-      case "qualified": return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
-      case "lost": return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
-      default: return "bg-muted";
-    }
-  };
-
   const handleCallLead = (lead: LeadWithResearch) => {
     navigate(`/coaching?phone=${encodeURIComponent(lead.contactPhone || "")}&leadId=${lead.id}`);
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-semibold" data-testid="heading-leads">Contact Directory</h1>
-          <p className="text-muted-foreground">
-            Manage leads and access AI-powered research dossiers
-          </p>
+    <div className="h-full flex flex-col">
+      <div className="flex items-center justify-between gap-4 p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-md">
+            <Database className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-lg font-semibold" data-testid="heading-leads">Lead Intel Database</h1>
+            <p className="text-xs text-muted-foreground">
+              {leads.length} records | {leads.filter(l => l.hasResearch).length} researched
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setShowImportModal(true)} data-testid="button-import-leads">
-            <Upload className="h-4 w-4 mr-2" />
-            Import from Sheets
-          </Button>
-          <Button data-testid="button-add-lead">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Lead
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)} data-testid="button-import-leads">
+          <Upload className="h-4 w-4 mr-2" />
+          Import
+        </Button>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search leads by name, company, or email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-            data-testid="input-search-leads"
-          />
-        </div>
-        <Badge variant="secondary" data-testid="text-lead-count">
-          {filteredLeads.length} leads
-        </Badge>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Leads</CardTitle>
-              <CardDescription>Click a lead to view details</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[500px]">
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
-                ) : filteredLeads.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Building2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No leads found</p>
-                    <p className="text-sm mt-1">Import leads from Google Sheets to get started</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2 pr-2">
-                    {filteredLeads.map((lead) => (
-                      <div
-                        key={lead.id}
-                        onClick={() => setSelectedLead(lead)}
-                        className={`p-3 rounded-md cursor-pointer hover-elevate ${
-                          selectedLead?.id === lead.id ? "bg-accent" : "bg-muted/50"
-                        }`}
-                        data-testid={`lead-card-${lead.id}`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium truncate">{lead.contactName}</p>
-                            <p className="text-sm text-muted-foreground truncate">{lead.companyName}</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <Badge variant="outline" className={`text-xs ${getStatusColor(lead.status)}`}>
-                              {lead.status}
-                            </Badge>
-                            {lead.hasResearch && (
-                              <Badge variant="secondary" className="text-xs">
-                                <FileSearch className="h-3 w-3 mr-1" />
-                                Intel
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                        {lead.contactTitle && (
-                          <p className="text-xs text-muted-foreground mt-1 truncate">{lead.contactTitle}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="lg:col-span-2">
-          {selectedLead ? (
-            <Card>
-              <CardHeader className="flex flex-row items-start justify-between gap-4 pb-2">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    {selectedLead.contactName}
-                  </CardTitle>
-                  <CardDescription className="flex items-center gap-2 mt-1">
-                    <Building2 className="h-4 w-4" />
-                    {selectedLead.companyName}
-                    {selectedLead.contactTitle && (
-                      <span className="text-muted-foreground">- {selectedLead.contactTitle}</span>
-                    )}
-                  </CardDescription>
+      <div className="flex-1 flex overflow-hidden">
+        <div className="w-80 border-r flex flex-col bg-muted/30">
+          <div className="p-3 border-b">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search leads..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-9 bg-background"
+                data-testid="input-search-leads"
+              />
+            </div>
+          </div>
+          
+          <ScrollArea className="flex-1">
+            <div className="p-2 space-y-1">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
-                <div className="flex items-center gap-2">
-                  {selectedLead.contactPhone && (
-                    <Button size="sm" onClick={() => handleCallLead(selectedLead)} data-testid="button-call-lead">
-                      <Phone className="h-4 w-4 mr-1" />
-                      Call
-                    </Button>
-                  )}
-                  {selectedLead.contactEmail && (
-                    <Button size="sm" variant="outline" asChild data-testid="button-email-lead">
-                      <a href={`mailto:${selectedLead.contactEmail}`}>
-                        <Mail className="h-4 w-4 mr-1" />
-                        Email
-                      </a>
-                    </Button>
-                  )}
+              ) : filteredLeads.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  No leads found
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2 mb-4 flex-wrap">
-                  <Badge className={getStatusColor(selectedLead.status)}>{selectedLead.status}</Badge>
-                  {selectedLead.companyIndustry && (
-                    <Badge variant="outline">{selectedLead.companyIndustry}</Badge>
-                  )}
-                  {selectedLead.companySize && (
-                    <Badge variant="outline">{selectedLead.companySize} employees</Badge>
-                  )}
-                  {selectedLead.contactLinkedIn && (
-                    <Button size="sm" variant="ghost" asChild>
-                      <a href={selectedLead.contactLinkedIn} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-3 w-3 mr-1" />
-                        LinkedIn
-                      </a>
-                    </Button>
-                  )}
-                </div>
-
-                <div className="mb-4 p-3 bg-muted/50 rounded-md">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Email:</span>
-                      <p className="font-medium">{selectedLead.contactEmail}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Phone:</span>
-                      <p className="font-medium">{selectedLead.contactPhone || "Not provided"}</p>
-                    </div>
-                    {selectedLead.contactLinkedIn && (
-                      <div className="col-span-2">
-                        <span className="text-muted-foreground">LinkedIn:</span>
-                        <a 
-                          href={selectedLead.contactLinkedIn.startsWith("http") ? selectedLead.contactLinkedIn : `https://${selectedLead.contactLinkedIn}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-medium text-primary hover:underline ml-2 flex items-center gap-1 inline-flex"
-                        >
-                          <Link2 className="h-3 w-3" />
-                          View Profile
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </div>
-                    )}
-                    {selectedLead.companyWebsite && (
-                      <div className="col-span-2">
-                        <span className="text-muted-foreground">Website:</span>
-                        <a 
-                          href={selectedLead.companyWebsite.startsWith("http") ? selectedLead.companyWebsite : `https://${selectedLead.companyWebsite}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-medium text-primary hover:underline ml-2 inline-flex items-center gap-1"
-                        >
-                          {selectedLead.companyWebsite}
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {detailLoading && !leadDetail ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  </div>
-                ) : leadDetail?.researchPacket ? (
-                  <IntelligenceDossier 
-                    packet={leadDetail.researchPacket} 
-                    lead={selectedLead}
-                    onRefresh={() => researchMutation.mutate(selectedLead.id)}
-                    isRefreshing={researchMutation.isPending}
+              ) : (
+                filteredLeads.map((lead) => (
+                  <LeadListItem
+                    key={lead.id}
+                    lead={lead}
+                    isSelected={selectedLead?.id === lead.id}
+                    onClick={() => setSelectedLead(lead)}
                   />
-                ) : (
-                  <div className="text-center py-8 border rounded-md border-dashed">
-                    <FileSearch className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-50" />
-                    <p className="font-medium mb-1">No Intelligence Dossier</p>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Generate AI-powered intelligence to prepare for your engagement
-                    </p>
-                    <Button 
-                      onClick={() => researchMutation.mutate(selectedLead.id)}
-                      disabled={researchMutation.isPending}
-                      data-testid="button-generate-research"
-                    >
-                      {researchMutation.isPending ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Gathering Intel...
-                        </>
-                      ) : (
-                        <>
-                          <Crosshair className="h-4 w-4 mr-2" />
-                          Generate Dossier
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+
+        <div className="flex-1 overflow-auto bg-background">
+          {selectedLead ? (
+            <LeadDetailPanel
+              lead={selectedLead}
+              detail={leadDetail}
+              isLoading={detailLoading}
+              onResearch={() => researchMutation.mutate(selectedLead.id)}
+              isResearching={researchMutation.isPending}
+              onCall={() => handleCallLead(selectedLead)}
+            />
           ) : (
-            <Card>
-              <CardContent className="flex items-center justify-center py-16">
-                <div className="text-center text-muted-foreground">
-                  <User className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                  <p className="font-medium">Select a lead to view details</p>
-                  <p className="text-sm mt-1">Click on any lead in the list to see their profile and research dossier</p>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center text-muted-foreground">
+                <Database className="h-16 w-16 mx-auto mb-4 opacity-20" />
+                <p className="font-medium">Select a lead to view intel</p>
+                <p className="text-sm mt-1">Click on any record in the list</p>
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -353,20 +186,231 @@ export default function LeadsPage() {
   );
 }
 
-function IntelligenceDossier({ 
-  packet, 
-  lead,
-  onRefresh,
-  isRefreshing
+function LeadListItem({ 
+  lead, 
+  isSelected, 
+  onClick 
 }: { 
-  packet: ResearchPacket;
-  lead: LeadWithResearch;
-  onRefresh: () => void;
-  isRefreshing: boolean;
+  lead: LeadWithResearch; 
+  isSelected: boolean;
+  onClick: () => void;
 }) {
+  const getPriorityIcon = (priority: string | null) => {
+    switch (priority) {
+      case "hot": return <Flame className="h-3 w-3 text-red-500" />;
+      case "warm": return <Zap className="h-3 w-3 text-orange-500" />;
+      case "cool": return <TrendingUp className="h-3 w-3 text-blue-500" />;
+      case "cold": return <Snowflake className="h-3 w-3 text-slate-400" />;
+      default: return null;
+    }
+  };
+
+  const getFitScoreColor = (score: number | null) => {
+    if (!score) return "text-muted-foreground";
+    if (score >= 70) return "text-green-600 dark:text-green-400";
+    if (score >= 40) return "text-yellow-600 dark:text-yellow-400";
+    return "text-red-600 dark:text-red-400";
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left p-3 rounded-md transition-colors hover-elevate ${
+        isSelected 
+          ? "bg-primary/10 border border-primary/20" 
+          : "hover:bg-muted/50"
+      }`}
+      data-testid={`button-select-lead-${lead.id}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm truncate">{lead.contactName}</span>
+            {getPriorityIcon(lead.priority)}
+          </div>
+          <p className="text-xs text-muted-foreground truncate mt-0.5">
+            {lead.companyName}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          {lead.fitScore && (
+            <span className={`text-xs font-mono font-bold ${getFitScoreColor(lead.fitScore)}`}>
+              {lead.fitScore}
+            </span>
+          )}
+          {lead.hasResearch && (
+            <div className="w-1.5 h-1.5 rounded-full bg-green-500" title="Intel available" />
+          )}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function LeadDetailPanel({
+  lead,
+  detail,
+  isLoading,
+  onResearch,
+  isResearching,
+  onCall
+}: {
+  lead: LeadWithResearch;
+  detail: { lead: Lead; researchPacket: ResearchPacket | null } | undefined;
+  isLoading: boolean;
+  onResearch: () => void;
+  isResearching: boolean;
+  onCall: () => void;
+}) {
+  const packet = detail?.researchPacket;
+
+  const getPriorityBadge = (priority: string | null) => {
+    const styles: Record<string, string> = {
+      hot: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+      warm: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+      cool: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+      cold: "bg-slate-100 text-slate-600 dark:bg-slate-800/50 dark:text-slate-400",
+    };
+    const icons: Record<string, JSX.Element> = {
+      hot: <Flame className="h-3 w-3" />,
+      warm: <Zap className="h-3 w-3" />,
+      cool: <TrendingUp className="h-3 w-3" />,
+      cold: <Snowflake className="h-3 w-3" />,
+    };
+    if (!priority) return null;
+    return (
+      <Badge variant="outline" className={`${styles[priority] || ""} gap-1`}>
+        {icons[priority]}
+        {priority.toUpperCase()}
+      </Badge>
+    );
+  };
+
+  const getFitScoreDisplay = (score: number | null) => {
+    if (!score) return null;
+    const color = score >= 70 ? "text-green-600" : score >= 40 ? "text-yellow-600" : "text-red-600";
+    const bgColor = score >= 70 ? "bg-green-100 dark:bg-green-900/30" : 
+                    score >= 40 ? "bg-yellow-100 dark:bg-yellow-900/30" : 
+                    "bg-red-100 dark:bg-red-900/30";
+    return (
+      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-md ${bgColor}`}>
+        <Target className={`h-4 w-4 ${color}`} />
+        <span className={`font-mono font-bold text-lg ${color}`}>{score}</span>
+        <span className="text-xs text-muted-foreground">/ 100</span>
+      </div>
+    );
+  };
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="p-4 border-b bg-muted/20">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 mb-2">
+              <h2 className="text-xl font-semibold truncate">{lead.contactName}</h2>
+              {getPriorityBadge(packet?.priority || lead.priority)}
+            </div>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
+              <span className="flex items-center gap-1">
+                <Building2 className="h-3.5 w-3.5" />
+                {lead.companyName}
+              </span>
+              {lead.contactTitle && (
+                <span className="flex items-center gap-1">
+                  <Briefcase className="h-3.5 w-3.5" />
+                  {lead.contactTitle}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {getFitScoreDisplay(packet?.fitScore || lead.fitScore)}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 mt-4 flex-wrap">
+          <Button size="sm" onClick={onCall} data-testid="button-call-lead">
+            <Phone className="h-4 w-4 mr-2" />
+            Call
+          </Button>
+          {packet && (
+            <Button size="sm" variant="outline" asChild>
+              <a href={`/call-prep/${lead.id}`} data-testid="button-call-prep">
+                <Crosshair className="h-4 w-4 mr-2" />
+                Prep
+              </a>
+            </Button>
+          )}
+          <Button size="sm" variant="outline" asChild>
+            <a href={`mailto:${lead.contactEmail}`} data-testid="button-email-lead">
+              <Mail className="h-4 w-4 mr-2" />
+              Email
+            </a>
+          </Button>
+          {lead.contactLinkedIn && (
+            <Button size="sm" variant="outline" asChild>
+              <a href={lead.contactLinkedIn} target="_blank" rel="noopener noreferrer">
+                <SiLinkedin className="h-4 w-4 mr-2" />
+                LinkedIn
+              </a>
+            </Button>
+          )}
+          <div className="flex-1" />
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onResearch}
+            disabled={isResearching}
+            data-testid="button-refresh-intel"
+          >
+            {isResearching ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto">
+        {isLoading && !detail ? (
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </div>
+        ) : packet ? (
+          <IntelDossier packet={packet} lead={lead} />
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full p-8">
+            <div className="p-4 rounded-full bg-muted/50 mb-4">
+              <Crosshair className="h-10 w-10 text-muted-foreground" />
+            </div>
+            <h3 className="font-semibold mb-2">No Intel Available</h3>
+            <p className="text-sm text-muted-foreground text-center mb-4 max-w-sm">
+              Generate an AI-powered intelligence dossier with company research, contact analysis, and personalized talk tracks.
+            </p>
+            <Button onClick={onResearch} disabled={isResearching} data-testid="button-generate-intel">
+              {isResearching ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Gathering Intel...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Generate Dossier
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWithResearch }) {
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
       month: "short",
       day: "numeric",
       hour: "2-digit",
@@ -375,119 +419,114 @@ function IntelligenceDossier({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between border-b pb-3">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded-md">
-            <Crosshair className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-lg">Intelligence Dossier</h3>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              Generated: {formatDate(packet.createdAt)}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant={packet.verificationStatus === "verified" ? "default" : "outline"} className="text-xs">
-            {packet.verificationStatus === "verified" ? (
-              <><CheckCircle2 className="h-3 w-3 mr-1" /> Verified</>
-            ) : (
-              <><AlertTriangle className="h-3 w-3 mr-1" /> Unverified</>
-            )}
-          </Badge>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            data-testid="button-refresh-research"
-          >
-            {isRefreshing ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <FileSearch className="h-4 w-4" />
-            )}
-          </Button>
+    <div className="p-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Clock className="h-3 w-3" />
+          <span>Updated {formatDate(packet.updatedAt)}</span>
+          <span className="mx-1">|</span>
+          <span>{packet.sources}</span>
         </div>
       </div>
 
-      <Tabs defaultValue="executive" className="w-full">
-        <TabsList className="grid grid-cols-5 w-full">
-          <TabsTrigger value="executive" className="text-xs">Executive</TabsTrigger>
-          <TabsTrigger value="company" className="text-xs">Company</TabsTrigger>
-          <TabsTrigger value="contact" className="text-xs">Contact</TabsTrigger>
-          <TabsTrigger value="strategy" className="text-xs">Strategy</TabsTrigger>
-          <TabsTrigger value="objections" className="text-xs">Objections</TabsTrigger>
+      <Tabs defaultValue="company" className="w-full">
+        <TabsList className="grid grid-cols-3 w-full max-w-md">
+          <TabsTrigger value="company" className="gap-2">
+            <Building2 className="h-4 w-4" />
+            Company
+          </TabsTrigger>
+          <TabsTrigger value="contact" className="gap-2">
+            <User className="h-4 w-4" />
+            Contact
+          </TabsTrigger>
+          <TabsTrigger value="talk-track" className="gap-2">
+            <MessageSquare className="h-4 w-4" />
+            Talk Track
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="executive" className="mt-4 space-y-4">
-          <IntelSection 
-            icon={Target}
-            title="FIT ASSESSMENT"
-            priority="high"
-            content={packet.fitAnalysis}
-          />
-          <IntelSection 
-            icon={MessageSquare}
-            title="RECOMMENDED TALK TRACK"
-            content={packet.talkTrack}
-          />
-        </TabsContent>
-
-        <TabsContent value="company" className="mt-4 space-y-4">
-          <IntelSection 
+        <TabsContent value="company" className="mt-6 space-y-6">
+          <IntelCard 
             icon={Building2}
-            title="COMPANY INTELLIGENCE"
+            title="Company Overview"
             content={packet.companyIntel}
           />
-          <IntelSection 
+          
+          <IntelCard 
             icon={TrendingUp}
-            title="BUSINESS TRIGGERS & OPPORTUNITIES"
+            title="Hard Intel"
             content={packet.companyHardIntel}
+            variant="compact"
           />
-          <IntelSection 
+          
+          <IntelCard 
             icon={AlertTriangle}
-            title="PAIN SIGNALS DETECTED"
-            priority="medium"
+            title="Pain Signals"
             content={packet.painSignals}
+            variant="highlight"
+            highlightColor="red"
+          />
+          
+          <IntelCard 
+            icon={Globe}
+            title="Tech Stack & Competitors"
+            content={packet.competitorPresence}
           />
         </TabsContent>
 
-        <TabsContent value="contact" className="mt-4 space-y-4">
-          <IntelSection 
+        <TabsContent value="contact" className="mt-6 space-y-6">
+          <IntelCard 
             icon={User}
-            title="CONTACT PROFILE"
+            title="Contact Profile"
             content={packet.contactIntel}
           />
-          {packet.sources && (
-            <IntelSection 
-              icon={Link2}
-              title="INTELLIGENCE SOURCES"
-              content={packet.sources}
+          
+          {packet.linkedInIntel && (
+            <IntelCard 
+              icon={SiLinkedin}
+              title="LinkedIn Intel"
+              content={packet.linkedInIntel}
+              variant="compact"
             />
           )}
+          
+          {packet.xIntel && (
+            <IntelCard 
+              icon={SiX}
+              title="X.com Intel"
+              content={packet.xIntel}
+              variant="compact"
+            />
+          )}
+          
+          <IntelCard 
+            icon={Target}
+            title="Fit Analysis"
+            content={packet.fitAnalysis}
+            variant="highlight"
+            highlightColor="green"
+          />
         </TabsContent>
 
-        <TabsContent value="strategy" className="mt-4 space-y-4">
-          <IntelSection 
+        <TabsContent value="talk-track" className="mt-6 space-y-6">
+          <IntelCard 
+            icon={MessageSquare}
+            title="Opening & Value Props"
+            content={packet.talkTrack}
+            variant="highlight"
+            highlightColor="blue"
+          />
+          
+          <IntelCard 
             icon={HelpCircle}
-            title="DISCOVERY QUESTIONS"
+            title="Discovery Questions"
             content={packet.discoveryQuestions}
           />
-        </TabsContent>
-
-        <TabsContent value="objections" className="mt-4 space-y-4">
-          <IntelSection 
+          
+          <IntelCard 
             icon={Shield}
-            title="OBJECTION HANDLING"
+            title="Objection Handles"
             content={packet.objectionHandles}
-          />
-          <IntelSection 
-            icon={Globe}
-            title="COMPETITIVE LANDSCAPE"
-            content={packet.competitorPresence}
           />
         </TabsContent>
       </Tabs>
@@ -495,24 +534,31 @@ function IntelligenceDossier({
   );
 }
 
-function IntelSection({ 
+function IntelCard({ 
   icon: Icon, 
   title, 
   content,
-  priority
+  variant = "default",
+  highlightColor
 }: { 
   icon: React.ComponentType<{ className?: string }>; 
   title: string; 
   content: string | null;
-  priority?: "high" | "medium" | "low";
+  variant?: "default" | "compact" | "highlight";
+  highlightColor?: "red" | "green" | "blue" | "yellow";
 }) {
   if (!content) return null;
 
-  const priorityStyles = {
-    high: "border-l-4 border-l-red-500 bg-red-50/50 dark:bg-red-950/20",
-    medium: "border-l-4 border-l-yellow-500 bg-yellow-50/50 dark:bg-yellow-950/20",
-    low: "border-l-4 border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20",
+  const highlightStyles: Record<string, string> = {
+    red: "border-l-4 border-l-red-500 bg-red-50/50 dark:bg-red-950/20",
+    green: "border-l-4 border-l-green-500 bg-green-50/50 dark:bg-green-950/20",
+    blue: "border-l-4 border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20",
+    yellow: "border-l-4 border-l-yellow-500 bg-yellow-50/50 dark:bg-yellow-950/20",
   };
+
+  const baseStyles = variant === "highlight" && highlightColor 
+    ? highlightStyles[highlightColor] 
+    : "bg-muted/30";
 
   const formatContent = (text: string) => {
     const lines = text.split('\n');
@@ -522,19 +568,28 @@ function IntelSection({
 
     const flushList = () => {
       if (listItems.length > 0) {
-        elements.push(<ul key={`list-${listKey++}`} className="list-disc list-inside space-y-1 mb-2">{listItems}</ul>);
+        elements.push(
+          <ul key={`list-${listKey++}`} className="space-y-1 ml-4">
+            {listItems}
+          </ul>
+        );
         listItems = [];
       }
     };
 
     lines.forEach((line, i) => {
       const trimmed = line.trim();
-      if (!trimmed) return;
+      if (!trimmed) {
+        flushList();
+        return;
+      }
       
-      if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.match(/^\d+\./)) {
+      if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || /^\d+\./.test(trimmed)) {
+        const cleanText = trimmed.replace(/^[-*]\s*/, '').replace(/^\d+\.\s*/, '');
         listItems.push(
-          <li key={i} className="text-foreground/90">
-            {trimmed.replace(/^[-*]\s*/, '').replace(/^\d+\.\s*/, '')}
+          <li key={i} className="text-sm text-foreground/90 flex items-start gap-2">
+            <ChevronRight className="h-3 w-3 mt-1.5 text-muted-foreground shrink-0" />
+            <span>{cleanText}</span>
           </li>
         );
         return;
@@ -543,11 +598,19 @@ function IntelSection({
       flushList();
       
       if (trimmed.endsWith(':') && trimmed.length < 60) {
-        elements.push(<p key={i} className="font-semibold mt-3 mb-1 text-foreground">{trimmed}</p>);
+        elements.push(
+          <p key={i} className="font-medium text-sm mt-3 mb-1 text-foreground">
+            {trimmed}
+          </p>
+        );
         return;
       }
       
-      elements.push(<p key={i} className="mb-2">{trimmed}</p>);
+      elements.push(
+        <p key={i} className="text-sm text-foreground/90 mb-2">
+          {trimmed}
+        </p>
+      );
     });
 
     flushList();
@@ -555,113 +618,88 @@ function IntelSection({
   };
   
   return (
-    <div className={`p-4 rounded-md ${priority ? priorityStyles[priority] : "bg-muted/30"}`}>
+    <div className={`p-4 rounded-lg ${baseStyles}`}>
       <div className="flex items-center gap-2 mb-3">
-        <Icon className="h-4 w-4 text-primary" />
-        <h4 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">
-          {title}
-        </h4>
-        {priority && (
-          <Badge variant="outline" className="text-[10px] ml-auto">
-            {priority.toUpperCase()} PRIORITY
-          </Badge>
-        )}
+        <Icon className="h-4 w-4 text-muted-foreground" />
+        <h4 className="font-medium text-sm">{title}</h4>
       </div>
-      <div className="text-sm leading-relaxed text-foreground/90">
+      <div className={variant === "compact" ? "text-sm" : ""}>
         {formatContent(content)}
       </div>
     </div>
   );
 }
 
-function DossierSection({ 
-  icon: Icon, 
-  title, 
-  content 
-}: { 
-  icon: React.ComponentType<{ className?: string }>; 
-  title: string; 
-  content: string | null;
-}) {
-  if (!content) return null;
-  
-  return (
-    <div className="p-4 bg-muted/30 rounded-md">
-      <h4 className="font-medium flex items-center gap-2 mb-2">
-        <Icon className="h-4 w-4 text-primary" />
-        {title}
-      </h4>
-      <div className="text-sm whitespace-pre-wrap leading-relaxed">
-        {content}
-      </div>
-    </div>
-  );
-}
-
 function ImportModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const [isImporting, setIsImporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [results, setResults] = useState<{ imported: number; skipped: number; duplicates: number } | null>(null);
   const { toast } = useToast();
 
   const handleImport = async () => {
-    setIsImporting(true);
+    setImporting(true);
+    setResults(null);
+    
     try {
-      const res = await apiRequest("POST", "/api/leads/import", {});
-      const response = await res.json();
-      
-      toast({
-        title: "Import complete",
-        description: `Imported ${response.imported} leads. ${response.duplicates} duplicates skipped.`,
+      const res = await apiRequest("POST", "/api/leads/import");
+      const data = await res.json();
+      setResults({
+        imported: data.imported || 0,
+        skipped: data.skipped || 0,
+        duplicates: data.duplicates || 0,
       });
-      
-      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
-      onOpenChange(false);
+      await queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({ title: "Import Complete", description: `${data.imported} leads imported` });
     } catch (error) {
-      toast({
-        title: "Import failed",
-        description: "Could not import leads from the spreadsheet. Please check Google credentials.",
-        variant: "destructive",
-      });
+      toast({ title: "Import Failed", description: "Could not import leads", variant: "destructive" });
     } finally {
-      setIsImporting(false);
+      setImporting(false);
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
-            Import Leads from Google Sheets
-          </DialogTitle>
+          <DialogTitle>Import Leads</DialogTitle>
           <DialogDescription>
-            Import lead data from the configured Hawk Ridge Systems leads spreadsheet
+            Import leads from the connected Google Sheet
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4">
-          <div className="p-3 bg-muted/50 rounded-md text-sm">
-            <p className="font-medium mb-2">The import will look for these columns:</p>
-            <ul className="list-disc list-inside text-muted-foreground space-y-1">
-              <li>Company Name (required)</li>
-              <li>Contact Name (required)</li>
-              <li>Email (required)</li>
-            </ul>
-            <p className="mt-2 text-muted-foreground">
-              Optional: Title, Phone, LinkedIn, Website, Industry, Size
+        <div className="space-y-4 py-4">
+          {results ? (
+            <div className="space-y-2 text-sm">
+              <p className="flex items-center gap-2">
+                <Badge variant="default">{results.imported}</Badge>
+                leads imported successfully
+              </p>
+              {results.skipped > 0 && (
+                <p className="flex items-center gap-2 text-muted-foreground">
+                  <Badge variant="outline">{results.skipped}</Badge>
+                  rows skipped (missing required fields)
+                </p>
+              )}
+              {results.duplicates > 0 && (
+                <p className="flex items-center gap-2 text-muted-foreground">
+                  <Badge variant="outline">{results.duplicates}</Badge>
+                  duplicates detected
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              This will import all leads from your configured Google Sheet. Duplicate emails will be skipped.
             </p>
-          </div>
+          )}
+        </div>
 
-          <p className="text-sm text-muted-foreground">
-            Duplicate leads (by email) will be automatically skipped.
-          </p>
-
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleImport} disabled={isImporting} data-testid="button-confirm-import">
-              {isImporting ? (
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {results ? "Close" : "Cancel"}
+          </Button>
+          {!results && (
+            <Button onClick={handleImport} disabled={importing}>
+              {importing ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Importing...
@@ -669,11 +707,11 @@ function ImportModal({ open, onOpenChange }: { open: boolean; onOpenChange: (ope
               ) : (
                 <>
                   <Upload className="h-4 w-4 mr-2" />
-                  Import Leads
+                  Import
                 </>
               )}
             </Button>
-          </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

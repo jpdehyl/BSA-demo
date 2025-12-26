@@ -16,6 +16,7 @@ import SignupPage from "@/pages/signup";
 import DashboardPage from "@/pages/dashboard";
 import CoachingPage from "@/pages/coaching";
 import LeadsPage from "@/pages/leads";
+import CallPrepPage from "@/pages/call-prep";
 import TeamPage from "@/pages/team";
 import ReportsPage from "@/pages/reports";
 
@@ -156,6 +157,14 @@ function Router() {
         <ProtectedRoute>
           <DashboardLayout>
             <LeadsPage />
+          </DashboardLayout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/call-prep/:leadId">
+        <ProtectedRoute>
+          <DashboardLayout>
+            <CallPrepPage />
           </DashboardLayout>
         </ProtectedRoute>
       </Route>

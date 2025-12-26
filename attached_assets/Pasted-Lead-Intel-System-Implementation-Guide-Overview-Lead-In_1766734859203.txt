@@ -1,0 +1,126 @@
+Lead Intel System - Implementation Guide
+Overview
+Lead Intel is an AI-powered pre-call intelligence system that researches leads, scores their fit, and generates personalized talk tracks for SDRs.
+
+1. How to Process Leads
+Import Methods
+Manual Entry - Add leads directly via the Lead Intel UI form
+Google Sheets Import - Bulk import from a connected Google Sheet (LEADS_SPREADSHEET_ID)
+Processing Pipeline
+Lead Created → Status: "new"
+     ↓
+Click "Research Lead" → Status: "researching"
+     ↓
+AI Research Runs (3 parallel processes):
+  1. researchLead() - Main Gemini AI research
+  2. webEnrichContact() - LinkedIn profile discovery
+  3. researchLeadOnX() - X.com/Twitter research (xAI)
+     ↓
+Results Saved → Status: "researched"
+     ↓
+SDR Reviews Intel → Status: "contacted" / "follow_up" / etc.
+API Endpoint
+POST /api/leads/:id/research
+2. What Information We Gather
+Lead Table Fields
+Field	Description
+companyName	Company name (required)
+companyWebsite	URL for scraping
+companyIndustry	Industry classification
+companySize	Employee count range
+contactName	Contact full name (required)
+contactTitle	Job title
+contactEmail	Email address (required)
+contactPhone	Phone number
+contactLinkedIn	LinkedIn profile URL
+fitScore	0-100 portfolio fit score
+priority	hot/warm/cool/cold
+status	new/researching/researched/contacted/follow_up/won/lost/disqualified
+Research Packet Fields (AI-Generated)
+Field	Type	Description
+companyIntel	JSON	Summary, pain points, tech stack, recent news
+contactIntel	JSON	Background, career history, interests
+fitAnalysis	JSON	Score breakdown and rationale
+talkTrack	string	Personalized opening line
+discoveryQuestions	JSON	3-5 tailored questions
+objectionHandles	JSON	Objection/response pairs
+xIntel	JSON	X.com posts, engagement, tone analysis
+companyHardIntel	JSON	HQ location, stock info, government contracts, competitors, executives
+linkedInIntel	JSON	Deep LinkedIn profile data (headline, summary, tenure)
+3. How We Gather the Information
+Data Sources (Parallel Execution)
+const [knowledgeBase, scrapedIntel, contactLinkedInData, companyHardIntel, scoringParams] = await Promise.all([
+  getKnowledgebaseContent(),           // Google Doc with product knowledge
+  gatherCompanyIntel(companyName, website), // Website scraping
+  researchContactLinkedIn(name, company, email), // LinkedIn via SerpAPI
+  gatherCompanyHardIntel(companyName, website), // Hard facts via web search
+  getLeadScoringParameters()           // Scoring criteria from Google Doc
+]);
+Google Drive Integration
+Resource	Purpose
+Knowledge Base Doc	Product/service information for context
+Lead Scoring Params Doc	Dynamic fit scoring criteria
+Leads Spreadsheet	Bulk import source
+AI Models Used
+Task	Model	Features
+Main Research	Gemini 2.0 Flash	Web grounding (googleSearch tool)
+X.com Research	xAI Grok	Social media analysis
+LinkedIn Discovery	SerpAPI + Gemini	Profile URL finding
+Required Environment Variables
+GEMINI_API_KEY or AI_INTEGRATIONS_GEMINI_API_KEY
+XAI_API (for X.com research)
+SERP_API (for LinkedIn discovery)
+GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN
+DRIVE_KNOWLEDGE_DOC_ID
+DRIVE_LEAD_SCORING_PARAMS_DOC_ID
+LEADS_SPREADSHEET_ID
+4. How We Present the Information
+Lead Intel Page (/lead-intel)
+Left Panel: Searchable/filterable lead list with fit score badges
+Right Panel: Tabbed detailed view
+Company Tab: Summary, pain points, tech stack, news, hard intel (HQ, stock, contracts)
+Contact Tab: Background, career history, interests, LinkedIn intel, X.com intel
+Talk Track Tab: Opening line, discovery questions, objection handles, "The Ask"
+Call Prep Page (/call-prep/:sessionId)
+Compact one-page view optimized for pre-call reference
+Key sections: Company Intel, Contact Intel, Opening Line, Discovery Questions, Portfolio Fit
+Visual Elements
+Fit scores: Color-coded (green 70+, yellow 40-69, red <40)
+Status badges: Color-coded by stage
+Priority badges: hot/warm/cool/cold
+Editable fields: LinkedIn intel, X.com intel with verification status
+5. How Information is Treated After Research
+Status Transitions
+researched → contacted (after call attempt)
+           → follow_up (scheduled callback)
+           → won (deal closed)
+           → lost (rejected)
+           → disqualified (bad fit)
+Data Persistence
+Research packets are stored permanently in research_packets table
+Contact history tracks all touchpoints in contact_history table
+Q&A threads store AI answers to SDR questions in lead_qa_threads table
+Manual Edits
+LinkedIn and X.com intel can be manually edited
+Edit tracking: linkedInVerified, linkedInEditedBy, linkedInEditedAt
+Research packets track: lastEditedBy, lastEditedAt, manualOverrides
+Integration with Live Coaching
+When starting a call, lead context is passed to the live coaching session
+Talk track and discovery questions available during call
+Recording automatically downloads to Google Drive with SDR ID in filename
+Database Schema Summary
+leads                 -- Core lead data
+research_packets      -- AI-generated intelligence (1:many with leads)
+contact_history       -- Call/email/meeting logs
+lead_qa_threads       -- AI Q&A about the lead
+Key Files to Recreate
+File	Purpose
+shared/schema.ts	Database schema (leads, researchPackets, contactHistory, leadQaThreads)
+server/ai/leadResearch.ts	Main research function with Gemini
+server/ai/xResearch.ts	X.com research with xAI
+server/ai/websiteScraper.ts	Website scraping and LinkedIn discovery
+server/ai/companyHardIntel.ts	Hard company facts gathering
+server/google/driveClient.ts	Google Drive/Docs integration
+server/google/sheetsClient.ts	Google Sheets import
+client/src/pages/lead-intel.tsx	Main Lead Intel UI
+client/src/pages/call-prep.tsx	Call preparation view
