@@ -431,8 +431,10 @@ function DossierSection({
   );
 }
 
+const DEFAULT_LEADS_SPREADSHEET_ID = "1dEbs4B7oucHJmA8U0-VehfzQN3Yt54RRs6VQlWNxX2I";
+
 function ImportModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const [spreadsheetId, setSpreadsheetId] = useState("");
+  const [spreadsheetId, setSpreadsheetId] = useState(DEFAULT_LEADS_SPREADSHEET_ID);
   const [isImporting, setIsImporting] = useState(false);
   const { toast } = useToast();
 

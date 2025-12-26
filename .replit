@@ -46,3 +46,4 @@ integrations = ["javascript_database:1.0.0", "javascript_gemini_ai_integrations:
 [userenv.shared]
 TWILIO_PHONE_NUMBER = "+18157433066"
 LOCAL_TIMEZONE = "Los Angeles"
+LEADS_SPREADSHEET_ID = "1dEbs4B7oucHJmA8U0-VehfzQN3Yt54RRs6VQlWNxX2I"

@@ -84,3 +84,13 @@ Preferred communication style: Simple, everyday language.
 ### Additional Services
 - **SerpAPI**: LinkedIn profile searches for lead research (optional, via `SERP_API`)
 - **MediaPipe**: Hand gesture detection for landing page interactions (CDN-loaded)
+
+### Google Drive/Docs/Sheets IDs
+- **INBOX Folder** (audio files): `1NsEMlqn_TUeVenFSWgLU3jEsUCa6LWus`
+- **PROCESSED Folder**: `1AUTWsUq2AS-LC2sgKkSqk1bhEYhI_D-2`
+- **Coaching Examples Folder**: `10J6xKMbdDlZrKS6el0qWlnZeurtkLStS`
+- **Knowledge Base Doc**: `1NxcQYGHXaVfEGK7Vs5AiOjse8bsRbHBEiwdLsMr0LME`
+- **SDR Persona Doc**: `1clt69Puie5CB96ukgjMAVCKDyuSPS5BU-C_JrI-tq3I`
+- **Daily Summary Criteria Doc**: `1fuaUZ6kLtWtdF39meAxfoktSPvRRzVWcGg5oEq8ygL8`
+- **Lead Scoring Parameters Doc**: `1xERqop5Y9iBNjghbwPF4jNpPKVMW8SlPkJEUnczXL5E`
+- **Leads Spreadsheet**: `1dEbs4B7oucHJmA8U0-VehfzQN3Yt54RRs6VQlWNxX2I` (also set in `LEADS_SPREADSHEET_ID` env var)
