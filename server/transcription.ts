@@ -108,22 +108,43 @@ export function registerTranscriptionRoutes(app: Express): void {
     console.log("Transcription event received:", req.body);
 
     const {
+      TranscriptionEvent,
       CallSid,
-      TranscriptionText,
-      TranscriptionSid,
+      TranscriptionData,
       Track,
-      SequenceId,
-      Final,
     } = req.body;
 
-    if (!CallSid || !TranscriptionText) {
+    // Only process transcription-content events
+    if (TranscriptionEvent !== "transcription-content") {
+      console.log("Non-content transcription event:", TranscriptionEvent);
       return res.sendStatus(200);
     }
 
-    const speaker = Track === "inbound" ? "Customer" : "Agent";
+    // Parse TranscriptionData if it's a string
+    let transcriptionData = TranscriptionData;
+    if (typeof TranscriptionData === "string") {
+      try {
+        transcriptionData = JSON.parse(TranscriptionData);
+      } catch (e) {
+        console.error("Failed to parse TranscriptionData:", e);
+        return res.sendStatus(200);
+      }
+    }
+
+    const transcript = transcriptionData?.transcript;
+    if (!CallSid || !transcript) {
+      console.log("Missing CallSid or transcript");
+      return res.sendStatus(200);
+    }
+
+    // Track can be "inbound_track" (caller) or "outbound_track" (agent)
+    const speaker = Track === "inbound_track" ? "Customer" : "Agent";
+    const confidence = transcriptionData?.confidence || 0;
+    const isFinal = transcriptionData?.final === true;
+    
     const transcriptEntry = {
       speaker,
-      text: TranscriptionText,
+      text: transcript,
       timestamp: new Date(),
     };
 
@@ -139,9 +160,10 @@ export function registerTranscriptionRoutes(app: Express): void {
         type: "transcript",
         callSid: CallSid,
         speaker,
-        text: TranscriptionText,
+        text: transcript,
         timestamp: transcriptEntry.timestamp.toISOString(),
-        isFinal: Final === "true",
+        isFinal,
+        confidence,
       });
 
       const transcripts = callTranscripts.get(CallSid) || [];
@@ -163,8 +185,8 @@ export function registerTranscriptionRoutes(app: Express): void {
 
       const existingTranscript = callSession.transcriptText || "";
       const updatedTranscript = existingTranscript
-        ? `${existingTranscript}\n${speaker}: ${TranscriptionText}`
-        : `${speaker}: ${TranscriptionText}`;
+        ? `${existingTranscript}\n${speaker}: ${transcript}`
+        : `${speaker}: ${transcript}`;
       
       await storage.updateCallSessionByCallSid(CallSid, {
         transcriptText: updatedTranscript,

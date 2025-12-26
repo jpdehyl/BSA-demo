@@ -119,10 +119,9 @@ export function registerTwilioVoiceRoutes(app: Express): void {
     (start as any).transcription({
       name: `transcription-${CallSid}`,
       track: "both_tracks",
-      partialResults: true,
+      partialResults: "true",
       languageCode: "en-US",
-      transcriptionCallback: `${baseUrl}/twilio/transcription`,
-      statusCallback: `${baseUrl}/twilio/transcription/status`,
+      statusCallbackUrl: `${baseUrl}/twilio/transcription`,
     } as any);
 
     const dial = twiml.dial({
