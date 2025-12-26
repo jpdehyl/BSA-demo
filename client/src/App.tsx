@@ -16,6 +16,8 @@ import SignupPage from "@/pages/signup";
 import DashboardPage from "@/pages/dashboard";
 import CoachingPage from "@/pages/coaching";
 import LeadsPage from "@/pages/leads";
+import TeamPage from "@/pages/team";
+import ReportsPage from "@/pages/reports";
 
 function LoadingScreen() {
   return (
@@ -167,9 +169,9 @@ function Router() {
       </Route>
 
       <Route path="/team">
-        <ProtectedRoute allowedRoles={["admin", "manager"]}>
+        <ProtectedRoute>
           <DashboardLayout>
-            <PlaceholderPage title="Team" />
+            <TeamPage />
           </DashboardLayout>
         </ProtectedRoute>
       </Route>
@@ -177,7 +179,7 @@ function Router() {
       <Route path="/reports">
         <ProtectedRoute allowedRoles={["admin", "manager"]}>
           <DashboardLayout>
-            <PlaceholderPage title="Reports" />
+            <ReportsPage />
           </DashboardLayout>
         </ProtectedRoute>
       </Route>

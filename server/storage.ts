@@ -22,9 +22,12 @@ export interface IStorage {
   updateUserLastLogin(id: string): Promise<void>;
   
   getManager(id: string): Promise<Manager | undefined>;
+  getAllManagers(): Promise<Manager[]>;
   createManager(manager: InsertManager): Promise<Manager>;
   
   getSdr(id: string): Promise<Sdr | undefined>;
+  getAllSdrs(): Promise<Sdr[]>;
+  getSdrsByManager(managerId: string): Promise<Sdr[]>;
   createSdr(sdr: InsertSdr): Promise<Sdr>;
   
   getLead(id: string): Promise<Lead | undefined>;
@@ -54,6 +57,7 @@ export interface IStorage {
   getCallSession(id: string): Promise<CallSession | undefined>;
   getCallSessionByCallSid(callSid: string): Promise<CallSession | undefined>;
   getCallSessionsByUser(userId: string): Promise<CallSession[]>;
+  getAllCallSessions(): Promise<CallSession[]>;
   getRecentInitiatedCallSession(toNumber: string): Promise<CallSession | undefined>;
   createCallSession(session: InsertCallSession): Promise<CallSession>;
   updateCallSession(id: string, updates: Partial<InsertCallSession>): Promise<CallSession | undefined>;
@@ -90,9 +94,21 @@ export class DatabaseStorage implements IStorage {
     return manager;
   }
 
+  async getAllManagers(): Promise<Manager[]> {
+    return db.select().from(managers).orderBy(managers.name);
+  }
+
   async getSdr(id: string): Promise<Sdr | undefined> {
     const [sdr] = await db.select().from(sdrs).where(eq(sdrs.id, id));
     return sdr;
+  }
+
+  async getAllSdrs(): Promise<Sdr[]> {
+    return db.select().from(sdrs).orderBy(sdrs.name);
+  }
+
+  async getSdrsByManager(managerId: string): Promise<Sdr[]> {
+    return db.select().from(sdrs).where(eq(sdrs.managerId, managerId)).orderBy(sdrs.name);
   }
 
   async createSdr(insertSdr: InsertSdr): Promise<Sdr> {
@@ -204,7 +220,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCallSessionsByUser(userId: string): Promise<CallSession[]> {
-    return db.select().from(callSessions).where(eq(callSessions.userId, userId));
+    return db.select().from(callSessions).where(eq(callSessions.userId, userId)).orderBy(desc(callSessions.startedAt));
+  }
+
+  async getAllCallSessions(): Promise<CallSession[]> {
+    return db.select().from(callSessions).orderBy(desc(callSessions.startedAt));
   }
 
   async getRecentInitiatedCallSession(toNumber: string): Promise<CallSession | undefined> {

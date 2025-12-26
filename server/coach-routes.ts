@@ -152,4 +152,131 @@ export function registerCoachRoutes(app: Express, requireAuth: (req: Request, re
       res.status(500).json({ message: "Failed to fetch sessions" });
     }
   });
+
+  app.post("/api/coach/reports/weekly", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { sdrId } = req.body;
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      
+      const user = await storage.getUser(req.session.userId!);
+      let allSessions;
+      if (user?.role === "admin" || user?.role === "manager") {
+        allSessions = await storage.getAllCallSessions();
+      } else {
+        allSessions = await storage.getCallSessionsByUser(req.session.userId!);
+      }
+      
+      let weekSessions = allSessions.filter(s => {
+        const sessionDate = s.startedAt ? new Date(s.startedAt) : null;
+        return sessionDate && sessionDate >= weekAgo;
+      });
+      
+      if (sdrId && sdrId !== "all") {
+        weekSessions = weekSessions.filter(s => s.userId === sdrId);
+      }
+      
+      const completedCalls = weekSessions.filter(s => s.status === "completed");
+      const totalTalkTime = completedCalls.reduce((sum, s) => sum + (s.duration || 0), 0);
+      const avgDuration = completedCalls.length > 0 ? totalTalkTime / completedCalls.length : 0;
+      
+      const callsByDay: Record<string, number> = {};
+      weekSessions.forEach(s => {
+        const day = s.startedAt ? new Date(s.startedAt).toLocaleDateString("en-US", { weekday: "short" }) : "Unknown";
+        callsByDay[day] = (callsByDay[day] || 0) + 1;
+      });
+      
+      const criteria = await getDailySummaryCriteria();
+      
+      res.json({
+        period: "weekly",
+        startDate: weekAgo.toISOString(),
+        endDate: new Date().toISOString(),
+        summary: {
+          totalCalls: weekSessions.length,
+          completedCalls: completedCalls.length,
+          totalTalkTimeMinutes: Math.round(totalTalkTime / 60),
+          avgCallDurationMinutes: Math.round(avgDuration / 60),
+          callsByDay,
+        },
+        evaluationCriteria: criteria.slice(0, 500),
+      });
+    } catch (error) {
+      console.error("Weekly report error:", error);
+      res.status(500).json({ message: "Failed to generate weekly report" });
+    }
+  });
+
+  app.post("/api/coach/reports/monthly", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { sdrId } = req.body;
+      const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      
+      const user = await storage.getUser(req.session.userId!);
+      let allSessions;
+      if (user?.role === "admin" || user?.role === "manager") {
+        allSessions = await storage.getAllCallSessions();
+      } else {
+        allSessions = await storage.getCallSessionsByUser(req.session.userId!);
+      }
+      
+      let monthSessions = allSessions.filter(s => {
+        const sessionDate = s.startedAt ? new Date(s.startedAt) : null;
+        return sessionDate && sessionDate >= monthAgo;
+      });
+      
+      if (sdrId && sdrId !== "all") {
+        monthSessions = monthSessions.filter(s => s.userId === sdrId);
+      }
+      
+      const completedCalls = monthSessions.filter(s => s.status === "completed");
+      const totalTalkTime = completedCalls.reduce((sum, s) => sum + (s.duration || 0), 0);
+      const avgDuration = completedCalls.length > 0 ? totalTalkTime / completedCalls.length : 0;
+      
+      const callsByWeek: Record<string, number> = {};
+      monthSessions.forEach(s => {
+        if (s.startedAt) {
+          const sessionDate = new Date(s.startedAt);
+          const dayOfMonth = sessionDate.getDate();
+          const weekNum = Math.ceil(dayOfMonth / 7);
+          const weekLabel = `Week ${Math.min(weekNum, 4)}`;
+          callsByWeek[weekLabel] = (callsByWeek[weekLabel] || 0) + 1;
+        }
+      });
+      
+      const callsWithAnalysis = monthSessions.filter(s => s.coachingNotes).length;
+      
+      const criteria = await getDailySummaryCriteria();
+      
+      const weeks = Object.keys(callsByWeek).sort();
+      let weekOverWeekGrowth = 0;
+      if (weeks.length >= 2) {
+        const firstWeek = callsByWeek[weeks[0]] || 0;
+        const lastWeek = callsByWeek[weeks[weeks.length - 1]] || 0;
+        if (firstWeek > 0) {
+          weekOverWeekGrowth = Math.round(((lastWeek - firstWeek) / firstWeek) * 100);
+        }
+      }
+      
+      res.json({
+        period: "monthly",
+        startDate: monthAgo.toISOString(),
+        endDate: new Date().toISOString(),
+        summary: {
+          totalCalls: monthSessions.length,
+          completedCalls: completedCalls.length,
+          callsWithCoaching: callsWithAnalysis,
+          totalTalkTimeMinutes: Math.round(totalTalkTime / 60),
+          avgCallDurationMinutes: Math.round(avgDuration / 60),
+          callsByWeek,
+        },
+        trends: {
+          weekOverWeekGrowth,
+        },
+        evaluationCriteria: criteria.slice(0, 500),
+      });
+    } catch (error) {
+      console.error("Monthly report error:", error);
+      res.status(500).json({ message: "Failed to generate monthly report" });
+    }
+  });
 }

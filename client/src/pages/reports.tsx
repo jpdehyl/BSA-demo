@@ -1,0 +1,334 @@
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useAuth } from "@/lib/auth";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { 
+  Calendar,
+  FileText,
+  TrendingUp,
+  TrendingDown,
+  Phone,
+  Users,
+  Target,
+  Clock,
+  Loader2,
+  Download,
+  RefreshCw,
+  BarChart3,
+  CalendarDays,
+  CalendarRange
+} from "lucide-react";
+import type { CallSession, Sdr } from "@shared/schema";
+
+interface ReportSummary {
+  period: string;
+  totalCalls: number;
+  totalTalkTime: number;
+  avgCallDuration: number;
+  coachingTipsGenerated: number;
+  topPerformers: { sdrId: string; name: string; calls: number }[];
+  callsByDay: { date: string; count: number }[];
+}
+
+export default function ReportsPage() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [selectedPeriod, setSelectedPeriod] = useState<"week" | "month">("week");
+  const [selectedSdr, setSelectedSdr] = useState<string>("all");
+
+  const { data: callSessions = [], isLoading: sessionsLoading } = useQuery<CallSession[]>({
+    queryKey: ["/api/call-sessions"],
+  });
+
+  const { data: sdrs = [] } = useQuery<Sdr[]>({
+    queryKey: ["/api/sdrs"],
+  });
+
+  const generateReportMutation = useMutation({
+    mutationFn: async (period: "weekly" | "monthly") => {
+      const res = await apiRequest("POST", `/api/coach/reports/${period}`, {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ title: "Report Generated", description: `Your ${selectedPeriod} report has been generated.` });
+    },
+    onError: () => {
+      toast({ title: "Report Failed", description: "Could not generate the report.", variant: "destructive" });
+    },
+  });
+
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const periodStart = selectedPeriod === "week" ? weekAgo : monthAgo;
+
+  const filteredSessions = callSessions.filter((session) => {
+    const sessionDate = session.startedAt ? new Date(session.startedAt) : null;
+    if (!sessionDate) return false;
+    const inPeriod = sessionDate >= periodStart;
+    const matchesSdr = selectedSdr === "all" || session.userId === selectedSdr;
+    return inPeriod && matchesSdr;
+  });
+
+  const completedCalls = filteredSessions.filter(s => s.status === "completed");
+  const totalTalkTimeMinutes = completedCalls.reduce((sum, s) => {
+    if (s.duration) return sum + s.duration / 60;
+    return sum;
+  }, 0);
+  const avgCallDuration = completedCalls.length > 0 ? totalTalkTimeMinutes / completedCalls.length : 0;
+
+  const callsByDate = filteredSessions.reduce((acc, session) => {
+    const date = session.startedAt ? new Date(session.startedAt).toLocaleDateString() : "Unknown";
+    acc[date] = (acc[date] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const maxCalls = Math.max(...Object.values(callsByDate), 1);
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold" data-testid="text-page-title">Reports</h1>
+          <p className="text-muted-foreground">
+            Weekly and monthly performance reports for your sales team
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={selectedPeriod} onValueChange={(v) => setSelectedPeriod(v as "week" | "month")}>
+            <SelectTrigger className="w-[140px]" data-testid="select-period">
+              <SelectValue placeholder="Select period" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="week">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4" />
+                  Weekly
+                </div>
+              </SelectItem>
+              <SelectItem value="month">
+                <div className="flex items-center gap-2">
+                  <CalendarRange className="h-4 w-4" />
+                  Monthly
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={selectedSdr} onValueChange={setSelectedSdr}>
+            <SelectTrigger className="w-[160px]" data-testid="select-sdr">
+              <SelectValue placeholder="All SDRs" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All SDRs</SelectItem>
+              {sdrs.map((sdr) => (
+                <SelectItem key={sdr.id} value={sdr.id}>{sdr.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            onClick={() => generateReportMutation.mutate(selectedPeriod === "week" ? "weekly" : "monthly")}
+            disabled={generateReportMutation.isPending}
+            data-testid="button-generate-report"
+          >
+            {generateReportMutation.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            Generate Report
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Calls</CardTitle>
+            <Phone className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-semibold" data-testid="metric-total-calls">
+              {filteredSessions.length}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {selectedPeriod === "week" ? "This week" : "This month"}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Completed Calls</CardTitle>
+            <Target className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-semibold" data-testid="metric-completed-calls">
+              {completedCalls.length}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {filteredSessions.length > 0 
+                ? `${Math.round((completedCalls.length / filteredSessions.length) * 100)}% completion rate`
+                : "No calls yet"}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Talk Time</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-semibold" data-testid="metric-talk-time">
+              {Math.round(totalTalkTimeMinutes)}m
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Across all completed calls
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Avg Call Duration</CardTitle>
+            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-semibold" data-testid="metric-avg-duration">
+              {avgCallDuration.toFixed(1)}m
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Per completed call
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="activity" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="activity" data-testid="tab-activity">
+            <Calendar className="h-4 w-4 mr-2" />
+            Activity Overview
+          </TabsTrigger>
+          <TabsTrigger value="calls" data-testid="tab-calls">
+            <Phone className="h-4 w-4 mr-2" />
+            Call Log
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="activity" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Call Activity by Day</CardTitle>
+              <CardDescription>
+                Number of calls made each day during the selected period
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {Object.keys(callsByDate).length > 0 ? (
+                <div className="space-y-3">
+                  {Object.entries(callsByDate)
+                    .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
+                    .slice(0, 14)
+                    .map(([date, count]) => (
+                      <div key={date} className="flex items-center gap-4">
+                        <span className="text-sm text-muted-foreground w-24 flex-shrink-0">{date}</span>
+                        <div className="flex-1 bg-muted rounded-full h-4 overflow-hidden">
+                          <div 
+                            className="h-full bg-primary rounded-full transition-all"
+                            style={{ width: `${(count / maxCalls) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-medium w-8 text-right">{count}</span>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No call data for this period</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="calls" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Calls</CardTitle>
+              <CardDescription>
+                All calls made during the selected period
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[400px]">
+                {filteredSessions.length > 0 ? (
+                  <div className="space-y-2">
+                    {filteredSessions
+                      .sort((a, b) => {
+                        const dateA = a.startedAt ? new Date(a.startedAt).getTime() : 0;
+                        const dateB = b.startedAt ? new Date(b.startedAt).getTime() : 0;
+                        return dateB - dateA;
+                      })
+                      .map((session) => (
+                        <div 
+                          key={session.id}
+                          className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-md"
+                          data-testid={`call-row-${session.id}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-md ${
+                              session.status === "completed" 
+                                ? "bg-green-100 dark:bg-green-900/30" 
+                                : "bg-muted"
+                            }`}>
+                              <Phone className={`h-4 w-4 ${
+                                session.status === "completed"
+                                  ? "text-green-600 dark:text-green-400"
+                                  : "text-muted-foreground"
+                              }`} />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">
+                                {session.toNumber || session.fromNumber || "Unknown"}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {session.startedAt ? new Date(session.startedAt).toLocaleString() : "Unknown time"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {session.duration && (
+                              <span className="text-sm text-muted-foreground">
+                                {Math.round(session.duration / 60)}m
+                              </span>
+                            )}
+                            <Badge variant={session.status === "completed" ? "secondary" : "outline"}>
+                              {session.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Phone className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No calls found for this period</p>
+                  </div>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

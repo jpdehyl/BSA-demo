@@ -211,9 +211,50 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/team", requireRole("admin", "manager"), async (req: Request, res: Response) => {
+  app.get("/api/managers", requireAuth, async (req: Request, res: Response) => {
     try {
-      res.json({ message: "Team data - admin/manager only", authorized: true });
+      const allManagers = await storage.getAllManagers();
+      res.json(allManagers);
+    } catch (error) {
+      console.error("Get managers error:", error);
+      res.status(500).json({ message: "Failed to fetch managers" });
+    }
+  });
+
+  app.get("/api/sdrs", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const allSdrs = await storage.getAllSdrs();
+      res.json(allSdrs);
+    } catch (error) {
+      console.error("Get SDRs error:", error);
+      res.status(500).json({ message: "Failed to fetch SDRs" });
+    }
+  });
+
+  app.get("/api/sdrs/by-manager/:managerId", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { managerId } = req.params;
+      const managerSdrs = await storage.getSdrsByManager(managerId);
+      res.json(managerSdrs);
+    } catch (error) {
+      console.error("Get SDRs by manager error:", error);
+      res.status(500).json({ message: "Failed to fetch SDRs" });
+    }
+  });
+
+  app.get("/api/team", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const allManagers = await storage.getAllManagers();
+      const allSdrs = await storage.getAllSdrs();
+      
+      const teamByManager = allManagers.map(manager => ({
+        manager,
+        sdrs: allSdrs.filter(sdr => sdr.managerId === manager.id)
+      }));
+
+      const unassignedSdrs = allSdrs.filter(sdr => !sdr.managerId);
+
+      res.json({ teamByManager, unassignedSdrs, totalManagers: allManagers.length, totalSdrs: allSdrs.length });
     } catch (error) {
       console.error("Team fetch error:", error);
       res.status(500).json({ message: "Failed to fetch team data" });
@@ -226,6 +267,26 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Reports fetch error:", error);
       res.status(500).json({ message: "Failed to fetch reports" });
+    }
+  });
+
+  app.get("/api/call-sessions", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      let sessions;
+      if (user.role === "admin" || user.role === "manager") {
+        sessions = await storage.getAllCallSessions();
+      } else {
+        sessions = await storage.getCallSessionsByUser(req.session.userId!);
+      }
+      res.json(sessions);
+    } catch (error) {
+      console.error("Call sessions fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch call sessions" });
     }
   });
 
