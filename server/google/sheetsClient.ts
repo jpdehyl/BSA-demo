@@ -1,9 +1,6 @@
 import { google } from "googleapis";
 import type { InsertLead } from "@shared/schema";
-
-export const SHEETS_CONFIG = {
-  LEADS_SPREADSHEET_ID: process.env.LEADS_SPREADSHEET_ID || "",
-};
+import { GOOGLE_CONFIG } from "./config";
 
 function getAuth() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -29,7 +26,7 @@ export async function getSpreadsheetInfo(spreadsheetId?: string): Promise<Spread
   const sheets = google.sheets({ version: "v4", auth });
 
   const response = await sheets.spreadsheets.get({
-    spreadsheetId: spreadsheetId || SHEETS_CONFIG.LEADS_SPREADSHEET_ID,
+    spreadsheetId: spreadsheetId || GOOGLE_CONFIG.LEADS_SPREADSHEET_ID,
   });
 
   const sheetsData = (response.data.sheets || []).map((sheet) => ({
@@ -57,7 +54,7 @@ export async function fetchLeadsFromSheet(
   const sheets = google.sheets({ version: "v4", auth });
 
   const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: spreadsheetId || SHEETS_CONFIG.LEADS_SPREADSHEET_ID,
+    spreadsheetId: spreadsheetId || GOOGLE_CONFIG.LEADS_SPREADSHEET_ID,
     range,
   });
 
