@@ -140,8 +140,29 @@ export function registerTranscriptionRoutes(app: Express): void {
     // Track can be "inbound_track" (caller) or "outbound_track" (agent)
     const speaker = Track === "inbound_track" ? "Customer" : "Agent";
     const confidence = transcriptionData?.confidence || 0;
-    const isFinal = transcriptionData?.final === true;
+    // Check Final field from the webhook body, not transcriptionData
+    const isFinal = req.body.Final === "true";
     
+    const callSession = await storage.getCallSessionByCallSid(CallSid);
+    
+    if (callSession) {
+      // Always broadcast to show real-time updates in UI
+      broadcastToUser(callSession.userId, {
+        type: "transcript",
+        callSid: CallSid,
+        speaker,
+        text: transcript,
+        timestamp: new Date().toISOString(),
+        isFinal,
+        confidence,
+      });
+    }
+
+    // Only store final transcripts to avoid duplicates
+    if (!isFinal) {
+      return res.sendStatus(200);
+    }
+
     const transcriptEntry = {
       speaker,
       text: transcript,
@@ -153,18 +174,7 @@ export function registerTranscriptionRoutes(app: Express): void {
     }
     callTranscripts.get(CallSid)!.push(transcriptEntry);
 
-    const callSession = await storage.getCallSessionByCallSid(CallSid);
-    
     if (callSession) {
-      broadcastToUser(callSession.userId, {
-        type: "transcript",
-        callSid: CallSid,
-        speaker,
-        text: transcript,
-        timestamp: transcriptEntry.timestamp.toISOString(),
-        isFinal,
-        confidence,
-      });
 
       const transcripts = callTranscripts.get(CallSid) || [];
       const fullTranscript = transcripts

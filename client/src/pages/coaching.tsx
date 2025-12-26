@@ -18,6 +18,7 @@ export default function CoachingPage() {
   const {
     transcripts,
     coachingTips,
+    livePartial,
     isConnected,
     clearTranscripts,
   } = useTranscription(user?.id, currentCallSid);
@@ -26,7 +27,7 @@ export default function CoachingPage() {
     if (transcriptEndRef.current) {
       transcriptEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [transcripts]);
+  }, [transcripts, livePartial]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -111,7 +112,7 @@ export default function CoachingPage() {
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[250px]">
-                {transcripts.length > 0 ? (
+                {transcripts.length > 0 || livePartial ? (
                   <div className="space-y-3 pr-4">
                     {transcripts.map((entry, index) => (
                       <div
@@ -134,6 +135,26 @@ export default function CoachingPage() {
                         <p className="text-sm">{entry.text}</p>
                       </div>
                     ))}
+                    {livePartial && (
+                      <div
+                        className={`p-3 rounded-md opacity-70 ${
+                          livePartial.speaker === "Agent"
+                            ? "bg-primary/10 ml-4"
+                            : "bg-muted mr-4"
+                        }`}
+                        data-testid="transcript-live-partial"
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            {livePartial.speaker}
+                          </span>
+                          <span className="text-xs text-muted-foreground italic">
+                            typing...
+                          </span>
+                        </div>
+                        <p className="text-sm italic">{livePartial.text}</p>
+                      </div>
+                    )}
                     <div ref={transcriptEndRef} />
                   </div>
                 ) : currentPhoneNumber ? (

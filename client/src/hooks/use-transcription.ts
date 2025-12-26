@@ -25,6 +25,7 @@ interface TranscriptionMessage {
 export function useTranscription(userId: string | undefined, callSid: string | null) {
   const [transcripts, setTranscripts] = useState<TranscriptEntry[]>([]);
   const [coachingTips, setCoachingTips] = useState<CoachingTip[]>([]);
+  const [livePartial, setLivePartial] = useState<{ speaker: string; text: string } | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -47,15 +48,26 @@ export function useTranscription(userId: string | undefined, callSid: string | n
         const message: TranscriptionMessage = JSON.parse(event.data);
 
         if (message.type === "transcript" && message.speaker && message.text) {
-          setTranscripts((prev) => [
-            ...prev,
-            {
+          if (message.isFinal) {
+            // Add final transcripts to the permanent list
+            setTranscripts((prev) => [
+              ...prev,
+              {
+                speaker: message.speaker!,
+                text: message.text!,
+                timestamp: message.timestamp,
+                isFinal: true,
+              },
+            ]);
+            // Clear the live partial when we get a final
+            setLivePartial(null);
+          } else {
+            // Update the live partial for real-time feedback
+            setLivePartial({
               speaker: message.speaker!,
               text: message.text!,
-              timestamp: message.timestamp,
-              isFinal: message.isFinal,
-            },
-          ]);
+            });
+          }
         } else if (message.type === "coaching_tip" && message.tip) {
           setCoachingTips((prev) => [
             ...prev,
@@ -104,6 +116,7 @@ export function useTranscription(userId: string | undefined, callSid: string | n
   const clearTranscripts = useCallback(() => {
     setTranscripts([]);
     setCoachingTips([]);
+    setLivePartial(null);
   }, []);
 
   useEffect(() => {
@@ -119,6 +132,7 @@ export function useTranscription(userId: string | undefined, callSid: string | n
   return {
     transcripts,
     coachingTips,
+    livePartial,
     isConnected,
     clearTranscripts,
     connect,
