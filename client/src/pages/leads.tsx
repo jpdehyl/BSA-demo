@@ -23,7 +23,14 @@ import {
   HelpCircle,
   Shield,
   Lightbulb,
-  Upload
+  Upload,
+  AlertTriangle,
+  TrendingUp,
+  Link2,
+  Globe,
+  CheckCircle2,
+  Clock,
+  Crosshair
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -264,9 +271,9 @@ export default function LeadsPage() {
                 {!selectedLead.hasResearch ? (
                   <div className="text-center py-8 border rounded-md border-dashed">
                     <FileSearch className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-50" />
-                    <p className="font-medium mb-1">No Research Dossier</p>
+                    <p className="font-medium mb-1">No Intelligence Dossier</p>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Generate AI-powered insights to prepare for your call
+                      Generate AI-powered intelligence to prepare for your engagement
                     </p>
                     <Button 
                       onClick={() => researchMutation.mutate(selectedLead.id)}
@@ -276,11 +283,11 @@ export default function LeadsPage() {
                       {researchMutation.isPending ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Researching...
+                          Gathering Intel...
                         </>
                       ) : (
                         <>
-                          <FileSearch className="h-4 w-4 mr-2" />
+                          <Crosshair className="h-4 w-4 mr-2" />
                           Generate Dossier
                         </>
                       )}
@@ -291,99 +298,15 @@ export default function LeadsPage() {
                     <Loader2 className="h-6 w-6 animate-spin" />
                   </div>
                 ) : leadDetail?.researchPacket ? (
-                  <Tabs defaultValue="talk-track" className="w-full">
-                    <TabsList className="grid grid-cols-4 w-full">
-                      <TabsTrigger value="talk-track">Talk Track</TabsTrigger>
-                      <TabsTrigger value="intel">Intel</TabsTrigger>
-                      <TabsTrigger value="discovery">Discovery</TabsTrigger>
-                      <TabsTrigger value="objections">Objections</TabsTrigger>
-                    </TabsList>
-                    
-                    <TabsContent value="talk-track" className="mt-4">
-                      <div className="space-y-4">
-                        <DossierSection 
-                          icon={MessageSquare} 
-                          title="Talk Track" 
-                          content={leadDetail.researchPacket.talkTrack} 
-                        />
-                        <DossierSection 
-                          icon={Target} 
-                          title="Hawk Ridge Fit" 
-                          content={leadDetail.researchPacket.fitAnalysis} 
-                        />
-                      </div>
-                    </TabsContent>
-                    
-                    <TabsContent value="intel" className="mt-4">
-                      <div className="space-y-4">
-                        <DossierSection 
-                          icon={User} 
-                          title="Contact Intel" 
-                          content={leadDetail.researchPacket.contactIntel} 
-                        />
-                        <DossierSection 
-                          icon={Building2} 
-                          title="Company Intel" 
-                          content={leadDetail.researchPacket.companyIntel} 
-                        />
-                        <DossierSection 
-                          icon={Lightbulb} 
-                          title="Pain Signals" 
-                          content={leadDetail.researchPacket.painSignals} 
-                        />
-                        <DossierSection 
-                          icon={Briefcase} 
-                          title="Common Ground & Buying Triggers" 
-                          content={leadDetail.researchPacket.companyHardIntel} 
-                        />
-                      </div>
-                    </TabsContent>
-                    
-                    <TabsContent value="discovery" className="mt-4">
-                      <DossierSection 
-                        icon={HelpCircle} 
-                        title="Discovery Questions" 
-                        content={leadDetail.researchPacket.discoveryQuestions} 
-                      />
-                    </TabsContent>
-                    
-                    <TabsContent value="objections" className="mt-4">
-                      <div className="space-y-4">
-                        <DossierSection 
-                          icon={Shield} 
-                          title="Objection Handles" 
-                          content={leadDetail.researchPacket.objectionHandles} 
-                        />
-                        <DossierSection 
-                          icon={Briefcase} 
-                          title="Tech Stack / Competition" 
-                          content={leadDetail.researchPacket.competitorPresence} 
-                        />
-                      </div>
-                    </TabsContent>
-                  </Tabs>
+                  <IntelligenceDossier 
+                    packet={leadDetail.researchPacket} 
+                    lead={selectedLead}
+                    onRefresh={() => researchMutation.mutate(selectedLead.id)}
+                    isRefreshing={researchMutation.isPending}
+                  />
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <p>Loading research data...</p>
-                  </div>
-                )}
-
-                {selectedLead.hasResearch && (
-                  <div className="mt-4 flex justify-end">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => researchMutation.mutate(selectedLead.id)}
-                      disabled={researchMutation.isPending}
-                      data-testid="button-refresh-research"
-                    >
-                      {researchMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                      ) : (
-                        <FileSearch className="h-4 w-4 mr-1" />
-                      )}
-                      Refresh Research
-                    </Button>
                   </div>
                 )}
               </CardContent>
@@ -403,6 +326,227 @@ export default function LeadsPage() {
       </div>
 
       <ImportModal open={showImportModal} onOpenChange={setShowImportModal} />
+    </div>
+  );
+}
+
+function IntelligenceDossier({ 
+  packet, 
+  lead,
+  onRefresh,
+  isRefreshing
+}: { 
+  packet: ResearchPacket;
+  lead: LeadWithResearch;
+  onRefresh: () => void;
+  isRefreshing: boolean;
+}) {
+  const formatDate = (date: Date | string) => {
+    return new Date(date).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between border-b pb-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-md">
+            <Crosshair className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-lg">Intelligence Dossier</h3>
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              Generated: {formatDate(packet.createdAt)}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant={packet.verificationStatus === "verified" ? "default" : "outline"} className="text-xs">
+            {packet.verificationStatus === "verified" ? (
+              <><CheckCircle2 className="h-3 w-3 mr-1" /> Verified</>
+            ) : (
+              <><AlertTriangle className="h-3 w-3 mr-1" /> Unverified</>
+            )}
+          </Badge>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            data-testid="button-refresh-research"
+          >
+            {isRefreshing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileSearch className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      </div>
+
+      <Tabs defaultValue="executive" className="w-full">
+        <TabsList className="grid grid-cols-5 w-full">
+          <TabsTrigger value="executive" className="text-xs">Executive</TabsTrigger>
+          <TabsTrigger value="company" className="text-xs">Company</TabsTrigger>
+          <TabsTrigger value="contact" className="text-xs">Contact</TabsTrigger>
+          <TabsTrigger value="strategy" className="text-xs">Strategy</TabsTrigger>
+          <TabsTrigger value="objections" className="text-xs">Objections</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="executive" className="mt-4 space-y-4">
+          <IntelSection 
+            icon={Target}
+            title="FIT ASSESSMENT"
+            priority="high"
+            content={packet.fitAnalysis}
+          />
+          <IntelSection 
+            icon={MessageSquare}
+            title="RECOMMENDED TALK TRACK"
+            content={packet.talkTrack}
+          />
+        </TabsContent>
+
+        <TabsContent value="company" className="mt-4 space-y-4">
+          <IntelSection 
+            icon={Building2}
+            title="COMPANY INTELLIGENCE"
+            content={packet.companyIntel}
+          />
+          <IntelSection 
+            icon={TrendingUp}
+            title="BUSINESS TRIGGERS & OPPORTUNITIES"
+            content={packet.companyHardIntel}
+          />
+          <IntelSection 
+            icon={AlertTriangle}
+            title="PAIN SIGNALS DETECTED"
+            priority="medium"
+            content={packet.painSignals}
+          />
+        </TabsContent>
+
+        <TabsContent value="contact" className="mt-4 space-y-4">
+          <IntelSection 
+            icon={User}
+            title="CONTACT PROFILE"
+            content={packet.contactIntel}
+          />
+          {packet.sources && (
+            <IntelSection 
+              icon={Link2}
+              title="INTELLIGENCE SOURCES"
+              content={packet.sources}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="strategy" className="mt-4 space-y-4">
+          <IntelSection 
+            icon={HelpCircle}
+            title="DISCOVERY QUESTIONS"
+            content={packet.discoveryQuestions}
+          />
+        </TabsContent>
+
+        <TabsContent value="objections" className="mt-4 space-y-4">
+          <IntelSection 
+            icon={Shield}
+            title="OBJECTION HANDLING"
+            content={packet.objectionHandles}
+          />
+          <IntelSection 
+            icon={Globe}
+            title="COMPETITIVE LANDSCAPE"
+            content={packet.competitorPresence}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function IntelSection({ 
+  icon: Icon, 
+  title, 
+  content,
+  priority
+}: { 
+  icon: React.ComponentType<{ className?: string }>; 
+  title: string; 
+  content: string | null;
+  priority?: "high" | "medium" | "low";
+}) {
+  if (!content) return null;
+
+  const priorityStyles = {
+    high: "border-l-4 border-l-red-500 bg-red-50/50 dark:bg-red-950/20",
+    medium: "border-l-4 border-l-yellow-500 bg-yellow-50/50 dark:bg-yellow-950/20",
+    low: "border-l-4 border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20",
+  };
+
+  const formatContent = (text: string) => {
+    const lines = text.split('\n');
+    const elements: JSX.Element[] = [];
+    let listItems: JSX.Element[] = [];
+    let listKey = 0;
+
+    const flushList = () => {
+      if (listItems.length > 0) {
+        elements.push(<ul key={`list-${listKey++}`} className="list-disc list-inside space-y-1 mb-2">{listItems}</ul>);
+        listItems = [];
+      }
+    };
+
+    lines.forEach((line, i) => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      
+      if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.match(/^\d+\./)) {
+        listItems.push(
+          <li key={i} className="text-foreground/90">
+            {trimmed.replace(/^[-*]\s*/, '').replace(/^\d+\.\s*/, '')}
+          </li>
+        );
+        return;
+      }
+      
+      flushList();
+      
+      if (trimmed.endsWith(':') && trimmed.length < 60) {
+        elements.push(<p key={i} className="font-semibold mt-3 mb-1 text-foreground">{trimmed}</p>);
+        return;
+      }
+      
+      elements.push(<p key={i} className="mb-2">{trimmed}</p>);
+    });
+
+    flushList();
+    return elements;
+  };
+  
+  return (
+    <div className={`p-4 rounded-md ${priority ? priorityStyles[priority] : "bg-muted/30"}`}>
+      <div className="flex items-center gap-2 mb-3">
+        <Icon className="h-4 w-4 text-primary" />
+        <h4 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">
+          {title}
+        </h4>
+        {priority && (
+          <Badge variant="outline" className="text-[10px] ml-auto">
+            {priority.toUpperCase()} PRIORITY
+          </Badge>
+        )}
+      </div>
+      <div className="text-sm leading-relaxed text-foreground/90">
+        {formatContent(content)}
+      </div>
     </div>
   );
 }
