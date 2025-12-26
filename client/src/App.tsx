@@ -15,6 +15,7 @@ import LoginPage from "@/pages/login";
 import SignupPage from "@/pages/signup";
 import DashboardPage from "@/pages/dashboard";
 import CoachingPage from "@/pages/coaching";
+import LeadsPage from "@/pages/leads";
 
 function LoadingScreen() {
   return (
@@ -152,7 +153,7 @@ function Router() {
       <Route path="/leads">
         <ProtectedRoute>
           <DashboardLayout>
-            <PlaceholderPage title="Leads" />
+            <LeadsPage />
           </DashboardLayout>
         </ProtectedRoute>
       </Route>

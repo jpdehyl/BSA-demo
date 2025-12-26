@@ -11,6 +11,7 @@ import { insertUserSchema } from "@shared/schema";
 import { z } from "zod";
 import { registerTwilioVoiceRoutes } from "./twilio-voice";
 import { registerTranscriptionRoutes, setupTranscriptionWebSocket } from "./transcription";
+import { registerLeadsRoutes } from "./leads-routes";
 
 declare module "express-session" {
   interface SessionData {
@@ -227,15 +228,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/leads", requireAuth, async (req: Request, res: Response) => {
-    try {
-      res.json({ leads: [], message: "Leads endpoint ready" });
-    } catch (error) {
-      console.error("Leads fetch error:", error);
-      res.status(500).json({ message: "Failed to fetch leads" });
-    }
-  });
-
+  registerLeadsRoutes(app, requireAuth);
   registerTwilioVoiceRoutes(app);
   registerTranscriptionRoutes(app);
   setupTranscriptionWebSocket(httpServer);

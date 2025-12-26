@@ -1,0 +1,209 @@
+import type { Express, Request, Response } from "express";
+import { storage } from "./storage";
+import { insertLeadSchema } from "@shared/schema";
+import { z } from "zod";
+import { fetchLeadsFromSheet, parseLeadsFromSheet, detectColumnMapping, getSpreadsheetInfo } from "./google/sheetsClient";
+import { researchLead } from "./ai/leadResearch";
+
+export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, res: Response, next: () => void) => void) {
+  
+  app.get("/api/leads", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const leads = await storage.getAllLeads();
+      
+      const leadsWithResearch = await Promise.all(
+        leads.map(async (lead) => {
+          const researchPacket = await storage.getResearchPacketByLead(lead.id);
+          return {
+            ...lead,
+            hasResearch: !!researchPacket,
+            researchStatus: researchPacket?.verificationStatus || null,
+          };
+        })
+      );
+      
+      res.json(leadsWithResearch);
+    } catch (error) {
+      console.error("Leads fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch leads" });
+    }
+  });
+
+  app.get("/api/leads/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+      
+      const researchPacket = await storage.getResearchPacketByLead(lead.id);
+      
+      res.json({ lead, researchPacket });
+    } catch (error) {
+      console.error("Lead fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch lead" });
+    }
+  });
+
+  app.post("/api/leads", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const validatedData = insertLeadSchema.parse(req.body);
+      
+      const existingLead = await storage.getLeadByEmail(validatedData.contactEmail);
+      if (existingLead) {
+        return res.status(400).json({ message: "Lead with this email already exists" });
+      }
+      
+      const lead = await storage.createLead(validatedData);
+      res.status(201).json(lead);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid lead data", errors: error.errors });
+      }
+      console.error("Lead creation error:", error);
+      res.status(500).json({ message: "Failed to create lead" });
+    }
+  });
+
+  app.patch("/api/leads/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const lead = await storage.updateLead(req.params.id, req.body);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+      res.json(lead);
+    } catch (error) {
+      console.error("Lead update error:", error);
+      res.status(500).json({ message: "Failed to update lead" });
+    }
+  });
+
+  app.delete("/api/leads/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      await storage.deleteLead(req.params.id);
+      res.json({ message: "Lead deleted" });
+    } catch (error) {
+      console.error("Lead delete error:", error);
+      res.status(500).json({ message: "Failed to delete lead" });
+    }
+  });
+
+  app.get("/api/leads/import/preview", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const spreadsheetId = req.query.spreadsheetId as string | undefined;
+      const range = (req.query.range as string) || "Sheet1!A:Z";
+      
+      const { headers, rows, totalRows } = await fetchLeadsFromSheet(spreadsheetId, range);
+      const columnMapping = detectColumnMapping(headers);
+      
+      const previewRows = rows.slice(0, 5);
+      
+      res.json({
+        headers,
+        previewRows,
+        totalRows,
+        columnMapping,
+      });
+    } catch (error) {
+      console.error("Sheets preview error:", error);
+      res.status(500).json({ message: "Failed to preview spreadsheet. Check Google credentials." });
+    }
+  });
+
+  app.get("/api/leads/import/spreadsheet-info", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const spreadsheetId = req.query.spreadsheetId as string | undefined;
+      const info = await getSpreadsheetInfo(spreadsheetId);
+      res.json(info);
+    } catch (error) {
+      console.error("Spreadsheet info error:", error);
+      res.status(500).json({ message: "Failed to get spreadsheet info. Check Google credentials." });
+    }
+  });
+
+  app.post("/api/leads/import", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { spreadsheetId, range, columnMapping } = req.body;
+      
+      const { headers, rows } = await fetchLeadsFromSheet(spreadsheetId, range || "Sheet1!A:Z");
+      const { leads: parsedLeads, skipped, errors } = parseLeadsFromSheet(headers, rows, columnMapping);
+      
+      const existingEmails = new Set<string>();
+      const duplicates: string[] = [];
+      const newLeads = [];
+      
+      for (const lead of parsedLeads) {
+        const existing = await storage.getLeadByEmail(lead.contactEmail);
+        if (existing || existingEmails.has(lead.contactEmail)) {
+          duplicates.push(lead.contactEmail);
+        } else {
+          existingEmails.add(lead.contactEmail);
+          newLeads.push(lead);
+        }
+      }
+      
+      const createdLeads = await storage.createLeads(newLeads);
+      
+      res.json({
+        imported: createdLeads.length,
+        skipped,
+        duplicates: duplicates.length,
+        duplicateEmails: duplicates.slice(0, 10),
+        errors: errors.slice(0, 10),
+        leads: createdLeads,
+      });
+    } catch (error) {
+      console.error("Leads import error:", error);
+      res.status(500).json({ message: "Failed to import leads from spreadsheet" });
+    }
+  });
+
+  app.post("/api/leads/:id/research", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+      
+      const existingPacket = await storage.getResearchPacketByLead(lead.id);
+      if (existingPacket && req.query.refresh !== "true") {
+        return res.json({ 
+          message: "Research already exists", 
+          researchPacket: existingPacket,
+          isExisting: true 
+        });
+      }
+      
+      const researchData = await researchLead(lead);
+      
+      let researchPacket;
+      if (existingPacket) {
+        researchPacket = await storage.updateResearchPacket(existingPacket.id, researchData);
+      } else {
+        researchPacket = await storage.createResearchPacket(researchData);
+      }
+      
+      res.json({ 
+        message: "Research completed", 
+        researchPacket,
+        isExisting: false 
+      });
+    } catch (error) {
+      console.error("Lead research error:", error);
+      res.status(500).json({ message: "Failed to research lead" });
+    }
+  });
+
+  app.get("/api/leads/:id/research", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const researchPacket = await storage.getResearchPacketByLead(req.params.id);
+      if (!researchPacket) {
+        return res.status(404).json({ message: "No research found for this lead" });
+      }
+      res.json(researchPacket);
+    } catch (error) {
+      console.error("Research fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch research" });
+    }
+  });
+}

@@ -23,13 +23,14 @@ interface SoftphoneProps {
   onCallStart?: (phoneNumber: string) => void;
   onCallEnd?: () => void;
   isAuthenticated?: boolean;
+  initialPhoneNumber?: string;
 }
 
-export function Softphone({ onCallStart, onCallEnd, isAuthenticated = false }: SoftphoneProps) {
+export function Softphone({ onCallStart, onCallEnd, isAuthenticated = false, initialPhoneNumber }: SoftphoneProps) {
   const [device, setDevice] = useState<Device | null>(null);
   const [activeCall, setActiveCall] = useState<Call | null>(null);
   const [callState, setCallState] = useState<CallState>("idle");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState(initialPhoneNumber || "");
   const [isMuted, setIsMuted] = useState(false);
   const [isOnHold, setIsOnHold] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
@@ -37,6 +38,12 @@ export function Softphone({ onCallStart, onCallEnd, isAuthenticated = false }: S
   
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (initialPhoneNumber && initialPhoneNumber !== phoneNumber) {
+      setPhoneNumber(initialPhoneNumber);
+    }
+  }, [initialPhoneNumber]);
 
   const initializeDevice = useCallback(async () => {
     if (device || isInitializing) return;

@@ -9,18 +9,30 @@ import { Softphone } from "@/components/softphone";
 import { useTranscription } from "@/hooks/use-transcription";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
-import { Phone, MessageSquare, Clock, Activity, Lightbulb, Wifi, WifiOff, History, ChevronDown, FileText, Play } from "lucide-react";
-import type { CallSession } from "@shared/schema";
+import { useSearch } from "wouter";
+import { Phone, MessageSquare, Clock, Activity, Lightbulb, Wifi, WifiOff, History, ChevronDown, FileText, Play, User, Building2, Target, HelpCircle } from "lucide-react";
+import type { CallSession, Lead, ResearchPacket } from "@shared/schema";
 
 export default function CoachingPage() {
   const { user } = useAuth();
+  const searchString = useSearch();
+  const params = new URLSearchParams(searchString);
+  const leadIdParam = params.get("leadId");
+  const phoneParam = params.get("phone");
+  
   const [currentCallSid, setCurrentCallSid] = useState<string | null>(null);
   const [currentPhoneNumber, setCurrentPhoneNumber] = useState<string | null>(null);
   const [callStartTime, setCallStartTime] = useState<Date | null>(null);
   const [talkTime, setTalkTime] = useState("0:00");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [selectedCall, setSelectedCall] = useState<CallSession | null>(null);
+  const [callPrepOpen, setCallPrepOpen] = useState(!!leadIdParam);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
+
+  const { data: leadDetail } = useQuery<{ lead: Lead; researchPacket: ResearchPacket | null }>({
+    queryKey: ["/api/leads", leadIdParam],
+    enabled: !!leadIdParam,
+  });
 
   const { data: callHistory = [], isLoading: historyLoading } = useQuery<CallSession[]>({
     queryKey: ["/api/call-sessions"],
@@ -100,7 +112,7 @@ export default function CoachingPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-4">
-          <Softphone onCallStart={handleCallStart} onCallEnd={handleCallEnd} isAuthenticated={!!user} />
+          <Softphone onCallStart={handleCallStart} onCallEnd={handleCallEnd} isAuthenticated={!!user} initialPhoneNumber={phoneParam || undefined} />
           
           <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
             <CollapsibleTrigger asChild>
@@ -157,6 +169,73 @@ export default function CoachingPage() {
               </Card>
             </CollapsibleContent>
           </Collapsible>
+
+          {leadDetail && (
+            <Collapsible open={callPrepOpen} onOpenChange={setCallPrepOpen}>
+              <CollapsibleTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-between bg-primary/5 border-primary/20"
+                  data-testid="button-toggle-call-prep"
+                >
+                  <span className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    Call Prep: {leadDetail.lead.contactName}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${callPrepOpen ? "rotate-180" : ""}`} />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2">
+                <Card className="border-primary/20">
+                  <CardContent className="pt-4 space-y-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">{leadDetail.lead.companyName}</span>
+                      {leadDetail.lead.contactTitle && (
+                        <span className="text-muted-foreground">- {leadDetail.lead.contactTitle}</span>
+                      )}
+                    </div>
+                    
+                    {leadDetail.researchPacket ? (
+                      <ScrollArea className="h-[180px]">
+                        <div className="space-y-3 pr-2">
+                          {leadDetail.researchPacket.talkTrack && (
+                            <div className="p-2 bg-muted/50 rounded-md">
+                              <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+                                <MessageSquare className="h-3 w-3" /> Talk Track
+                              </p>
+                              <p className="text-sm">{leadDetail.researchPacket.talkTrack}</p>
+                            </div>
+                          )}
+                          {leadDetail.researchPacket.fitAnalysis && (
+                            <div className="p-2 bg-muted/50 rounded-md">
+                              <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+                                <Target className="h-3 w-3" /> Hawk Ridge Fit
+                              </p>
+                              <p className="text-sm">{leadDetail.researchPacket.fitAnalysis}</p>
+                            </div>
+                          )}
+                          {leadDetail.researchPacket.discoveryQuestions && (
+                            <div className="p-2 bg-muted/50 rounded-md">
+                              <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+                                <HelpCircle className="h-3 w-3" /> Key Questions
+                              </p>
+                              <p className="text-sm whitespace-pre-wrap">{leadDetail.researchPacket.discoveryQuestions}</p>
+                            </div>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground text-sm">
+                        <p>No research dossier available</p>
+                        <p className="text-xs mt-1">Generate research from the Leads page</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
         </div>
 
         <div className="lg:col-span-2 space-y-6">

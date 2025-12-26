@@ -28,9 +28,13 @@ export interface IStorage {
   createSdr(sdr: InsertSdr): Promise<Sdr>;
   
   getLead(id: string): Promise<Lead | undefined>;
+  getLeadByEmail(email: string): Promise<Lead | undefined>;
+  getAllLeads(): Promise<Lead[]>;
   getLeadsBySdr(sdrId: string): Promise<Lead[]>;
   createLead(lead: InsertLead): Promise<Lead>;
+  createLeads(leadsData: InsertLead[]): Promise<Lead[]>;
   updateLead(id: string, lead: Partial<InsertLead>): Promise<Lead | undefined>;
+  deleteLead(id: string): Promise<boolean>;
   
   getLiveCoachingSession(id: string): Promise<LiveCoachingSession | undefined>;
   getActiveSessionBySdr(sdrId: string): Promise<LiveCoachingSession | undefined>;
@@ -101,6 +105,15 @@ export class DatabaseStorage implements IStorage {
     return lead;
   }
 
+  async getLeadByEmail(email: string): Promise<Lead | undefined> {
+    const [lead] = await db.select().from(leads).where(eq(leads.contactEmail, email));
+    return lead;
+  }
+
+  async getAllLeads(): Promise<Lead[]> {
+    return db.select().from(leads).orderBy(desc(leads.createdAt));
+  }
+
   async getLeadsBySdr(sdrId: string): Promise<Lead[]> {
     return db.select().from(leads).where(eq(leads.assignedSdrId, sdrId));
   }
@@ -110,9 +123,19 @@ export class DatabaseStorage implements IStorage {
     return lead;
   }
 
+  async createLeads(leadsData: InsertLead[]): Promise<Lead[]> {
+    if (leadsData.length === 0) return [];
+    return db.insert(leads).values(leadsData).returning();
+  }
+
   async updateLead(id: string, updates: Partial<InsertLead>): Promise<Lead | undefined> {
     const [lead] = await db.update(leads).set(updates).where(eq(leads.id, id)).returning();
     return lead;
+  }
+
+  async deleteLead(id: string): Promise<boolean> {
+    const result = await db.delete(leads).where(eq(leads.id, id));
+    return true;
   }
 
   async getLiveCoachingSession(id: string): Promise<LiveCoachingSession | undefined> {
