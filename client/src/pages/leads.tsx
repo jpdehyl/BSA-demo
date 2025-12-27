@@ -43,7 +43,8 @@ import {
   ArrowUp,
   ArrowDown,
   BarChart3,
-  ListFilter
+  ListFilter,
+  Plus
 } from "lucide-react";
 import {
   Select,
@@ -53,6 +54,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SiLinkedin, SiX } from "react-icons/si";
+import { Label } from "@/components/ui/label";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -71,6 +73,7 @@ export default function LeadsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLead, setSelectedLead] = useState<LeadWithResearch | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showAddLeadModal, setShowAddLeadModal] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sortField, setSortField] = useState<SortField>("score");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -172,10 +175,16 @@ export default function LeadsPage() {
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)} data-testid="button-import-leads">
-          <Upload className="h-4 w-4 mr-2" />
-          Import
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowAddLeadModal(true)} data-testid="button-add-lead">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Lead
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)} data-testid="button-import-leads">
+            <Upload className="h-4 w-4 mr-2" />
+            Import
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
@@ -346,6 +355,7 @@ export default function LeadsPage() {
       </div>
 
       <ImportModal open={showImportModal} onOpenChange={setShowImportModal} />
+      <AddLeadModal open={showAddLeadModal} onOpenChange={setShowAddLeadModal} />
     </div>
   );
 }
@@ -1152,6 +1162,174 @@ function ImportModal({ open, onOpenChange }: { open: boolean; onOpenChange: (ope
             </Button>
           )}
         </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AddLeadModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    contactName: "",
+    contactEmail: "",
+    companyName: "",
+    contactTitle: "",
+    contactPhone: "",
+    companyWebsite: "",
+    contactLinkedIn: "",
+  });
+  const { toast } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.contactName.trim() || !formData.contactEmail.trim() || !formData.companyName.trim()) {
+      toast({ title: "Missing Required Fields", description: "Name, email, and company are required", variant: "destructive" });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await apiRequest("POST", "/api/leads", {
+        contactName: formData.contactName.trim(),
+        contactEmail: formData.contactEmail.trim(),
+        companyName: formData.companyName.trim(),
+        contactTitle: formData.contactTitle.trim() || null,
+        contactPhone: formData.contactPhone.trim() || null,
+        companyWebsite: formData.companyWebsite.trim() || null,
+        contactLinkedIn: formData.contactLinkedIn.trim() || null,
+        source: "manual",
+        status: "new",
+      });
+      await queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      toast({ title: "Lead Added", description: `${formData.contactName} has been added to the database` });
+      setFormData({
+        contactName: "",
+        contactEmail: "",
+        companyName: "",
+        contactTitle: "",
+        contactPhone: "",
+        companyWebsite: "",
+        contactLinkedIn: "",
+      });
+      onOpenChange(false);
+    } catch (error) {
+      toast({ title: "Failed to Add Lead", description: "Could not save the lead", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add New Lead</DialogTitle>
+          <DialogDescription>
+            Manually enter lead information
+          </DialogDescription>
+        </DialogHeader>
+        
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+          <div className="space-y-2">
+            <Label htmlFor="contactName">Contact Name *</Label>
+            <Input
+              id="contactName"
+              placeholder="John Smith"
+              value={formData.contactName}
+              onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
+              data-testid="input-lead-name"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="contactEmail">Email *</Label>
+            <Input
+              id="contactEmail"
+              type="email"
+              placeholder="john@company.com"
+              value={formData.contactEmail}
+              onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+              data-testid="input-lead-email"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="companyName">Company *</Label>
+            <Input
+              id="companyName"
+              placeholder="Acme Corporation"
+              value={formData.companyName}
+              onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+              data-testid="input-lead-company"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="contactTitle">Job Title</Label>
+            <Input
+              id="contactTitle"
+              placeholder="Engineering Manager"
+              value={formData.contactTitle}
+              onChange={(e) => setFormData({ ...formData, contactTitle: e.target.value })}
+              data-testid="input-lead-title"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="contactPhone">Phone</Label>
+            <Input
+              id="contactPhone"
+              type="tel"
+              placeholder="+1 (555) 123-4567"
+              value={formData.contactPhone}
+              onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
+              data-testid="input-lead-phone"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="companyWebsite">Company Website</Label>
+            <Input
+              id="companyWebsite"
+              type="url"
+              placeholder="https://company.com"
+              value={formData.companyWebsite}
+              onChange={(e) => setFormData({ ...formData, companyWebsite: e.target.value })}
+              data-testid="input-lead-website"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="contactLinkedIn">LinkedIn Profile</Label>
+            <Input
+              id="contactLinkedIn"
+              placeholder="https://linkedin.com/in/johndoe"
+              value={formData.contactLinkedIn}
+              onChange={(e) => setFormData({ ...formData, contactLinkedIn: e.target.value })}
+              data-testid="input-lead-linkedin"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving} data-testid="button-save-lead">
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Lead
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
