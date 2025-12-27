@@ -185,6 +185,8 @@ async function gatherAllIntelInParallel(lead: Lead): Promise<PreScrapedData> {
 }
 
 export async function generateLeadDossier(lead: Lead, preScraped?: PreScrapedData): Promise<LeadDossier> {
+  console.log(`[LeadResearch] generateLeadDossier called for ${lead.contactName}`);
+  
   let scraped = preScraped;
   if (!scraped) {
     scraped = await gatherAllIntelInParallel(lead);
@@ -356,8 +358,11 @@ Return a JSON object with these EXACT keys:
 
 BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with web search for recent news.`;
 
+  console.log(`[LeadResearch] Calling Gemini for dossier generation...`);
+
   try {
     const ai = getAiClient();
+    console.log(`[LeadResearch] AI client created, starting API call...`);
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -383,7 +388,7 @@ BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with we
       text = response.text;
     }
     
-    console.log(`[LeadResearch] Raw dossier response length: ${text.length}`);
+    console.log(`[LeadResearch] API call completed. Raw dossier response length: ${text.length}`);
     
     // Clean up markdown code blocks if present
     let cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -433,7 +438,8 @@ BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with we
     
     return dossier;
   } catch (error) {
-    console.error("[LeadResearch] Error generating dossier:", error);
+    console.log("[LeadResearch] ERROR generating dossier:", error instanceof Error ? error.message : String(error));
+    console.log("[LeadResearch] Error stack:", error instanceof Error ? error.stack : "No stack");
     
     return {
       companySummary: `${lead.companyName} - ${lead.companyIndustry || "Industry unknown"}. Research pending.`,
