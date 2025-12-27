@@ -383,9 +383,15 @@ BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with we
       text = response.text;
     }
     
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    console.log(`[LeadResearch] Raw dossier response length: ${text.length}`);
+    
+    // Clean up markdown code blocks if present
+    let cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
     
     if (!jsonMatch) {
+      console.log(`[LeadResearch] Dossier text (first 500 chars): ${cleanedText.substring(0, 500)}`);
       throw new Error("No JSON found in response");
     }
 

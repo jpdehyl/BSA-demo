@@ -91,10 +91,13 @@ Be accurate. If you cannot find specific information, use null for that field. D
     
     console.log(`[CompanyHardIntel] Raw response length: ${text.length}`);
     
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    // Clean up markdown code blocks if present
+    let cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
     
     if (!jsonMatch) {
-      console.log(`[CompanyHardIntel] Response text (first 500 chars): ${text.substring(0, 500)}`);
+      console.log(`[CompanyHardIntel] Response text (first 500 chars): ${cleanedText.substring(0, 500)}`);
       throw new Error("No JSON found in response");
     }
 
