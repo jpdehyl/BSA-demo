@@ -44,7 +44,9 @@ import {
   ArrowDown,
   BarChart3,
   ListFilter,
-  Plus
+  Plus,
+  ArrowRight,
+  CheckCircle2
 } from "lucide-react";
 import {
   Select,
@@ -55,6 +57,7 @@ import {
 } from "@/components/ui/select";
 import { SiLinkedin, SiX } from "react-icons/si";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -78,6 +81,14 @@ export default function LeadsPage() {
   const [sortField, setSortField] = useState<SortField>("score");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [hideGenericEmails, setHideGenericEmails] = useState(false);
+  const [showQualifyDialog, setShowQualifyDialog] = useState(false);
+  const [qualifyData, setQualifyData] = useState({
+    qualificationNotes: "",
+    buySignals: "",
+    budget: "",
+    timeline: "",
+    decisionMakers: ""
+  });
   const { toast } = useToast();
 
   const genericDomains = ["gmail.com", "hotmail.com", "live.com", "outlook.com", "yahoo.com", "aol.com", "icloud.com", "mail.com", "protonmail.com", "zoho.com"];
@@ -120,6 +131,31 @@ export default function LeadsPage() {
     },
     onError: () => {
       toast({ title: "Intel Failed", description: "Could not compile lead dossier", variant: "destructive" });
+    },
+  });
+
+  const handoffMutation = useMutation({
+    mutationFn: async ({ leadId, data }: { leadId: string; data: typeof qualifyData }) => {
+      const res = await apiRequest("PATCH", `/api/leads/${leadId}`, {
+        status: "qualified",
+        qualificationNotes: data.qualificationNotes || null,
+        buySignals: data.buySignals || null,
+        budget: data.budget || null,
+        timeline: data.timeline || null,
+        decisionMakers: data.decisionMakers || null,
+        handedOffAt: new Date().toISOString(),
+      });
+      return res.json();
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/leads", selectedLead?.id] });
+      setShowQualifyDialog(false);
+      setQualifyData({ qualificationNotes: "", buySignals: "", budget: "", timeline: "", decisionMakers: "" });
+      toast({ title: "Lead Qualified", description: "Lead marked as qualified and ready for AE handoff" });
+    },
+    onError: () => {
+      toast({ title: "Handoff Failed", description: "Could not update lead status", variant: "destructive" });
     },
   });
 
@@ -341,6 +377,8 @@ export default function LeadsPage() {
               onResearch={() => researchMutation.mutate({ leadId: selectedLead.id, refresh: selectedLead.hasResearch })}
               isResearching={researchMutation.isPending}
               onCall={() => handleCallLead(selectedLead)}
+              onHandoff={() => setShowQualifyDialog(true)}
+              isHandingOff={handoffMutation.isPending}
             />
           ) : (
             <div className="h-full flex items-center justify-center">
@@ -356,6 +394,104 @@ export default function LeadsPage() {
 
       <ImportModal open={showImportModal} onOpenChange={setShowImportModal} />
       <AddLeadModal open={showAddLeadModal} onOpenChange={setShowAddLeadModal} />
+      
+      <Dialog open={showQualifyDialog} onOpenChange={setShowQualifyDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+              Qualify Lead for AE Handoff
+            </DialogTitle>
+            <DialogDescription>
+              Capture key qualification details before sending to the Account Executive team.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="qual-notes">Qualification Notes</Label>
+              <Textarea
+                id="qual-notes"
+                placeholder="Key discoveries from your conversations..."
+                value={qualifyData.qualificationNotes}
+                onChange={(e) => setQualifyData(prev => ({ ...prev, qualificationNotes: e.target.value }))}
+                className="min-h-[80px]"
+                data-testid="input-qualification-notes"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="buy-signals">Buy Signals Observed</Label>
+              <Textarea
+                id="buy-signals"
+                placeholder="Pain points expressed, urgency indicators, competitive mentions..."
+                value={qualifyData.buySignals}
+                onChange={(e) => setQualifyData(prev => ({ ...prev, buySignals: e.target.value }))}
+                className="min-h-[60px]"
+                data-testid="input-buy-signals"
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="budget">Budget Range</Label>
+                <Input
+                  id="budget"
+                  placeholder="e.g., $50K-$100K"
+                  value={qualifyData.budget}
+                  onChange={(e) => setQualifyData(prev => ({ ...prev, budget: e.target.value }))}
+                  data-testid="input-budget"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="timeline">Timeline</Label>
+                <Input
+                  id="timeline"
+                  placeholder="e.g., Q2 2025"
+                  value={qualifyData.timeline}
+                  onChange={(e) => setQualifyData(prev => ({ ...prev, timeline: e.target.value }))}
+                  data-testid="input-timeline"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="decision-makers">Decision Makers Identified</Label>
+              <Input
+                id="decision-makers"
+                placeholder="Names, titles, and roles..."
+                value={qualifyData.decisionMakers}
+                onChange={(e) => setQualifyData(prev => ({ ...prev, decisionMakers: e.target.value }))}
+                data-testid="input-decision-makers"
+              />
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowQualifyDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                if (selectedLead) {
+                  handoffMutation.mutate({ leadId: selectedLead.id, data: qualifyData });
+                }
+              }}
+              disabled={handoffMutation.isPending}
+              className="bg-green-600 hover:bg-green-700"
+              data-testid="button-confirm-qualify"
+            >
+              {handoffMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <ArrowRight className="h-4 w-4 mr-2" />
+              )}
+              Qualify and Hand Off
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -427,7 +563,9 @@ function LeadDetailPanel({
   isLoading,
   onResearch,
   isResearching,
-  onCall
+  onCall,
+  onHandoff,
+  isHandingOff
 }: {
   lead: LeadWithResearch;
   detail: { lead: Lead; researchPacket: ResearchPacket | null } | undefined;
@@ -435,6 +573,8 @@ function LeadDetailPanel({
   onResearch: () => void;
   isResearching: boolean;
   onCall: () => void;
+  onHandoff: () => void;
+  isHandingOff: boolean;
 }) {
   const packet = detail?.researchPacket;
 
@@ -530,6 +670,29 @@ function LeadDetailPanel({
             </Button>
           )}
           <div className="flex-1" />
+          {packet && lead.status !== "qualified" && lead.status !== "handed_off" && (
+            <Button
+              size="sm"
+              variant="default"
+              onClick={onHandoff}
+              disabled={isHandingOff}
+              className="bg-green-600 hover:bg-green-700"
+              data-testid="button-handoff-to-ae"
+            >
+              {isHandingOff ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <ArrowRight className="h-4 w-4 mr-2" />
+              )}
+              Qualify for AE
+            </Button>
+          )}
+          {(lead.status === "qualified" || lead.status === "handed_off") && (
+            <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 gap-1">
+              <CheckCircle2 className="h-3 w-3" />
+              {lead.status === "handed_off" ? "Handed Off" : "Qualified"}
+            </Badge>
+          )}
           <Button
             size="sm"
             variant="ghost"

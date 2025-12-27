@@ -7,7 +7,8 @@ import {
   BarChart3, 
   Settings, 
   LogOut,
-  ChevronDown
+  ChevronDown,
+  Target
 } from "lucide-react";
 import {
   Sidebar,
@@ -66,6 +67,12 @@ const mainNavItems = [
     icon: BarChart3,
     allowedRoles: ["admin", "manager"],
   },
+  {
+    title: "AE Pipeline",
+    url: "/ae-pipeline",
+    icon: Target,
+    allowedRoles: ["admin", "manager", "account_executive"],
+  },
 ];
 
 const settingsNavItems = [
@@ -95,6 +102,7 @@ export function AppSidebar() {
       manager: "Manager",
       sdr: "SDR",
       account_specialist: "Specialist",
+      account_executive: "AE",
     };
     return roleLabels[role] || role;
   };

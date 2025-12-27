@@ -19,6 +19,7 @@ import LeadsPage from "@/pages/leads";
 import CallPrepPage from "@/pages/call-prep";
 import TeamPage from "@/pages/team";
 import ReportsPage from "@/pages/reports";
+import AEPipelinePage from "@/pages/ae-pipeline";
 
 function LoadingScreen() {
   return (
@@ -189,6 +190,14 @@ function Router() {
         <ProtectedRoute allowedRoles={["admin", "manager"]}>
           <DashboardLayout>
             <ReportsPage />
+          </DashboardLayout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/ae-pipeline">
+        <ProtectedRoute allowedRoles={["admin", "manager", "account_executive"]}>
+          <DashboardLayout>
+            <AEPipelinePage />
           </DashboardLayout>
         </ProtectedRoute>
       </Route>

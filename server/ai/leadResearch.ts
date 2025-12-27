@@ -343,11 +343,27 @@ Return a JSON object with these EXACT keys:
   
   "theAsk": "The specific next step to propose based on their likely readiness and situation",
   
-  "fitScore": 0-100 based on: industry fit (25), company size (20), pain signals (25), tech readiness (15), buying triggers (15),
+  "fitScore": 0-100 STRICT SCORING (follow Lead Scoring Parameters doc if provided above):
+    - Industry fit (25 pts max): Manufacturing/engineering = 20-25, Other industrial = 10-15, Non-industrial/unknown = 0-5
+    - Company size (20 pts max): 50-500 employees = 20, 501-2000 = 15, 10-49 = 10, <10 or unknown = 0-5
+    - Pain signals (25 pts max): Clear CAD/PDM/CAM pain = 20-25, Implied pain = 10-15, No signals = 0-5
+    - Tech readiness (15 pts max): Using competitor CAD (AutoCAD/Inventor/Creo) = 12-15, Unknown/no CAD = 5-8, Already SOLIDWORKS = 0-3
+    - Buying triggers (15 pts max): Active project/expansion/deadline = 12-15, General interest = 5-8, No triggers = 0-3
+    
+    PENALTIES (subtract from total):
+    - Gmail/personal email with unknown company: -30 points (likely not a real business lead)
+    - No company website found: -15 points
+    - Contact title unknown or vague: -10 points
+    - No industry information: -10 points
+    - Company name appears to be a person's name: -25 points (not a valid company)
+    
+    MINIMUM SCORE IS 0. Maximum is 100. Be CONSERVATIVE with scores.
+    A score above 70 should ONLY be given to leads with: clear industry fit, known company size, verified pain signals, and buying triggers.
+    Most leads with incomplete data should score between 20-50.
   
-  "fitScoreBreakdown": "Detailed breakdown of how each factor contributed to the score",
+  "fitScoreBreakdown": "Detailed breakdown showing points awarded for each factor AND any penalties applied",
   
-  "priority": "hot (80-100), warm (60-79), cool (40-59), or cold (0-39)",
+  "priority": "hot (80-100 - RARE, only verified high-quality leads), warm (60-79 - good potential with some gaps), cool (40-59 - needs more discovery), or cold (0-39 - low quality or incomplete data)",
   
   "linkedInUrl": "LinkedIn profile URL from scraped data or found via search",
   "phoneNumber": "Phone number if found",
@@ -402,6 +418,56 @@ BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with we
 
     const raw = JSON.parse(jsonMatch[0]);
     
+    let aiScore = typeof raw.fitScore === "number" ? raw.fitScore : 50;
+    const penaltyBreakdown: string[] = [];
+    
+    const emailDomain = lead.contactEmail.split("@")[1]?.toLowerCase() || "";
+    const genericDomains = ["gmail.com", "hotmail.com", "live.com", "outlook.com", "yahoo.com", "aol.com", "icloud.com", "mail.com", "protonmail.com", "zoho.com"];
+    const isGenericEmail = genericDomains.includes(emailDomain);
+    
+    if (isGenericEmail) {
+      aiScore -= 30;
+      penaltyBreakdown.push("-30: Gmail/personal email domain");
+    }
+    
+    if (!lead.companyWebsite && !scraped.scrapedIntel.websiteContent) {
+      aiScore -= 15;
+      penaltyBreakdown.push("-15: No company website found");
+    }
+    
+    if (!lead.contactTitle && !scraped.contactLinkedIn?.currentTitle) {
+      aiScore -= 10;
+      penaltyBreakdown.push("-10: Contact title unknown");
+    }
+    
+    if (!lead.companyIndustry) {
+      aiScore -= 10;
+      penaltyBreakdown.push("-10: No industry information");
+    }
+    
+    const companyNameLower = lead.companyName.toLowerCase();
+    const contactNameParts = lead.contactName.toLowerCase().split(" ");
+    const looksLikePersonName = contactNameParts.some(part => 
+      companyNameLower.includes(part) && part.length > 2
+    );
+    
+    if (looksLikePersonName) {
+      aiScore -= 25;
+      penaltyBreakdown.push("-25: Company name appears to be a person's name");
+    }
+    
+    const finalScore = Math.max(0, Math.min(100, aiScore));
+    
+    let adjustedPriority: "hot" | "warm" | "cool" | "cold";
+    if (finalScore >= 80) adjustedPriority = "hot";
+    else if (finalScore >= 60) adjustedPriority = "warm";
+    else if (finalScore >= 40) adjustedPriority = "cool";
+    else adjustedPriority = "cold";
+    
+    const fullBreakdown = penaltyBreakdown.length > 0 
+      ? `AI Score: ${raw.fitScore || 50}\nPenalties Applied:\n${penaltyBreakdown.join("\n")}\nFinal Score: ${finalScore}\n\n${raw.fitScoreBreakdown || ""}`
+      : raw.fitScoreBreakdown || "";
+    
     const dossier: LeadDossier = {
       companySummary: raw.companySummary || "",
       companyNews: Array.isArray(raw.companyNews) ? raw.companyNews : [],
@@ -422,9 +488,9 @@ BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with we
       objectionHandles: Array.isArray(raw.objectionHandles) ? raw.objectionHandles : [],
       theAsk: raw.theAsk || "",
       
-      fitScore: typeof raw.fitScore === "number" ? raw.fitScore : 50,
-      fitScoreBreakdown: raw.fitScoreBreakdown || "",
-      priority: ["hot", "warm", "cool", "cold"].includes(raw.priority) ? raw.priority : "cool",
+      fitScore: finalScore,
+      fitScoreBreakdown: fullBreakdown,
+      priority: adjustedPriority,
       
       sources: scraped.scrapedIntel.sources.join(" | ") + " | Gemini AI with web grounding",
       linkedInUrl: scraped.contactLinkedIn?.linkedInUrl || raw.linkedInUrl,
@@ -434,7 +500,7 @@ BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with we
       companyAddress: raw.companyAddress
     };
     
-    console.log(`[LeadResearch] Dossier generated successfully. Fit: ${dossier.fitScore}, Priority: ${dossier.priority}`);
+    console.log(`[LeadResearch] Dossier generated. AI Score: ${raw.fitScore || 50}, Penalties: ${penaltyBreakdown.length}, Final: ${finalScore}, Priority: ${adjustedPriority}`);
     
     return dossier;
   } catch (error) {

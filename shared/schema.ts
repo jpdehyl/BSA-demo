@@ -15,7 +15,7 @@ export const session = pgTable("session", {
 export * from "./models/chat";
 
 // User Roles for Role-Based Access Control
-export const userRoleEnum = ["admin", "manager", "sdr", "account_specialist"] as const;
+export const userRoleEnum = ["admin", "manager", "sdr", "account_specialist", "account_executive"] as const;
 export type UserRole = typeof userRoleEnum[number];
 
 // Users table with authentication and role-based access
@@ -80,6 +80,10 @@ export const insertSdrSchema = createInsertSchema(sdrs).omit({ createdAt: true }
 export type InsertSdr = z.infer<typeof insertSdrSchema>;
 export type Sdr = typeof sdrs.$inferSelect;
 
+// Lead Status enum for tracking pipeline progression
+export const leadStatusEnum = ["new", "researching", "contacted", "engaged", "qualified", "handed_off", "converted", "lost"] as const;
+export type LeadStatus = typeof leadStatusEnum[number];
+
 // Leads table for sales prospects
 export const leads = pgTable("leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -97,6 +101,14 @@ export const leads = pgTable("leads", {
   fitScore: integer("fit_score"),
   priority: text("priority"),
   assignedSdrId: varchar("assigned_sdr_id", { length: 50 }).references(() => sdrs.id),
+  assignedAeId: varchar("assigned_ae_id"),
+  qualificationNotes: text("qualification_notes"),
+  buySignals: text("buy_signals"),
+  budget: text("budget"),
+  timeline: text("timeline"),
+  decisionMakers: text("decision_makers"),
+  handedOffAt: timestamp("handed_off_at"),
+  handedOffBy: varchar("handed_off_by"),
   nextFollowUpAt: timestamp("next_follow_up_at"),
   lastContactedAt: timestamp("last_contacted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
