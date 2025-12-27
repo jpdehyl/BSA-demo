@@ -376,13 +376,39 @@ function useHandTracking() {
     return angle;
   }, []);
 
+  const cleanup = useCallback(() => {
+    if (cameraRef.current) {
+      try {
+        cameraRef.current.stop();
+      } catch (e) {
+        console.warn("Error stopping camera:", e);
+      }
+      cameraRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+      videoRef.current.remove();
+      videoRef.current = null;
+    }
+    handsRef.current = null;
+    isInitializedRef.current = false;
+    setIsTracking(false);
+  }, []);
+
   const startTracking = useCallback(async () => {
-    if (!window.Hands || !window.Camera) {
+    const HandsClass = (window as any).Hands;
+    const CameraClass = (window as any).Camera;
+    
+    console.log("[HandTracking] Checking for MediaPipe...", { Hands: !!HandsClass, Camera: !!CameraClass });
+    
+    if (!HandsClass || !CameraClass) {
+      console.error("[HandTracking] MediaPipe not available", { Hands: typeof HandsClass, Camera: typeof CameraClass });
       setError("Hand tracking not available");
       return;
     }
 
     if (isInitializedRef.current) {
+      console.log("[HandTracking] Already initialized");
       return;
     }
 
@@ -390,13 +416,15 @@ function useHandTracking() {
     setError(null);
 
     try {
+      console.log("[HandTracking] Creating video element...");
       const video = document.createElement('video');
       video.setAttribute('playsinline', '');
       video.style.display = 'none';
       document.body.appendChild(video);
       videoRef.current = video;
 
-      const hands = new window.Hands({
+      console.log("[HandTracking] Initializing Hands...");
+      const hands = new HandsClass({
         locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
       });
 
@@ -421,7 +449,8 @@ function useHandTracking() {
 
       handsRef.current = hands;
 
-      const camera = new window.Camera(video, {
+      console.log("[HandTracking] Initializing Camera...");
+      const camera = new CameraClass(video, {
         onFrame: async () => {
           if (handsRef.current && videoRef.current) {
             await handsRef.current.send({ image: videoRef.current });
@@ -432,36 +461,19 @@ function useHandTracking() {
       });
 
       cameraRef.current = camera;
+      console.log("[HandTracking] Starting camera...");
       await camera.start();
+      console.log("[HandTracking] Camera started successfully!");
       isInitializedRef.current = true;
       setIsTracking(true);
       setIsLoading(false);
-    } catch (err) {
-      console.warn("Hand tracking failed to initialize:", err);
-      setError("Camera access denied or unavailable");
+    } catch (err: any) {
+      console.error("[HandTracking] Failed to initialize:", err?.message || err);
+      setError(err?.message || "Camera access denied or unavailable");
       setIsLoading(false);
       cleanup();
     }
-  }, [calculateHandOpenness, calculateHandRotation]);
-
-  const cleanup = useCallback(() => {
-    if (cameraRef.current) {
-      try {
-        cameraRef.current.stop();
-      } catch (e) {
-        console.warn("Error stopping camera:", e);
-      }
-      cameraRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-      videoRef.current.remove();
-      videoRef.current = null;
-    }
-    handsRef.current = null;
-    isInitializedRef.current = false;
-    setIsTracking(false);
-  }, []);
+  }, [calculateHandOpenness, calculateHandRotation, cleanup]);
 
   useEffect(() => {
     return cleanup;
