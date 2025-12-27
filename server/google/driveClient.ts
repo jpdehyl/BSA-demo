@@ -45,6 +45,11 @@ export async function listFilesInInbox(): Promise<DriveFile[]> {
   return listFilesInFolder(GOOGLE_CONFIG.INBOX_FOLDER_ID);
 }
 
+export async function listFilesInProcessed(): Promise<DriveFile[]> {
+  console.log(`[Drive] Listing files in PROCESSED folder`);
+  return listFilesInFolder(GOOGLE_CONFIG.PROCESSED_FOLDER_ID);
+}
+
 export async function downloadFile(fileId: string): Promise<Buffer> {
   const auth = getAuth();
   const drive = google.drive({ version: "v3", auth });

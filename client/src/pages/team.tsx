@@ -4,15 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Users, 
   User, 
   ChevronDown,
   Mail,
   Building2,
-  Loader2
+  Loader2,
+  RefreshCw,
+  FolderSync
 } from "lucide-react";
 import type { Manager, Sdr } from "@shared/schema";
 
@@ -34,9 +38,33 @@ function getInitials(name: string): string {
 
 export default function TeamPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
 
-  const { data: teamData, isLoading } = useQuery<TeamData>({
+  const { data: teamData, isLoading, refetch } = useQuery<TeamData>({
     queryKey: ["/api/team"],
+  });
+
+  const populateSdrsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/populate-sdrs", {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "SDR Directory Updated",
+        description: `Created ${data.managersCreated?.length || 0} managers and ${data.sdrsCreated?.length || 0} SDRs from audio files.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/team"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sdrs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/managers"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to populate SDRs",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   if (isLoading) {
@@ -56,7 +84,23 @@ export default function TeamPage() {
             View all managers and sales development representatives
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {user?.role === "admin" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => populateSdrsMutation.mutate()}
+              disabled={populateSdrsMutation.isPending}
+              data-testid="button-populate-sdrs"
+            >
+              {populateSdrsMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <FolderSync className="h-4 w-4 mr-2" />
+              )}
+              Sync from Drive
+            </Button>
+          )}
           <Badge variant="secondary" className="flex items-center gap-1">
             <Building2 className="h-3 w-3" />
             {teamData?.totalManagers || 0} Managers

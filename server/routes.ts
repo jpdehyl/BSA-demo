@@ -13,6 +13,7 @@ import { registerTwilioVoiceRoutes } from "./twilio-voice";
 import { registerTranscriptionRoutes, setupTranscriptionWebSocket } from "./transcription";
 import { registerLeadsRoutes } from "./leads-routes";
 import { registerCoachRoutes } from "./coach-routes";
+import { listFilesInProcessed } from "./google/driveClient";
 
 declare module "express-session" {
   interface SessionData {
@@ -422,6 +423,130 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Coaching effectiveness fetch error:", error);
       res.status(500).json({ message: "Failed to fetch coaching effectiveness data" });
+    }
+  });
+
+  app.get("/api/admin/scan-processed-folder", requireRole("admin"), async (req: Request, res: Response) => {
+    try {
+      const files = await listFilesInProcessed();
+      
+      const sdrIdSet = new Set<string>();
+      const sdrIdNameMap: Record<string, string> = {};
+      
+      for (const file of files) {
+        const match = file.name.match(/^([A-Z]{2,10})\d{12}/);
+        if (match) {
+          const sdrId = match[1];
+          sdrIdSet.add(sdrId);
+          
+          const nameMap: Record<string, string> = {
+            "JPDOM": "JP Dominguez",
+            "JROLD": "Juan Roldan",
+            "RVALL": "Roland Valles",
+            "MSMITH": "Mike Smith",
+            "AJONES": "Amy Jones",
+            "BWILSON": "Brian Wilson",
+            "CGARCIA": "Carlos Garcia",
+            "DLEE": "Diana Lee",
+          };
+          sdrIdNameMap[sdrId] = nameMap[sdrId] || sdrId;
+        }
+      }
+      
+      res.json({
+        totalFiles: files.length,
+        uniqueSdrIds: Array.from(sdrIdSet),
+        sdrIdNameMap,
+        sampleFiles: files.slice(0, 20).map(f => f.name),
+      });
+    } catch (error) {
+      console.error("Scan processed folder error:", error);
+      res.status(500).json({ message: "Failed to scan processed folder" });
+    }
+  });
+
+  app.post("/api/admin/populate-sdrs", requireRole("admin"), async (req: Request, res: Response) => {
+    try {
+      const existingManagers = await storage.getAllManagers();
+      const existingSdrs = await storage.getAllSdrs();
+      
+      const managersCreated: string[] = [];
+      const sdrsCreated: string[] = [];
+      
+      const managerData = [
+        { name: "Juan Roldan", email: "juan@groundgamesales.com" },
+        { name: "Roland Valles", email: "main@dehyl.ca" },
+      ];
+      
+      const managerMap: Record<string, string> = {};
+      
+      for (const mgr of managerData) {
+        const existing = existingManagers.find(m => m.email === mgr.email);
+        if (existing) {
+          managerMap[mgr.email] = existing.id;
+        } else {
+          const created = await storage.createManager({
+            name: mgr.name,
+            email: mgr.email,
+            isActive: true,
+          });
+          managerMap[mgr.email] = created.id;
+          managersCreated.push(mgr.name);
+        }
+      }
+      
+      const files = await listFilesInProcessed();
+      const sdrIdSet = new Set<string>();
+      
+      for (const file of files) {
+        const match = file.name.match(/^([A-Z]{2,10})\d{12}/);
+        if (match) {
+          sdrIdSet.add(match[1]);
+        }
+      }
+      
+      const sdrInfoMap: Record<string, { name: string; managerEmail: string; email: string; gender: string }> = {
+        "JPDOM": { name: "JP Dominguez", managerEmail: "juan@groundgamesales.com", email: "jp@dehyl.ca", gender: "male" },
+      };
+      
+      const managerEmails = managerData.map(m => m.email);
+      const sdrIds = Array.from(sdrIdSet);
+      let managerIndex = 0;
+      
+      for (const sdrId of sdrIds) {
+        const existing = existingSdrs.find(s => s.id === sdrId);
+        if (existing) continue;
+        
+        const info = sdrInfoMap[sdrId];
+        const managerEmail = info?.managerEmail || managerEmails[managerIndex % managerEmails.length];
+        const managerId = managerMap[managerEmail];
+        
+        if (!managerId) continue;
+        
+        await storage.createSdr({
+          id: sdrId,
+          name: info?.name || sdrId,
+          email: info?.email || `${sdrId.toLowerCase()}@company.com`,
+          managerEmail: managerEmail,
+          managerId: managerId,
+          gender: info?.gender || "neutral",
+          timezone: "America/Chicago",
+          isActive: true,
+        });
+        
+        sdrsCreated.push(sdrId);
+        managerIndex++;
+      }
+      
+      res.json({
+        managersCreated,
+        sdrsCreated,
+        totalManagers: Object.keys(managerMap).length,
+        totalSdrs: sdrsCreated.length,
+      });
+    } catch (error) {
+      console.error("Populate SDRs error:", error);
+      res.status(500).json({ message: "Failed to populate SDRs" });
     }
   });
 
