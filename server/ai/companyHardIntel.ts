@@ -66,7 +66,7 @@ Be accurate. If you cannot find specific information, use null for that field. D
     const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: prompt,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
       config: {
         temperature: 0.3,
         maxOutputTokens: 2000,
@@ -74,18 +74,27 @@ Be accurate. If you cannot find specific information, use null for that field. D
     });
 
     let text = "";
-    if (response.text) {
-      text = response.text;
-    } else if (response.candidates?.[0]?.content?.parts) {
-      const textPart = response.candidates[0].content.parts.find(
-        (part: { text?: string }) => part.text
-      );
-      text = textPart?.text || "";
+    if (response.candidates && response.candidates.length > 0) {
+      const candidate = response.candidates[0];
+      if (candidate.content && candidate.content.parts) {
+        for (const part of candidate.content.parts) {
+          if (part.text) {
+            text += part.text;
+          }
+        }
+      }
     }
+    
+    if (!text && response.text) {
+      text = response.text;
+    }
+    
+    console.log(`[CompanyHardIntel] Raw response length: ${text.length}`);
     
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     
     if (!jsonMatch) {
+      console.log(`[CompanyHardIntel] Response text (first 500 chars): ${text.substring(0, 500)}`);
       throw new Error("No JSON found in response");
     }
 
