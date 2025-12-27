@@ -194,7 +194,7 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
       }
       
       const { discoveredInfo } = researchResult;
-      const updateData: Record<string, string> = {};
+      const updateData: Record<string, string | number | null> = {};
       if (discoveredInfo.linkedInUrl && !lead.contactLinkedIn) {
         updateData.contactLinkedIn = discoveredInfo.linkedInUrl;
       }
@@ -208,9 +208,17 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
         updateData.companyWebsite = discoveredInfo.companyWebsite;
       }
       
+      // Always update fitScore and priority from research
+      if (researchPacket && researchPacket.fitScore !== null && researchPacket.fitScore !== undefined) {
+        updateData.fitScore = researchPacket.fitScore;
+      }
+      if (researchPacket && researchPacket.priority) {
+        updateData.priority = researchPacket.priority;
+      }
+      
       if (Object.keys(updateData).length > 0) {
         await storage.updateLead(lead.id, updateData);
-        console.log(`[LeadResearch] Updated lead ${lead.id} with discovered info:`, Object.keys(updateData));
+        console.log(`[LeadResearch] Updated lead ${lead.id} with:`, Object.keys(updateData));
       }
       
       res.json({ 
