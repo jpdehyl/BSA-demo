@@ -57,6 +57,7 @@ export interface IStorage {
   getCallSession(id: string): Promise<CallSession | undefined>;
   getCallSessionByCallSid(callSid: string): Promise<CallSession | undefined>;
   getCallSessionsByUser(userId: string): Promise<CallSession[]>;
+  getCallSessionsByLead(leadId: string): Promise<CallSession[]>;
   getAllCallSessions(): Promise<CallSession[]>;
   getRecentInitiatedCallSession(toNumber: string): Promise<CallSession | undefined>;
   createCallSession(session: InsertCallSession): Promise<CallSession>;
@@ -221,6 +222,10 @@ export class DatabaseStorage implements IStorage {
 
   async getCallSessionsByUser(userId: string): Promise<CallSession[]> {
     return db.select().from(callSessions).where(eq(callSessions.userId, userId)).orderBy(desc(callSessions.startedAt));
+  }
+
+  async getCallSessionsByLead(leadId: string): Promise<CallSession[]> {
+    return db.select().from(callSessions).where(eq(callSessions.leadId, leadId)).orderBy(desc(callSessions.startedAt));
   }
 
   async getAllCallSessions(): Promise<CallSession[]> {

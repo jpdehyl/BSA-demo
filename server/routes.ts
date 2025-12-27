@@ -290,6 +290,31 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/call-sessions/:id/outcome", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { disposition, keyTakeaways, nextSteps, sdrNotes, callbackDate } = req.body;
+
+      const session = await storage.getCallSession(id);
+      if (!session) {
+        return res.status(404).json({ message: "Call session not found" });
+      }
+
+      const updated = await storage.updateCallSession(id, {
+        disposition,
+        keyTakeaways: keyTakeaways || null,
+        nextSteps: nextSteps || null,
+        sdrNotes: sdrNotes || null,
+        callbackDate: callbackDate ? new Date(callbackDate) : null,
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Call outcome update error:", error);
+      res.status(500).json({ message: "Failed to update call outcome" });
+    }
+  });
+
   registerLeadsRoutes(app, requireAuth);
   registerCoachRoutes(app, requireAuth);
   registerTwilioVoiceRoutes(app);

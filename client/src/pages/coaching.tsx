@@ -6,6 +6,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Softphone } from "@/components/softphone";
+import { CallBrief } from "@/components/call-brief";
+import { PostCallSummaryForm, type CallOutcomeData } from "@/components/post-call-summary-form";
 import { useTranscription } from "@/hooks/use-transcription";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -29,6 +31,7 @@ export default function CoachingPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [selectedCall, setSelectedCall] = useState<CallSession | null>(null);
   const [callPrepOpen, setCallPrepOpen] = useState(!!leadIdParam);
+  const [pendingOutcomeCallId, setPendingOutcomeCallId] = useState<string | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
   const { data: leadDetail } = useQuery<{ lead: Lead; researchPacket: ResearchPacket | null }>({
@@ -78,13 +81,34 @@ export default function CoachingPage() {
     clearTranscripts();
   };
 
-  const handleCallEnd = () => {
+  const handleCallEnd = (callSessionId?: string) => {
+    if (callSessionId) {
+      setPendingOutcomeCallId(callSessionId);
+    }
     setCurrentPhoneNumber(null);
     setCurrentCallSid(null);
     setCallStartTime(null);
   };
 
   const { toast } = useToast();
+
+  const saveOutcomeMutation = useMutation({
+    mutationFn: async ({ callId, data }: { callId: string; data: CallOutcomeData }) => {
+      const res = await apiRequest("PATCH", `/api/call-sessions/${callId}/outcome`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      setPendingOutcomeCallId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/call-sessions"] });
+      if (leadIdParam) {
+        queryClient.invalidateQueries({ queryKey: ["/api/leads", leadIdParam, "calls"] });
+      }
+      toast({ title: "Summary saved", description: "Call outcome logged successfully" });
+    },
+    onError: () => {
+      toast({ title: "Save failed", description: "Could not save call summary", variant: "destructive" });
+    },
+  });
   const [analysisResult, setAnalysisResult] = useState<{ managerSummary: string[]; coachingMessage: string } | null>(null);
 
   const analyzeMutation = useMutation({
@@ -193,70 +217,22 @@ export default function CoachingPage() {
           </Collapsible>
 
           {leadDetail && (
-            <Collapsible open={callPrepOpen} onOpenChange={setCallPrepOpen}>
-              <CollapsibleTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-between bg-primary/5 border-primary/20"
-                  data-testid="button-toggle-call-prep"
-                >
-                  <span className="flex items-center gap-2">
-                    <User className="h-4 w-4" />
-                    Call Prep: {leadDetail.lead.contactName}
-                  </span>
-                  <ChevronDown className={`h-4 w-4 transition-transform ${callPrepOpen ? "rotate-180" : ""}`} />
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-2">
-                <Card className="border-primary/20">
-                  <CardContent className="pt-4 space-y-3">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{leadDetail.lead.companyName}</span>
-                      {leadDetail.lead.contactTitle && (
-                        <span className="text-muted-foreground">- {leadDetail.lead.contactTitle}</span>
-                      )}
-                    </div>
-                    
-                    {leadDetail.researchPacket ? (
-                      <ScrollArea className="h-[180px]">
-                        <div className="space-y-3 pr-2">
-                          {leadDetail.researchPacket.talkTrack && (
-                            <div className="p-2 bg-muted/50 rounded-md">
-                              <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
-                                <MessageSquare className="h-3 w-3" /> Talk Track
-                              </p>
-                              <p className="text-sm">{leadDetail.researchPacket.talkTrack}</p>
-                            </div>
-                          )}
-                          {leadDetail.researchPacket.fitAnalysis && (
-                            <div className="p-2 bg-muted/50 rounded-md">
-                              <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
-                                <Target className="h-3 w-3" /> Hawk Ridge Fit
-                              </p>
-                              <p className="text-sm">{leadDetail.researchPacket.fitAnalysis}</p>
-                            </div>
-                          )}
-                          {leadDetail.researchPacket.discoveryQuestions && (
-                            <div className="p-2 bg-muted/50 rounded-md">
-                              <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
-                                <HelpCircle className="h-3 w-3" /> Key Questions
-                              </p>
-                              <p className="text-sm whitespace-pre-wrap">{leadDetail.researchPacket.discoveryQuestions}</p>
-                            </div>
-                          )}
-                        </div>
-                      </ScrollArea>
-                    ) : (
-                      <div className="text-center py-4 text-muted-foreground text-sm">
-                        <p>No research dossier available</p>
-                        <p className="text-xs mt-1">Generate research from the Leads page</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </CollapsibleContent>
-            </Collapsible>
+            <CallBrief 
+              lead={leadDetail.lead} 
+              researchPacket={leadDetail.researchPacket} 
+              isOnCall={!!currentPhoneNumber}
+            />
+          )}
+
+          {pendingOutcomeCallId && (
+            <PostCallSummaryForm
+              callSessionId={pendingOutcomeCallId}
+              onSubmit={async (data) => {
+                await saveOutcomeMutation.mutateAsync({ callId: pendingOutcomeCallId, data });
+              }}
+              onCancel={() => setPendingOutcomeCallId(null)}
+              isSubmitting={saveOutcomeMutation.isPending}
+            />
           )}
         </div>
 

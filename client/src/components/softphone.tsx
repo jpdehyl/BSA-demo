@@ -21,7 +21,7 @@ type CallState = "idle" | "ready" | "connecting" | "ringing" | "on-call" | "disc
 
 interface SoftphoneProps {
   onCallStart?: (phoneNumber: string) => void;
-  onCallEnd?: () => void;
+  onCallEnd?: (callSessionId?: string) => void;
   isAuthenticated?: boolean;
   initialPhoneNumber?: string;
 }
@@ -35,6 +35,7 @@ export function Softphone({ onCallStart, onCallEnd, isAuthenticated = false, ini
   const [isOnHold, setIsOnHold] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [currentCallSessionId, setCurrentCallSessionId] = useState<string | null>(null);
   
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
@@ -146,12 +147,14 @@ export function Softphone({ onCallStart, onCallEnd, isAuthenticated = false, ini
 
   const handleCallEnd = () => {
     stopDurationTimer();
+    const sessionId = currentCallSessionId;
     setActiveCall(null);
     setCallState("ready");
     setIsMuted(false);
     setIsOnHold(false);
     setCallDuration(0);
-    onCallEnd?.();
+    setCurrentCallSessionId(null);
+    onCallEnd?.(sessionId || undefined);
   };
 
   const formatPhoneNumber = (number: string): string => {
@@ -175,9 +178,13 @@ export function Softphone({ onCallStart, onCallEnd, isAuthenticated = false, ini
       const formattedNumber = formatPhoneNumber(phoneNumber);
       console.log("Calling:", formattedNumber);
 
-      await apiRequest("POST", "/api/voice/call", {
+      const callResponse = await apiRequest("POST", "/api/voice/call", {
         toNumber: formattedNumber,
       });
+      const callData = await callResponse.json();
+      if (callData.callSession?.id) {
+        setCurrentCallSessionId(callData.callSession.id);
+      }
 
       const call = await device.connect({
         params: {

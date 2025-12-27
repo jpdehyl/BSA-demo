@@ -236,4 +236,14 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
       res.status(500).json({ message: "Failed to fetch research" });
     }
   });
+
+  app.get("/api/leads/:id/calls", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const callHistory = await storage.getCallSessionsByLead(req.params.id);
+      res.json(callHistory);
+    } catch (error) {
+      console.error("Call history fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch call history" });
+    }
+  });
 }

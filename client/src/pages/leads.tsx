@@ -56,7 +56,8 @@ import { SiLinkedin, SiX } from "react-icons/si";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import type { Lead, ResearchPacket } from "@shared/schema";
+import { LeadActivityTimeline } from "@/components/lead-activity-timeline";
+import type { Lead, ResearchPacket, CallSession } from "@shared/schema";
 
 interface LeadWithResearch extends Lead {
   hasResearch: boolean;
@@ -744,7 +745,7 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
       </div>
 
       <Tabs defaultValue="company" className="w-full">
-        <TabsList className="grid grid-cols-3 w-full max-w-md">
+        <TabsList className="grid grid-cols-4 w-full max-w-lg">
           <TabsTrigger value="company" className="gap-2">
             <Building2 className="h-4 w-4" />
             Company
@@ -756,6 +757,10 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
           <TabsTrigger value="talk-track" className="gap-2">
             <MessageSquare className="h-4 w-4" />
             Talk Track
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="gap-2">
+            <Clock className="h-4 w-4" />
+            Activity
           </TabsTrigger>
         </TabsList>
 
@@ -942,8 +947,26 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
             content={packet.objectionHandles}
           />
         </TabsContent>
+
+        <TabsContent value="activity" className="mt-6">
+          <ActivityTabContent leadId={lead.id} />
+        </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function ActivityTabContent({ leadId }: { leadId: string }) {
+  const { data: callHistory = [], isLoading } = useQuery<CallSession[]>({
+    queryKey: ["/api/leads", leadId, "calls"],
+  });
+
+  return (
+    <LeadActivityTimeline
+      callHistory={callHistory}
+      isLoading={isLoading}
+      onPlayRecording={(url) => window.open(url, "_blank")}
+    />
   );
 }
 

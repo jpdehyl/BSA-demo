@@ -228,6 +228,12 @@ export const callSessions = pgTable("call_sessions", {
   managerSummary: text("manager_summary"),
   startedAt: timestamp("started_at").defaultNow().notNull(),
   endedAt: timestamp("ended_at"),
+  disposition: text("disposition"), // connected, voicemail, no-answer, busy, callback-scheduled, not-interested, qualified, meeting-booked
+  keyTakeaways: text("key_takeaways"),
+  nextSteps: text("next_steps"),
+  sdrNotes: text("sdr_notes"),
+  callbackDate: timestamp("callback_date"),
+  sentimentScore: integer("sentiment_score"), // 1-5 scale from AI analysis
 });
 
 export const insertCallSessionSchema = createInsertSchema(callSessions).omit({
