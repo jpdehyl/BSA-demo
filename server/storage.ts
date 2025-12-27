@@ -13,7 +13,7 @@ import {
   callSessions
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, isNull, desc } from "drizzle-orm";
+import { eq, and, isNull, desc, inArray, sql } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -29,6 +29,7 @@ export interface IStorage {
   getAllSdrs(): Promise<Sdr[]>;
   getSdrsByManager(managerId: string): Promise<Sdr[]>;
   createSdr(sdr: InsertSdr): Promise<Sdr>;
+  getUsersBySdrIds(sdrIds: string[]): Promise<User[]>;
   
   getLead(id: string): Promise<Lead | undefined>;
   getLeadByEmail(email: string): Promise<Lead | undefined>;
@@ -59,6 +60,10 @@ export interface IStorage {
   getCallSessionsByUser(userId: string): Promise<CallSession[]>;
   getCallSessionsByLead(leadId: string): Promise<CallSession[]>;
   getAllCallSessions(): Promise<CallSession[]>;
+  getCallSessionsByUserIds(userIds: string[]): Promise<CallSession[]>;
+  getCoachingTipsCountBySession(sessionIds: string[]): Promise<Map<string, number>>;
+  getAllCoachingTips(): Promise<{ tipType: string; count: number }[]>;
+  getRecentCoachingTips(limit?: number): Promise<{ sessionId: string; tipType: string; content: string; createdAt: Date }[]>;
   getRecentInitiatedCallSession(toNumber: string): Promise<CallSession | undefined>;
   createCallSession(session: InsertCallSession): Promise<CallSession>;
   updateCallSession(id: string, updates: Partial<InsertCallSession>): Promise<CallSession | undefined>;
@@ -110,6 +115,11 @@ export class DatabaseStorage implements IStorage {
 
   async getSdrsByManager(managerId: string): Promise<Sdr[]> {
     return db.select().from(sdrs).where(eq(sdrs.managerId, managerId)).orderBy(sdrs.name);
+  }
+
+  async getUsersBySdrIds(sdrIds: string[]): Promise<User[]> {
+    if (sdrIds.length === 0) return [];
+    return db.select().from(users).where(inArray(users.sdrId, sdrIds));
   }
 
   async createSdr(insertSdr: InsertSdr): Promise<Sdr> {
@@ -230,6 +240,50 @@ export class DatabaseStorage implements IStorage {
 
   async getAllCallSessions(): Promise<CallSession[]> {
     return db.select().from(callSessions).orderBy(desc(callSessions.startedAt));
+  }
+
+  async getCallSessionsByUserIds(userIds: string[]): Promise<CallSession[]> {
+    if (userIds.length === 0) return [];
+    return db.select().from(callSessions).where(inArray(callSessions.userId, userIds)).orderBy(desc(callSessions.startedAt));
+  }
+
+  async getCoachingTipsCountBySession(sessionIds: string[]): Promise<Map<string, number>> {
+    if (sessionIds.length === 0) return new Map();
+    const counts = await db
+      .select({ 
+        sessionId: liveCoachingTips.sessionId, 
+        count: sql<number>`count(*)::int` 
+      })
+      .from(liveCoachingTips)
+      .where(inArray(liveCoachingTips.sessionId, sessionIds))
+      .groupBy(liveCoachingTips.sessionId);
+    return new Map(counts.map(c => [c.sessionId, c.count]));
+  }
+
+  async getAllCoachingTips(): Promise<{ tipType: string; count: number }[]> {
+    const results = await db
+      .select({ 
+        tipType: liveCoachingTips.tipType, 
+        count: sql<number>`count(*)::int` 
+      })
+      .from(liveCoachingTips)
+      .groupBy(liveCoachingTips.tipType)
+      .orderBy(sql`count(*) DESC`);
+    return results;
+  }
+
+  async getRecentCoachingTips(limit: number = 50): Promise<{ sessionId: string; tipType: string; content: string; createdAt: Date }[]> {
+    const results = await db
+      .select({
+        sessionId: liveCoachingTips.sessionId,
+        tipType: liveCoachingTips.tipType,
+        content: liveCoachingTips.content,
+        createdAt: liveCoachingTips.createdAt,
+      })
+      .from(liveCoachingTips)
+      .orderBy(desc(liveCoachingTips.createdAt))
+      .limit(limit);
+    return results;
   }
 
   async getRecentInitiatedCallSession(toNumber: string): Promise<CallSession | undefined> {

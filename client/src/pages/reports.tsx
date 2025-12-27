@@ -9,6 +9,9 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { ManagerOversightDashboard } from "@/components/manager-oversight-dashboard";
+import { CallReviewDialog } from "@/components/call-review-dialog";
+import { CoachingEffectiveness } from "@/components/coaching-effectiveness";
 import { 
   Calendar,
   FileText,
@@ -23,7 +26,9 @@ import {
   RefreshCw,
   BarChart3,
   CalendarDays,
-  CalendarRange
+  CalendarRange,
+  Eye,
+  Lightbulb
 } from "lucide-react";
 import type { CallSession, Sdr } from "@shared/schema";
 
@@ -42,6 +47,10 @@ export default function ReportsPage() {
   const { toast } = useToast();
   const [selectedPeriod, setSelectedPeriod] = useState<"week" | "month">("week");
   const [selectedSdr, setSelectedSdr] = useState<string>("all");
+  const [mainTab, setMainTab] = useState<string>("my-reports");
+  const [reviewCallId, setReviewCallId] = useState<string | null>(null);
+
+  const isManager = user?.role === "admin" || user?.role === "manager";
 
   const { data: callSessions = [], isLoading: sessionsLoading } = useQuery<CallSession[]>({
     queryKey: ["/api/call-sessions"],
@@ -56,7 +65,7 @@ export default function ReportsPage() {
       const res = await apiRequest("POST", `/api/coach/reports/${period}`, {});
       return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       toast({ title: "Report Generated", description: `Your ${selectedPeriod} report has been generated.` });
     },
     onError: () => {
@@ -64,6 +73,94 @@ export default function ReportsPage() {
     },
   });
 
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold" data-testid="text-page-title">Reports</h1>
+          <p className="text-muted-foreground">
+            Weekly and monthly performance reports for your sales team
+          </p>
+        </div>
+      </div>
+
+      {isManager ? (
+        <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="my-reports" data-testid="tab-my-reports">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              My Reports
+            </TabsTrigger>
+            <TabsTrigger value="team-oversight" data-testid="tab-team-oversight">
+              <Eye className="h-4 w-4 mr-2" />
+              Team Oversight
+            </TabsTrigger>
+            <TabsTrigger value="coaching-effectiveness" data-testid="tab-coaching-effectiveness">
+              <Lightbulb className="h-4 w-4 mr-2" />
+              Coaching
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="my-reports" className="space-y-6">
+            <ReportsContent 
+              selectedPeriod={selectedPeriod}
+              setSelectedPeriod={setSelectedPeriod}
+              selectedSdr={selectedSdr}
+              setSelectedSdr={setSelectedSdr}
+              callSessions={callSessions}
+              sdrs={sdrs}
+              generateReportMutation={generateReportMutation}
+            />
+          </TabsContent>
+
+          <TabsContent value="team-oversight" className="space-y-6">
+            <ManagerOversightDashboard onCallReview={(callId) => setReviewCallId(callId)} />
+          </TabsContent>
+
+          <TabsContent value="coaching-effectiveness" className="space-y-6">
+            <CoachingEffectiveness />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <ReportsContent 
+          selectedPeriod={selectedPeriod}
+          setSelectedPeriod={setSelectedPeriod}
+          selectedSdr={selectedSdr}
+          setSelectedSdr={setSelectedSdr}
+          callSessions={callSessions}
+          sdrs={sdrs}
+          generateReportMutation={generateReportMutation}
+        />
+      )}
+
+      <CallReviewDialog 
+        callId={reviewCallId}
+        open={!!reviewCallId}
+        onOpenChange={(open) => !open && setReviewCallId(null)}
+      />
+    </div>
+  );
+}
+
+interface ReportsContentProps {
+  selectedPeriod: "week" | "month";
+  setSelectedPeriod: (period: "week" | "month") => void;
+  selectedSdr: string;
+  setSelectedSdr: (sdr: string) => void;
+  callSessions: CallSession[];
+  sdrs: Sdr[];
+  generateReportMutation: ReturnType<typeof useMutation<unknown, Error, "weekly" | "monthly">>;
+}
+
+function ReportsContent({
+  selectedPeriod,
+  setSelectedPeriod,
+  selectedSdr,
+  setSelectedSdr,
+  callSessions,
+  sdrs,
+  generateReportMutation,
+}: ReportsContentProps) {
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -93,58 +190,50 @@ export default function ReportsPage() {
   const maxCalls = Math.max(...Object.values(callsByDate), 1);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-semibold" data-testid="text-page-title">Reports</h1>
-          <p className="text-muted-foreground">
-            Weekly and monthly performance reports for your sales team
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Select value={selectedPeriod} onValueChange={(v) => setSelectedPeriod(v as "week" | "month")}>
-            <SelectTrigger className="w-[140px]" data-testid="select-period">
-              <SelectValue placeholder="Select period" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="week">
-                <div className="flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4" />
-                  Weekly
-                </div>
-              </SelectItem>
-              <SelectItem value="month">
-                <div className="flex items-center gap-2">
-                  <CalendarRange className="h-4 w-4" />
-                  Monthly
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={selectedSdr} onValueChange={setSelectedSdr}>
-            <SelectTrigger className="w-[160px]" data-testid="select-sdr">
-              <SelectValue placeholder="All SDRs" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All SDRs</SelectItem>
-              {sdrs.map((sdr) => (
-                <SelectItem key={sdr.id} value={sdr.id}>{sdr.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            onClick={() => generateReportMutation.mutate(selectedPeriod === "week" ? "weekly" : "monthly")}
-            disabled={generateReportMutation.isPending}
-            data-testid="button-generate-report"
-          >
-            {generateReportMutation.isPending ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4 mr-2" />
-            )}
-            Generate Report
-          </Button>
-        </div>
+    <>
+      <div className="flex items-center gap-2 flex-wrap">
+        <Select value={selectedPeriod} onValueChange={(v) => setSelectedPeriod(v as "week" | "month")}>
+          <SelectTrigger className="w-[140px]" data-testid="select-period">
+            <SelectValue placeholder="Select period" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="week">
+              <div className="flex items-center gap-2">
+                <CalendarDays className="h-4 w-4" />
+                Weekly
+              </div>
+            </SelectItem>
+            <SelectItem value="month">
+              <div className="flex items-center gap-2">
+                <CalendarRange className="h-4 w-4" />
+                Monthly
+              </div>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={selectedSdr} onValueChange={setSelectedSdr}>
+          <SelectTrigger className="w-[160px]" data-testid="select-sdr">
+            <SelectValue placeholder="All SDRs" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All SDRs</SelectItem>
+            {sdrs.map((sdr) => (
+              <SelectItem key={sdr.id} value={sdr.id}>{sdr.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          onClick={() => generateReportMutation.mutate(selectedPeriod === "week" ? "weekly" : "monthly")}
+          disabled={generateReportMutation.isPending}
+          data-testid="button-generate-report"
+        >
+          {generateReportMutation.isPending ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4 mr-2" />
+          )}
+          Generate Report
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -329,6 +418,6 @@ export default function ReportsPage() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+    </>
   );
 }

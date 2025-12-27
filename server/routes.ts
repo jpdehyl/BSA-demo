@@ -270,6 +270,161 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/manager/oversight", requireRole("admin", "manager"), async (req: Request, res: Response) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const allSdrs = await storage.getAllSdrs();
+      const sdrIds = allSdrs.map(sdr => sdr.id);
+      const sdrUsers = await storage.getUsersBySdrIds(sdrIds);
+      const sdrUserIds = sdrUsers.map(u => u.id);
+      
+      const callSessions = await storage.getCallSessionsByUserIds(sdrUserIds);
+      
+      const now = new Date();
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      const weekSessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= weekAgo);
+      const monthSessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= monthAgo);
+
+      const sdrPerformance = allSdrs.map(sdr => {
+        const sdrUser = sdrUsers.find(u => u.sdrId === sdr.id);
+        const sdrSessions = sdrUser ? weekSessions.filter(s => s.userId === sdrUser.id) : [];
+        const completedCalls = sdrSessions.filter(s => s.status === "completed");
+        const totalTalkTime = completedCalls.reduce((sum, s) => sum + (s.duration || 0), 0);
+        
+        const qualifiedCalls = sdrSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked");
+        const connectedCalls = sdrSessions.filter(s => s.disposition === "connected" || s.disposition === "qualified" || s.disposition === "meeting-booked");
+
+        return {
+          sdrId: sdr.id,
+          sdrName: sdr.name,
+          userId: sdrUser?.id || null,
+          totalCalls: sdrSessions.length,
+          completedCalls: completedCalls.length,
+          totalTalkTimeMinutes: Math.round(totalTalkTime / 60),
+          avgCallDuration: completedCalls.length > 0 ? Math.round(totalTalkTime / completedCalls.length / 60) : 0,
+          qualifiedLeads: qualifiedCalls.length,
+          connectRate: sdrSessions.length > 0 ? Math.round((connectedCalls.length / sdrSessions.length) * 100) : 0,
+          meetingsBooked: sdrSessions.filter(s => s.disposition === "meeting-booked").length,
+        };
+      });
+
+      const dispositionBreakdown = weekSessions.reduce((acc, s) => {
+        const disp = s.disposition || "unknown";
+        acc[disp] = (acc[disp] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      res.json({
+        weeklyStats: {
+          totalCalls: weekSessions.length,
+          completedCalls: weekSessions.filter(s => s.status === "completed").length,
+          totalTalkTimeMinutes: Math.round(weekSessions.reduce((sum, s) => sum + (s.duration || 0), 0) / 60),
+          meetingsBooked: weekSessions.filter(s => s.disposition === "meeting-booked").length,
+          qualifiedLeads: weekSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked").length,
+        },
+        monthlyStats: {
+          totalCalls: monthSessions.length,
+          completedCalls: monthSessions.filter(s => s.status === "completed").length,
+          totalTalkTimeMinutes: Math.round(monthSessions.reduce((sum, s) => sum + (s.duration || 0), 0) / 60),
+          meetingsBooked: monthSessions.filter(s => s.disposition === "meeting-booked").length,
+          qualifiedLeads: monthSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked").length,
+        },
+        sdrPerformance,
+        dispositionBreakdown,
+        recentCalls: callSessions.slice(0, 50),
+      });
+    } catch (error) {
+      console.error("Manager oversight fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch oversight data" });
+    }
+  });
+
+  app.get("/api/manager/call-review/:callId", requireRole("admin", "manager"), async (req: Request, res: Response) => {
+    try {
+      const { callId } = req.params;
+      const callSession = await storage.getCallSession(callId);
+      
+      if (!callSession) {
+        return res.status(404).json({ message: "Call session not found" });
+      }
+
+      const lead = callSession.leadId ? await storage.getLead(callSession.leadId) : null;
+      const caller = await storage.getUser(callSession.userId);
+
+      res.json({
+        callSession,
+        lead,
+        caller: caller ? { id: caller.id, name: caller.name, email: caller.email, role: caller.role } : null,
+      });
+    } catch (error) {
+      console.error("Call review fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch call review data" });
+    }
+  });
+
+  app.patch("/api/manager/call-review/:callId/notes", requireRole("admin", "manager"), async (req: Request, res: Response) => {
+    try {
+      const { callId } = req.params;
+      const { managerSummary, coachingNotes, sentimentScore } = req.body;
+
+      const callSession = await storage.getCallSession(callId);
+      if (!callSession) {
+        return res.status(404).json({ message: "Call session not found" });
+      }
+
+      const updated = await storage.updateCallSession(callId, {
+        managerSummary: managerSummary || callSession.managerSummary,
+        coachingNotes: coachingNotes || callSession.coachingNotes,
+        sentimentScore: sentimentScore || callSession.sentimentScore,
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Manager notes update error:", error);
+      res.status(500).json({ message: "Failed to update manager notes" });
+    }
+  });
+
+  app.get("/api/manager/coaching-effectiveness", requireRole("admin", "manager"), async (req: Request, res: Response) => {
+    try {
+      const tipsByType = await storage.getAllCoachingTips();
+      const recentTips = await storage.getRecentCoachingTips(100);
+      
+      const callSessions = await storage.getAllCallSessions();
+      const callsWithReview = callSessions.filter(s => s.managerSummary || s.sentimentScore);
+      const avgSentiment = callsWithReview.length > 0 
+        ? callsWithReview.reduce((sum, s) => sum + (s.sentimentScore || 0), 0) / callsWithReview.length 
+        : 0;
+
+      const qualityTrend = callSessions
+        .filter(s => s.sentimentScore && s.startedAt)
+        .sort((a, b) => new Date(b.startedAt!).getTime() - new Date(a.startedAt!).getTime())
+        .slice(0, 20)
+        .map(s => ({
+          date: s.startedAt,
+          score: s.sentimentScore,
+        }));
+
+      res.json({
+        tipsByType,
+        totalTipsGenerated: tipsByType.reduce((sum, t) => sum + t.count, 0),
+        recentTips: recentTips.slice(0, 20),
+        callsReviewed: callsWithReview.length,
+        averageSentiment: Math.round(avgSentiment * 10) / 10,
+        qualityTrend,
+      });
+    } catch (error) {
+      console.error("Coaching effectiveness fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch coaching effectiveness data" });
+    }
+  });
+
   app.get("/api/call-sessions", requireAuth, async (req: Request, res: Response) => {
     try {
       const user = await storage.getUser(req.session.userId!);
