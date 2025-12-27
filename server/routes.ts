@@ -426,6 +426,34 @@ export async function registerRoutes(
     }
   });
 
+  // Debug endpoint to test Drive connection (temporary)
+  app.get("/api/debug/scan-drive", async (req: Request, res: Response) => {
+    try {
+      console.log("[Debug] Testing Google Drive connection...");
+      const files = await listFilesInProcessed();
+      console.log(`[Debug] Found ${files.length} files`);
+      
+      const sdrIdSet = new Set<string>();
+      for (const file of files) {
+        // Pattern: SDR_ID + 10 digits (YYMMDDHHMM) + "Call" or "call"
+        const match = file.name.match(/^([A-Z]{2,10})\d{10}[Cc]all/i);
+        if (match) {
+          sdrIdSet.add(match[1].toUpperCase());
+        }
+      }
+      
+      res.json({
+        success: true,
+        totalFiles: files.length,
+        uniqueSdrIds: Array.from(sdrIdSet),
+        sampleFiles: files.slice(0, 10).map(f => f.name),
+      });
+    } catch (error: any) {
+      console.error("[Debug] Drive error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   app.get("/api/admin/scan-processed-folder", requireRole("admin"), async (req: Request, res: Response) => {
     try {
       const files = await listFilesInProcessed();
@@ -434,22 +462,12 @@ export async function registerRoutes(
       const sdrIdNameMap: Record<string, string> = {};
       
       for (const file of files) {
-        const match = file.name.match(/^([A-Z]{2,10})\d{12}/);
+        // Pattern: SDR_ID + 10 digits (YYMMDDHHMM) + "Call" or "call"
+        const match = file.name.match(/^([A-Z]{2,10})\d{10}[Cc]all/i);
         if (match) {
-          const sdrId = match[1];
+          const sdrId = match[1].toUpperCase();
           sdrIdSet.add(sdrId);
-          
-          const nameMap: Record<string, string> = {
-            "JPDOM": "JP Dominguez",
-            "JROLD": "Juan Roldan",
-            "RVALL": "Roland Valles",
-            "MSMITH": "Mike Smith",
-            "AJONES": "Amy Jones",
-            "BWILSON": "Brian Wilson",
-            "CGARCIA": "Carlos Garcia",
-            "DLEE": "Diana Lee",
-          };
-          sdrIdNameMap[sdrId] = nameMap[sdrId] || sdrId;
+          sdrIdNameMap[sdrId] = sdrId;
         }
       }
       
@@ -467,8 +485,11 @@ export async function registerRoutes(
 
   app.post("/api/admin/populate-sdrs", requireRole("admin"), async (req: Request, res: Response) => {
     try {
+      console.log("[Populate SDRs] Starting SDR population...");
+      
       const existingManagers = await storage.getAllManagers();
       const existingSdrs = await storage.getAllSdrs();
+      console.log(`[Populate SDRs] Found ${existingManagers.length} existing managers, ${existingSdrs.length} existing SDRs`);
       
       const managersCreated: string[] = [];
       const sdrsCreated: string[] = [];
@@ -484,6 +505,7 @@ export async function registerRoutes(
         const existing = existingManagers.find(m => m.email === mgr.email);
         if (existing) {
           managerMap[mgr.email] = existing.id;
+          console.log(`[Populate SDRs] Manager ${mgr.name} already exists with ID: ${existing.id}`);
         } else {
           const created = await storage.createManager({
             name: mgr.name,
@@ -492,22 +514,32 @@ export async function registerRoutes(
           });
           managerMap[mgr.email] = created.id;
           managersCreated.push(mgr.name);
+          console.log(`[Populate SDRs] Created manager ${mgr.name} with ID: ${created.id}`);
         }
       }
       
+      console.log("[Populate SDRs] Fetching files from Google Drive Processed folder...");
       const files = await listFilesInProcessed();
+      console.log(`[Populate SDRs] Found ${files.length} files in Processed folder`);
+      
+      if (files.length > 0) {
+        console.log(`[Populate SDRs] Sample files: ${files.slice(0, 5).map(f => f.name).join(", ")}`);
+      }
+      
       const sdrIdSet = new Set<string>();
       
       for (const file of files) {
-        const match = file.name.match(/^([A-Z]{2,10})\d{12}/);
+        // Pattern: SDR_ID + 10 digits (YYMMDDHHMM) + "Call" or "call"
+        const match = file.name.match(/^([A-Z]{2,10})\d{10}[Cc]all/i);
         if (match) {
-          sdrIdSet.add(match[1]);
+          sdrIdSet.add(match[1].toUpperCase());
         }
       }
       
-      const sdrInfoMap: Record<string, { name: string; managerEmail: string; email: string; gender: string }> = {
-        "JPDOM": { name: "JP Dominguez", managerEmail: "juan@groundgamesales.com", email: "jp@dehyl.ca", gender: "male" },
-      };
+      console.log(`[Populate SDRs] Extracted ${sdrIdSet.size} unique SDR IDs: ${Array.from(sdrIdSet).join(", ")}`);
+      
+      // Map known SDR IDs to their full names
+      const sdrInfoMap: Record<string, { name: string; managerEmail: string; email: string; gender: string }> = {};
       
       const managerEmails = managerData.map(m => m.email);
       const sdrIds = Array.from(sdrIdSet);
@@ -515,13 +547,19 @@ export async function registerRoutes(
       
       for (const sdrId of sdrIds) {
         const existing = existingSdrs.find(s => s.id === sdrId);
-        if (existing) continue;
+        if (existing) {
+          console.log(`[Populate SDRs] SDR ${sdrId} already exists, skipping`);
+          continue;
+        }
         
         const info = sdrInfoMap[sdrId];
         const managerEmail = info?.managerEmail || managerEmails[managerIndex % managerEmails.length];
         const managerId = managerMap[managerEmail];
         
-        if (!managerId) continue;
+        if (!managerId) {
+          console.log(`[Populate SDRs] No manager ID for ${managerEmail}, skipping SDR ${sdrId}`);
+          continue;
+        }
         
         await storage.createSdr({
           id: sdrId,
@@ -534,9 +572,12 @@ export async function registerRoutes(
           isActive: true,
         });
         
+        console.log(`[Populate SDRs] Created SDR ${sdrId} -> ${info?.name || sdrId} under manager ${managerEmail}`);
         sdrsCreated.push(sdrId);
         managerIndex++;
       }
+      
+      console.log(`[Populate SDRs] Complete. Created ${managersCreated.length} managers and ${sdrsCreated.length} SDRs`);
       
       res.json({
         managersCreated,

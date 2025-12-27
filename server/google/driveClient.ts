@@ -25,19 +25,36 @@ export async function listFilesInFolder(folderId: string): Promise<DriveFile[]> 
   const auth = getAuth();
   const drive = google.drive({ version: "v3", auth });
 
-  const response = await drive.files.list({
-    q: `'${folderId}' in parents and trashed = false`,
-    fields: "files(id, name, mimeType)",
-    orderBy: "createdTime",
-    supportsAllDrives: true,
-    includeItemsFromAllDrives: true
-  });
+  const allFiles: DriveFile[] = [];
+  let pageToken: string | null | undefined = undefined;
 
-  return (response.data.files || []).map(file => ({
-    id: file.id!,
-    name: file.name!,
-    mimeType: file.mimeType!
-  }));
+  while (true) {
+    const response = await drive.files.list({
+      q: `'${folderId}' in parents and trashed = false`,
+      fields: "nextPageToken, files(id, name, mimeType)",
+      orderBy: "createdTime",
+      pageSize: 100,
+      pageToken: pageToken || undefined,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true
+    });
+
+    const files = response.data.files || [];
+    for (const file of files) {
+      allFiles.push({
+        id: file.id!,
+        name: file.name!,
+        mimeType: file.mimeType!
+      });
+    }
+
+    pageToken = response.data.nextPageToken;
+    console.log(`[Drive] Fetched ${files.length} files, total: ${allFiles.length}, hasMore: ${!!pageToken}`);
+    
+    if (!pageToken) break;
+  }
+
+  return allFiles;
 }
 
 export async function listFilesInInbox(): Promise<DriveFile[]> {
