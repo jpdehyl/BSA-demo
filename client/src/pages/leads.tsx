@@ -103,8 +103,11 @@ export default function LeadsPage() {
   });
 
   const researchMutation = useMutation({
-    mutationFn: async (leadId: string) => {
-      const res = await apiRequest("POST", `/api/leads/${leadId}/research`);
+    mutationFn: async ({ leadId, refresh = false }: { leadId: string; refresh?: boolean }) => {
+      const url = refresh 
+        ? `/api/leads/${leadId}/research?refresh=true`
+        : `/api/leads/${leadId}/research`;
+      const res = await apiRequest("POST", url);
       return res.json();
     },
     onSuccess: async () => {
@@ -326,7 +329,7 @@ export default function LeadsPage() {
               lead={selectedLead}
               detail={leadDetail}
               isLoading={detailLoading}
-              onResearch={() => researchMutation.mutate(selectedLead.id)}
+              onResearch={() => researchMutation.mutate({ leadId: selectedLead.id, refresh: selectedLead.hasResearch })}
               isResearching={researchMutation.isPending}
               onCall={() => handleCallLead(selectedLead)}
             />
