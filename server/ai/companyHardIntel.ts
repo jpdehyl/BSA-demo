@@ -1,13 +1,23 @@
 import { GoogleGenAI } from "@google/genai";
 import type { Lead } from "@shared/schema";
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
-  httpOptions: {
-    apiVersion: "",
-    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
-  },
-});
+function getAiClient(): GoogleGenAI {
+  const directKey = process.env.GEMINI_API_KEY;
+  if (directKey) {
+    return new GoogleGenAI({ apiKey: directKey });
+  }
+  
+  const replitKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  const replitBase = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  if (replitKey && replitBase) {
+    return new GoogleGenAI({
+      apiKey: replitKey,
+      httpOptions: { apiVersion: "", baseUrl: replitBase },
+    });
+  }
+  
+  throw new Error("No Gemini API key configured");
+}
 
 export interface CompanyHardIntel {
   headquarters?: string;
@@ -53,6 +63,7 @@ Find and return accurate data about this company. Return a JSON object with thes
 
 Be accurate. If you cannot find specific information, use null for that field. Do not fabricate data.`;
 
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,

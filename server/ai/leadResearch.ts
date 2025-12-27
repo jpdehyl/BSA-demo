@@ -13,13 +13,23 @@ import {
 } from "./websiteScraper";
 import { getKnowledgebaseContent, getLeadScoringParameters } from "../google/driveClient";
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
-  httpOptions: {
-    apiVersion: "",
-    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
-  },
-});
+function getAiClient(): GoogleGenAI {
+  const directKey = process.env.GEMINI_API_KEY;
+  if (directKey) {
+    return new GoogleGenAI({ apiKey: directKey });
+  }
+  
+  const replitKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+  const replitBase = process.env.AI_INTEGRATIONS_GEMINI_BASE_URL;
+  if (replitKey && replitBase) {
+    return new GoogleGenAI({
+      apiKey: replitKey,
+      httpOptions: { apiVersion: "", baseUrl: replitBase },
+    });
+  }
+  
+  throw new Error("No Gemini API key configured");
+}
 
 const HAWK_RIDGE_CONTEXT = `
 Hawk Ridge Systems is a leading provider of 3D design, manufacturing, and product data management solutions.
@@ -347,6 +357,7 @@ Return a JSON object with these EXACT keys:
 BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with web search for recent news.`;
 
   try {
+    const ai = getAiClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
