@@ -176,12 +176,18 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
       }
       
       const existingPacket = await storage.getResearchPacketByLead(lead.id);
-      if (existingPacket && req.query.refresh !== "true") {
+      const isFallbackData = existingPacket?.sources?.includes("Fallback template");
+      
+      if (existingPacket && req.query.refresh !== "true" && !isFallbackData) {
         return res.json({ 
           message: "Research already exists", 
           researchPacket: existingPacket,
           isExisting: true 
         });
+      }
+      
+      if (isFallbackData) {
+        console.log(`[LeadResearch] Existing research has fallback data, regenerating for ${lead.contactName}`);
       }
       
       const researchResult = await researchLead(lead);
