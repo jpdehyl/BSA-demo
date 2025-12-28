@@ -392,24 +392,20 @@ BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with we
       },
     });
 
-    let text = "";
-    if (response.candidates && response.candidates.length > 0) {
-      const candidate = response.candidates[0];
-      if (candidate.content && candidate.content.parts) {
-        for (const part of candidate.content.parts) {
-          if (part.text) {
-            text += part.text;
-          }
-        }
-      }
-    }
-    
-    if (!text && response.text) {
-      text = response.text;
-    }
-    
     const elapsedTime = Date.now() - startTime;
-    console.log(`[LeadResearch] API call completed in ${elapsedTime}ms. Raw dossier response length: ${text.length}`);
+    console.log(`[LeadResearch] API call completed in ${elapsedTime}ms`);
+    console.log(`[LeadResearch] Response type: ${typeof response}, has text: ${!!response?.text}`);
+    
+    // New SDK: use response.text directly
+    let text = "";
+    if (response && typeof response.text === 'string') {
+      text = response.text;
+    } else if (response?.candidates?.[0]?.content?.parts?.[0]?.text) {
+      // Fallback to candidates structure
+      text = response.candidates[0].content.parts[0].text;
+    }
+    
+    console.log(`[LeadResearch] Raw dossier response length: ${text.length}`);
     
     // Clean up markdown code blocks if present
     let cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
