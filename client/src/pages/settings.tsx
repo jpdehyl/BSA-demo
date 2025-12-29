@@ -3,6 +3,7 @@ import { useAuth } from "@/lib/auth";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertCircle, Check, KeyRound, Loader2, Mail, Shield, Trash2, User, UserCog, Users } from "lucide-react";
 import type { User as UserType } from "@shared/schema";
 
@@ -34,8 +35,9 @@ function getRoleDisplay(role: string) {
 }
 
 export default function SettingsPage() {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, logout } = useAuth();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("profile");
 
   const [name, setName] = useState(user?.name || "");
@@ -45,6 +47,7 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserWithoutPassword | null>(null);
+  const [updatingRoleUserId, setUpdatingRoleUserId] = useState<string | null>(null);
 
   const isAdmin = user?.role === "admin";
   const isManager = user?.role === "manager";
@@ -75,11 +78,10 @@ export default function SettingsPage() {
       const res = await apiRequest("PATCH", "/api/user/password", data);
       return res.json();
     },
-    onSuccess: () => {
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-      toast({ title: "Password updated", description: "Your password has been changed successfully" });
+    onSuccess: async () => {
+      toast({ title: "Password updated", description: "You will be logged out for security. Please log in with your new password." });
+      await logout();
+      setLocation("/login");
     },
     onError: (error: Error) => {
       toast({ title: "Password update failed", description: error.message, variant: "destructive" });
@@ -88,14 +90,17 @@ export default function SettingsPage() {
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
+      setUpdatingRoleUserId(userId);
       const res = await apiRequest("PATCH", `/api/users/${userId}/role`, { role });
       return res.json();
     },
     onSuccess: () => {
+      setUpdatingRoleUserId(null);
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       toast({ title: "Role updated", description: "User role has been updated" });
     },
     onError: (error: Error) => {
+      setUpdatingRoleUserId(null);
       toast({ title: "Role update failed", description: error.message, variant: "destructive" });
     }
   });
@@ -377,11 +382,14 @@ export default function SettingsPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          {updatingRoleUserId === u.id && (
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          )}
                           {isAdmin ? (
                             <Select
                               value={u.role}
                               onValueChange={(role) => updateRoleMutation.mutate({ userId: u.id, role })}
-                              disabled={u.id === user.id}
+                              disabled={u.id === user.id || updatingRoleUserId === u.id}
                             >
                               <SelectTrigger className="w-40" data-testid={`select-role-${u.id}`}>
                                 <SelectValue />
@@ -398,6 +406,9 @@ export default function SettingsPage() {
                             <Badge variant="secondary">
                               {getRoleDisplay(u.role)}
                             </Badge>
+                          )}
+                          {u.id === user.id && (
+                            <Badge variant="outline" className="text-xs">You</Badge>
                           )}
                           {isAdmin && u.id !== user.id && (
                             <Button
