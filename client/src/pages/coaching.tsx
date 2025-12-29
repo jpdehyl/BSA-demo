@@ -13,7 +13,9 @@ import { useTranscription } from "@/hooks/use-transcription";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSearch } from "wouter";
-import { Phone, MessageSquare, Clock, Activity, Lightbulb, Wifi, WifiOff, History, ChevronDown, FileText, Play, User, Building2, Target, HelpCircle, Sparkles, Loader2, Calculator, BarChart3, CheckCircle, XCircle, AlertCircle, TrendingUp } from "lucide-react";
+import { Phone, MessageSquare, Clock, Activity, Lightbulb, Wifi, WifiOff, History, ChevronDown, FileText, Play, User, Building2, Target, HelpCircle, Sparkles, Loader2, Calculator, BarChart3, CheckCircle, XCircle, AlertCircle, TrendingUp, Send } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { AccountExecutive } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { CallSession, Lead, ResearchPacket, ManagerCallAnalysis } from "@shared/schema";
@@ -37,7 +39,14 @@ export default function CoachingPage() {
   const [pendingOutcomeCallId, setPendingOutcomeCallId] = useState<string | null>(null);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [budgetingOpen, setBudgetingOpen] = useState(false);
+  const [selectedAeId, setSelectedAeId] = useState<string>("");
+  const [showAeSelector, setShowAeSelector] = useState(false);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
+
+  const { data: accountExecutives = [] } = useQuery<AccountExecutive[]>({
+    queryKey: ["/api/account-executives"],
+    enabled: showAeSelector,
+  });
 
   const { data: leadDetail } = useQuery<{ lead: Lead; researchPacket: ResearchPacket | null }>({
     queryKey: ["/api/leads", leadIdParam],
@@ -159,6 +168,23 @@ export default function CoachingPage() {
     },
     onError: () => {
       toast({ title: "Analysis failed", description: "Could not analyze this call", variant: "destructive" });
+    },
+  });
+
+  const sendToAeMutation = useMutation({
+    mutationFn: async ({ sessionId, aeId, leadId }: { sessionId: string; aeId: string; leadId?: string }) => {
+      const res = await apiRequest("POST", `/api/call-sessions/${sessionId}/send-to-ae`, { aeId, leadId });
+      if (!res.ok) throw new Error("Failed to send to AE");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Sent to Account Executive", description: "The handoff email has been sent successfully" });
+      setShowAeSelector(false);
+      setSelectedAeId("");
+      queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
+    },
+    onError: () => {
+      toast({ title: "Send failed", description: "Could not send handoff email", variant: "destructive" });
     },
   });
 
@@ -579,7 +605,64 @@ export default function CoachingPage() {
                       Manager Scorecard
                     </Button>
                   )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAeSelector(!showAeSelector)}
+                    className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100 dark:bg-green-950 dark:border-green-800 dark:text-green-300"
+                    data-testid="button-send-to-ae"
+                  >
+                    <Send className="h-4 w-4 mr-1" />
+                    Send to AE
+                  </Button>
                 </>
+              )}
+              {showAeSelector && selectedCall && (
+                <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                  <Select value={selectedAeId} onValueChange={setSelectedAeId}>
+                    <SelectTrigger className="w-[220px]" data-testid="select-ae">
+                      <SelectValue placeholder="Select Account Executive" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accountExecutives.map((ae) => (
+                        <SelectItem key={ae.id} value={ae.id}>
+                          {ae.name} ({ae.region})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    disabled={!selectedAeId || sendToAeMutation.isPending}
+                    onClick={() => {
+                      if (selectedCall.id && selectedAeId) {
+                        sendToAeMutation.mutate({
+                          sessionId: selectedCall.id,
+                          aeId: selectedAeId,
+                          leadId: selectedCall.leadId || undefined,
+                        });
+                      }
+                    }}
+                    data-testid="button-confirm-send-ae"
+                  >
+                    {sendToAeMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Send Handoff"
+                    )}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setShowAeSelector(false);
+                      setSelectedAeId("");
+                    }}
+                    data-testid="button-cancel-send-ae"
+                  >
+                    Cancel
+                  </Button>
+                </div>
               )}
             </div>
 

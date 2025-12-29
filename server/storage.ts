@@ -9,9 +9,10 @@ import {
   type ResearchPacket, type InsertResearchPacket,
   type CallSession, type InsertCallSession,
   type ManagerCallAnalysis, type InsertManagerCallAnalysis,
+  type AccountExecutive, type InsertAccountExecutive,
   users, managers, sdrs, leads, 
   liveCoachingSessions, liveCoachingTips, liveTranscripts, researchPackets,
-  callSessions, managerCallAnalyses
+  callSessions, managerCallAnalyses, accountExecutives
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, isNull, desc, inArray, sql } from "drizzle-orm";
@@ -38,6 +39,12 @@ export interface IStorage {
   updateSdr(id: string, updates: Partial<InsertSdr>): Promise<Sdr | undefined>;
   deleteSdr(id: string): Promise<boolean>;
   getUsersBySdrIds(sdrIds: string[]): Promise<User[]>;
+  
+  getAccountExecutive(id: string): Promise<AccountExecutive | undefined>;
+  getAllAccountExecutives(): Promise<AccountExecutive[]>;
+  createAccountExecutive(ae: InsertAccountExecutive): Promise<AccountExecutive>;
+  updateAccountExecutive(id: string, updates: Partial<InsertAccountExecutive>): Promise<AccountExecutive | undefined>;
+  deleteAccountExecutive(id: string): Promise<boolean>;
   
   getLead(id: string): Promise<Lead | undefined>;
   getLeadByEmail(email: string): Promise<Lead | undefined>;
@@ -173,6 +180,30 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSdr(id: string): Promise<boolean> {
     await db.delete(sdrs).where(eq(sdrs.id, id));
+    return true;
+  }
+
+  async getAccountExecutive(id: string): Promise<AccountExecutive | undefined> {
+    const [ae] = await db.select().from(accountExecutives).where(eq(accountExecutives.id, id));
+    return ae;
+  }
+
+  async getAllAccountExecutives(): Promise<AccountExecutive[]> {
+    return await db.select().from(accountExecutives).where(eq(accountExecutives.isActive, true));
+  }
+
+  async createAccountExecutive(ae: InsertAccountExecutive): Promise<AccountExecutive> {
+    const [created] = await db.insert(accountExecutives).values(ae).returning();
+    return created;
+  }
+
+  async updateAccountExecutive(id: string, updates: Partial<InsertAccountExecutive>): Promise<AccountExecutive | undefined> {
+    const [updated] = await db.update(accountExecutives).set(updates).where(eq(accountExecutives.id, id)).returning();
+    return updated;
+  }
+
+  async deleteAccountExecutive(id: string): Promise<boolean> {
+    await db.update(accountExecutives).set({ isActive: false }).where(eq(accountExecutives.id, id));
     return true;
   }
 

@@ -80,6 +80,22 @@ export const insertSdrSchema = createInsertSchema(sdrs).omit({ createdAt: true }
 export type InsertSdr = z.infer<typeof insertSdrSchema>;
 export type Sdr = typeof sdrs.$inferSelect;
 
+// Account Executives Directory
+export const accountExecutives = pgTable("account_executives", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  phone: text("phone"),
+  region: text("region"),
+  specialty: text("specialty"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertAccountExecutiveSchema = createInsertSchema(accountExecutives).omit({ id: true, createdAt: true });
+export type InsertAccountExecutive = z.infer<typeof insertAccountExecutiveSchema>;
+export type AccountExecutive = typeof accountExecutives.$inferSelect;
+
 // Lead Status enum for tracking pipeline progression
 export const leadStatusEnum = ["new", "researching", "contacted", "engaged", "qualified", "handed_off", "converted", "lost"] as const;
 export type LeadStatus = typeof leadStatusEnum[number];

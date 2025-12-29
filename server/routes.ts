@@ -831,12 +831,16 @@ export async function registerRoutes(
       
       const sdrInfo = sdr || {
         id: user.id,
-        name: user.fullName || user.username,
-        email: user.email || `${user.username}@unknown.com`,
+        name: user.name,
+        email: user.email,
         phone: null,
         managerId: null,
         region: "Unknown",
         createdAt: new Date(),
+        managerEmail: "",
+        gender: "neutral" as const,
+        timezone: null,
+        isActive: true,
       };
 
       const existingAnalysis = await storage.getManagerCallAnalysisByCallSession(id);
@@ -888,6 +892,184 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Manager analysis fetch by call session error:", error);
       res.status(500).json({ message: "Failed to fetch manager analysis" });
+    }
+  });
+
+  // Account Executive Routes
+  app.get("/api/account-executives", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const aes = await storage.getAllAccountExecutives();
+      res.json(aes);
+    } catch (error) {
+      console.error("Account executives fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch account executives" });
+    }
+  });
+
+  app.post("/api/account-executives", requireRole("admin"), async (req: Request, res: Response) => {
+    try {
+      const { insertAccountExecutiveSchema } = await import("@shared/schema");
+      const parsed = insertAccountExecutiveSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid account executive data", errors: parsed.error.flatten() });
+      }
+      const ae = await storage.createAccountExecutive(parsed.data);
+      res.status(201).json(ae);
+    } catch (error) {
+      console.error("Account executive create error:", error);
+      res.status(500).json({ message: "Failed to create account executive" });
+    }
+  });
+
+  app.post("/api/call-sessions/:id/send-to-ae", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const sendToAeSchema = z.object({
+        aeId: z.string().uuid("Invalid account executive ID"),
+        leadId: z.string().uuid("Invalid lead ID").optional()
+      });
+      const parsed = sendToAeSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request data", errors: parsed.error.flatten() });
+      }
+      const { aeId, leadId } = parsed.data;
+
+      const callSession = await storage.getCallSession(id);
+      if (!callSession) {
+        return res.status(404).json({ message: "Call session not found" });
+      }
+
+      const ae = await storage.getAccountExecutive(aeId);
+      if (!ae) {
+        return res.status(404).json({ message: "Account executive not found" });
+      }
+
+      let lead = null;
+      if (leadId) {
+        lead = await storage.getLead(leadId);
+      }
+
+      const user = await storage.getUser(callSession.userId);
+      const sdrName = user?.name || "SDR";
+
+      const { sendFeedbackEmail } = await import("./google/gmailClient");
+
+      const appUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
+        : "https://lead-intel.replit.app";
+      const transcriptLink = `${appUrl}/coaching?call=${id}`;
+
+      const callDate = callSession.startedAt ? new Date(callSession.startedAt).toLocaleDateString("en-US", {
+        weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit"
+      }) : "Recent call";
+
+      const summaryHtml = `
+        <html>
+          <head>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1f2937; background-color: #f9fafb; margin: 0; padding: 20px; }
+              .container { max-width: 640px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+              .header { background-color: #059669; color: #ffffff; padding: 24px 32px; }
+              .header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+              .header .meta { color: #d1fae5; font-size: 14px; margin-top: 8px; }
+              .content { padding: 32px; }
+              .section { margin-bottom: 24px; }
+              .section h3 { font-size: 14px; font-weight: 600; color: #6b7280; text-transform: uppercase; margin: 0 0 12px 0; }
+              .section p, .section ul { color: #374151; font-size: 15px; margin: 0; }
+              .section ul { padding-left: 20px; }
+              .section li { margin-bottom: 8px; }
+              .cta { display: inline-block; background-color: #059669; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; }
+              .footer { padding: 20px 32px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; }
+              .footer p { margin: 0; font-size: 12px; color: #9ca3af; text-align: center; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>Lead Handoff - ${lead?.companyName || "Qualified Lead"}</h1>
+                <div class="meta">From ${sdrName} - ${callDate}</div>
+              </div>
+              
+              <div class="content">
+                ${lead ? `
+                <div class="section">
+                  <h3>Lead Information</h3>
+                  <p><strong>Company:</strong> ${lead.companyName}</p>
+                  <p><strong>Contact:</strong> ${lead.contactName}</p>
+                  ${lead.contactTitle ? `<p><strong>Title:</strong> ${lead.contactTitle}</p>` : ""}
+                  <p><strong>Email:</strong> ${lead.contactEmail}</p>
+                  ${lead.contactPhone ? `<p><strong>Phone:</strong> ${lead.contactPhone}</p>` : ""}
+                </div>
+                ` : ""}
+
+                <div class="section">
+                  <h3>Call Summary</h3>
+                  ${callSession.managerSummary ? (() => {
+                    try {
+                      const parsed = JSON.parse(callSession.managerSummary);
+                      if (Array.isArray(parsed)) {
+                        return `<ul>${parsed.map((item: string) => `<li>${item}</li>`).join("")}</ul>`;
+                      }
+                      return `<p>${callSession.managerSummary}</p>`;
+                    } catch {
+                      return `<p>${callSession.managerSummary}</p>`;
+                    }
+                  })() : "<p>No summary available</p>"}
+                </div>
+
+                ${callSession.coachingNotes ? `
+                <div class="section">
+                  <h3>Call Analysis</h3>
+                  <p>${callSession.coachingNotes}</p>
+                </div>
+                ` : ""}
+
+                ${callSession.keyTakeaways ? `
+                <div class="section">
+                  <h3>Key Takeaways</h3>
+                  <p>${callSession.keyTakeaways}</p>
+                </div>
+                ` : ""}
+
+                ${callSession.nextSteps ? `
+                <div class="section">
+                  <h3>Next Steps</h3>
+                  <p>${callSession.nextSteps}</p>
+                </div>
+                ` : ""}
+
+                <div class="section">
+                  <a href="${transcriptLink}" class="cta">View Full Transcript</a>
+                </div>
+              </div>
+              
+              <div class="footer">
+                <p>Sent via Lead Intel - Hawk Ridge Systems</p>
+              </div>
+            </div>
+          </body>
+        </html>
+      `;
+
+      await sendFeedbackEmail({
+        to: ae.email,
+        subject: `Lead Handoff: ${lead?.companyName || "Qualified Lead"} - From ${sdrName}`,
+        body: summaryHtml
+      });
+
+      if (lead) {
+        await storage.updateLead(lead.id, {
+          status: "handed_off",
+          assignedAeId: aeId,
+          handedOffAt: new Date(),
+          handedOffBy: callSession.userId
+        });
+      }
+
+      res.json({ message: "Handoff email sent successfully" });
+    } catch (error) {
+      console.error("Send to AE error:", error);
+      res.status(500).json({ message: "Failed to send handoff email" });
     }
   });
 

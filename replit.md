@@ -39,12 +39,14 @@ Preferred communication style: Simple, everyday language.
 - `users` - Authentication and role management
 - `managers` - Sales manager directory
 - `sdrs` - Sales development representatives
+- `accountExecutives` - Account executive directory for lead handoffs
 - `leads` - Lead information and status
 - `liveCoachingSessions` - Active coaching call sessions
 - `liveTranscripts` - Real-time call transcriptions
 - `liveCoachingTips` - AI-generated coaching suggestions
 - `researchPackets` - AI-researched lead intelligence
 - `conversations/messages` - Gemini chat integration
+- `managerCallAnalyses` - Manager performance scorecards for calls
 
 ### Session Configuration (Production)
 - **Trust Proxy**: `app.set("trust proxy", 1)` in server/index.ts - Required for secure cookies behind Replit's reverse proxy
