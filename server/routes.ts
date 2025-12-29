@@ -747,6 +747,17 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/call-sessions/:id/manager-analysis", requireRole("admin", "manager"), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const analysis = await storage.getManagerCallAnalysisByCallSession(id);
+      res.json(analysis || null);
+    } catch (error) {
+      console.error("Manager analysis fetch by call session error:", error);
+      res.status(500).json({ message: "Failed to fetch manager analysis" });
+    }
+  });
+
   registerLeadsRoutes(app, requireAuth);
   registerCoachRoutes(app, requireAuth);
   registerTwilioVoiceRoutes(app);

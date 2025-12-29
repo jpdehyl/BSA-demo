@@ -13,10 +13,12 @@ import { useTranscription } from "@/hooks/use-transcription";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSearch } from "wouter";
-import { Phone, MessageSquare, Clock, Activity, Lightbulb, Wifi, WifiOff, History, ChevronDown, FileText, Play, User, Building2, Target, HelpCircle, Sparkles, Loader2, Calculator } from "lucide-react";
+import { Phone, MessageSquare, Clock, Activity, Lightbulb, Wifi, WifiOff, History, ChevronDown, FileText, Play, User, Building2, Target, HelpCircle, Sparkles, Loader2, Calculator, BarChart3, CheckCircle, XCircle, AlertCircle, TrendingUp } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { CallSession, Lead, ResearchPacket } from "@shared/schema";
+import type { CallSession, Lead, ResearchPacket, ManagerCallAnalysis } from "@shared/schema";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function CoachingPage() {
   const { user } = useAuth();
@@ -113,6 +115,35 @@ export default function CoachingPage() {
     },
   });
   const [analysisResult, setAnalysisResult] = useState<{ managerSummary: string[]; coachingMessage: string } | null>(null);
+  const [managerAnalysis, setManagerAnalysis] = useState<ManagerCallAnalysis | null>(null);
+  const [loadingExistingAnalysis, setLoadingExistingAnalysis] = useState(false);
+
+  useEffect(() => {
+    if (selectedCall && (user?.role === "admin" || user?.role === "manager")) {
+      setLoadingExistingAnalysis(true);
+      fetch(`/api/call-sessions/${selectedCall.id}/manager-analysis`, { credentials: "include" })
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data) setManagerAnalysis(data);
+        })
+        .catch(() => {})
+        .finally(() => setLoadingExistingAnalysis(false));
+    }
+  }, [selectedCall, user?.role]);
+
+  const managerAnalysisMutation = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const res = await apiRequest("POST", `/api/call-sessions/${sessionId}/manager-analysis`, {});
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setManagerAnalysis(data);
+      toast({ title: "Manager Analysis Complete", description: "Detailed performance scorecard generated" });
+    },
+    onError: () => {
+      toast({ title: "Analysis Failed", description: "Could not generate manager analysis", variant: "destructive" });
+    },
+  });
 
   const analyzeMutation = useMutation({
     mutationFn: async (sessionId: string) => {
@@ -482,6 +513,7 @@ export default function CoachingPage() {
         if (!open) {
           setSelectedCall(null);
           setAnalysisResult(null);
+          setManagerAnalysis(null);
         }
       }}>
         <DialogContent className="max-w-2xl">
@@ -516,22 +548,176 @@ export default function CoachingPage() {
                 </Button>
               )}
               {selectedCall?.status === "completed" && selectedCall?.transcriptText && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => selectedCall.id && analyzeMutation.mutate(selectedCall.id)}
-                  disabled={analyzeMutation.isPending}
-                  data-testid="button-analyze-call"
-                >
-                  {analyzeMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-4 w-4 mr-1" />
+                <>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => selectedCall.id && analyzeMutation.mutate(selectedCall.id)}
+                    disabled={analyzeMutation.isPending}
+                    data-testid="button-analyze-call"
+                  >
+                    {analyzeMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4 mr-1" />
+                    )}
+                    Analyze Call
+                  </Button>
+                  {(user?.role === "admin" || user?.role === "manager") && !managerAnalysis && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => selectedCall.id && managerAnalysisMutation.mutate(selectedCall.id)}
+                      disabled={managerAnalysisMutation.isPending || loadingExistingAnalysis}
+                      data-testid="button-manager-analysis"
+                    >
+                      {managerAnalysisMutation.isPending || loadingExistingAnalysis ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <BarChart3 className="h-4 w-4 mr-1" />
+                      )}
+                      Manager Scorecard
+                    </Button>
                   )}
-                  Analyze Call
-                </Button>
+                </>
               )}
             </div>
+
+            {managerAnalysis && (
+              <div className="space-y-4">
+                <div className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 rounded-md border border-purple-200 dark:border-purple-800">
+                  <h4 className="text-lg font-semibold mb-4 flex items-center gap-2 text-purple-900 dark:text-purple-100">
+                    <BarChart3 className="h-5 w-5" />
+                    Manager Performance Scorecard
+                  </h4>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <div className="text-center p-3 bg-white/50 dark:bg-black/20 rounded-md">
+                      <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">{managerAnalysis.overallScore}</p>
+                      <p className="text-xs text-muted-foreground">Overall Score</p>
+                    </div>
+                    {[
+                      { label: "Opening", score: managerAnalysis.openingScore },
+                      { label: "Discovery", score: managerAnalysis.discoveryScore },
+                      { label: "Listening", score: managerAnalysis.listeningScore },
+                    ].map(({ label, score }) => (
+                      <div key={label} className="text-center p-2 bg-white/50 dark:bg-black/20 rounded-md">
+                        <p className="text-xl font-semibold">{score}</p>
+                        <p className="text-xs text-muted-foreground">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    {[
+                      { label: "Objection Handling", score: managerAnalysis.objectionScore },
+                      { label: "Value Prop", score: managerAnalysis.valuePropositionScore },
+                      { label: "Closing", score: managerAnalysis.closingScore },
+                      { label: "Compliance", score: managerAnalysis.complianceScore },
+                    ].map(({ label, score }) => (
+                      <div key={label} className="text-center p-2 bg-white/50 dark:bg-black/20 rounded-md">
+                        <p className="text-xl font-semibold">{score}</p>
+                        <p className="text-xs text-muted-foreground">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Tabs defaultValue="observations" className="w-full">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="observations" data-testid="tab-observations">Observations</TabsTrigger>
+                    <TabsTrigger value="recommendations" data-testid="tab-recommendations">Recommendations</TabsTrigger>
+                    <TabsTrigger value="criteria" data-testid="tab-criteria">Criteria Met</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="observations" className="mt-3">
+                    <ScrollArea className="h-[200px]">
+                      <div className="space-y-2 pr-2">
+                        {(() => {
+                          try {
+                            const obs = JSON.parse(managerAnalysis.keyObservations || "[]");
+                            return obs.map((item: { category?: string; observation?: string; quote?: string }, i: number) => (
+                              <div key={i} className="p-3 bg-muted/50 rounded-md">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge variant="outline" className="text-xs">{item.category || "General"}</Badge>
+                                </div>
+                                <p className="text-sm">{item.observation}</p>
+                                {item.quote && (
+                                  <p className="text-xs text-muted-foreground italic mt-1">"{item.quote}"</p>
+                                )}
+                              </div>
+                            ));
+                          } catch {
+                            return <p className="text-sm text-muted-foreground">{managerAnalysis.keyObservations}</p>;
+                          }
+                        })()}
+                      </div>
+                    </ScrollArea>
+                  </TabsContent>
+                  
+                  <TabsContent value="recommendations" className="mt-3">
+                    <ScrollArea className="h-[200px]">
+                      <div className="space-y-2 pr-2">
+                        {(() => {
+                          try {
+                            const recs = JSON.parse(managerAnalysis.recommendations || "[]");
+                            return recs.map((item: { priority?: string; recommendation?: string; action?: string }, i: number) => (
+                              <div key={i} className="p-3 bg-muted/50 rounded-md">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge 
+                                    variant={item.priority === "high" ? "destructive" : item.priority === "medium" ? "secondary" : "outline"}
+                                    className="text-xs"
+                                  >
+                                    {item.priority || "normal"}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm font-medium">{item.recommendation}</p>
+                                {item.action && (
+                                  <p className="text-xs text-muted-foreground mt-1">Action: {item.action}</p>
+                                )}
+                              </div>
+                            ));
+                          } catch {
+                            return <p className="text-sm text-muted-foreground">{managerAnalysis.recommendations}</p>;
+                          }
+                        })()}
+                      </div>
+                    </ScrollArea>
+                  </TabsContent>
+                  
+                  <TabsContent value="criteria" className="mt-3">
+                    <ScrollArea className="h-[200px]">
+                      <div className="space-y-2 pr-2">
+                        {(() => {
+                          try {
+                            const criteria = JSON.parse(managerAnalysis.criteriaComparison || "[]");
+                            return criteria.map((item: { criterion?: string; status?: string; notes?: string }, i: number) => (
+                              <div key={i} className="p-3 bg-muted/50 rounded-md flex items-start gap-3">
+                                {item.status === "met" || item.status === "exceeded" ? (
+                                  <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                                ) : item.status === "missed" ? (
+                                  <XCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                                ) : (
+                                  <AlertCircle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                                )}
+                                <div>
+                                  <p className="text-sm font-medium">{item.criterion}</p>
+                                  {item.notes && (
+                                    <p className="text-xs text-muted-foreground mt-1">{item.notes}</p>
+                                  )}
+                                </div>
+                              </div>
+                            ));
+                          } catch {
+                            return <p className="text-sm text-muted-foreground">{managerAnalysis.criteriaComparison}</p>;
+                          }
+                        })()}
+                      </div>
+                    </ScrollArea>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            )}
 
             {analysisResult && (
               <div className="space-y-3">
