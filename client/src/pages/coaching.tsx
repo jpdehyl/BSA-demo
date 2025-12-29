@@ -13,7 +13,7 @@ import { useTranscription } from "@/hooks/use-transcription";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSearch } from "wouter";
-import { Phone, MessageSquare, Clock, Activity, Lightbulb, Wifi, WifiOff, History, ChevronDown, FileText, Play, User, Building2, Target, HelpCircle, Sparkles, Loader2, Calculator, BarChart3, CheckCircle, XCircle, AlertCircle, TrendingUp, Send } from "lucide-react";
+import { Phone, MessageSquare, Clock, Activity, Lightbulb, Wifi, WifiOff, History, ChevronDown, FileText, Play, User, Building2, Target, HelpCircle, Sparkles, Loader2, Calculator, BarChart3, CheckCircle, XCircle, AlertCircle, TrendingUp, Send, Trophy, Zap, Award } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AccountExecutive } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -22,6 +22,34 @@ import type { CallSession, Lead, ResearchPacket, ManagerCallAnalysis } from "@sh
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+interface PerformanceSummary {
+  stats: {
+    callsLast7Days: number;
+    completedCallsLast7Days: number;
+    talkTimeMinutes: number;
+    analyzedCalls: number;
+  };
+  latestCoaching: {
+    id: string;
+    callDate: string;
+    toNumber: string;
+    duration: number | null;
+    coachingNotes: string;
+    disposition: string | null;
+  } | null;
+  winHighlight: { text: string; callDate: string } | null;
+  focusArea: { skill: string; suggestion: string } | null;
+  weeklyTrend: { week: string; calls: number; talkTime: number }[];
+  recentCalls: {
+    id: string;
+    callDate: string;
+    toNumber: string;
+    duration: number | null;
+    coachingNotes: string;
+    disposition: string | null;
+  }[];
+}
+
 export default function CoachingPage() {
   const { user } = useAuth();
   const searchString = useSearch();
@@ -29,6 +57,7 @@ export default function CoachingPage() {
   const leadIdParam = params.get("leadId");
   const phoneParam = params.get("phone");
   
+  const [activeTab, setActiveTab] = useState<string>("live");
   const [currentCallSid, setCurrentCallSid] = useState<string | null>(null);
   const [currentPhoneNumber, setCurrentPhoneNumber] = useState<string | null>(null);
   const [callStartTime, setCallStartTime] = useState<Date | null>(null);
@@ -56,6 +85,12 @@ export default function CoachingPage() {
   const { data: callHistory = [], isLoading: historyLoading } = useQuery<CallSession[]>({
     queryKey: ["/api/call-sessions"],
     enabled: historyOpen,
+  });
+
+  const { data: performanceSummary, isLoading: performanceLoading } = useQuery<PerformanceSummary>({
+    queryKey: ["/api/coach/performance-summary"],
+    enabled: activeTab === "performance",
+    refetchOnWindowFocus: false,
   });
 
   const {
@@ -192,9 +227,9 @@ export default function CoachingPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold" data-testid="text-page-title">Live Coaching</h1>
+          <h1 className="text-2xl font-semibold" data-testid="text-page-title">Coaching Center</h1>
           <p className="text-muted-foreground">
-            Make calls and receive real-time AI coaching tips during your conversations.
+            Make calls, get AI coaching, and track your performance.
           </p>
         </div>
         <Badge 
@@ -216,7 +251,20 @@ export default function CoachingPage() {
         </Badge>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="live" className="flex items-center gap-2" data-testid="tab-live-coaching">
+            <Phone className="h-4 w-4" />
+            Live Coaching
+          </TabsTrigger>
+          <TabsTrigger value="performance" className="flex items-center gap-2" data-testid="tab-my-performance">
+            <TrendingUp className="h-4 w-4" />
+            My Performance
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="live" className="mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-4">
           <Softphone onCallStart={handleCallStart} onCallEnd={handleCallEnd} isAuthenticated={!!user} initialPhoneNumber={phoneParam || undefined} />
           
@@ -534,6 +582,201 @@ export default function CoachingPage() {
           </div>
         </div>
       </div>
+        </TabsContent>
+
+        <TabsContent value="performance" className="mt-6">
+          {performanceLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-md">
+                        <Phone className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-semibold" data-testid="text-calls-7days">
+                          {performanceSummary?.stats.callsLast7Days || 0}
+                        </p>
+                        <p className="text-sm text-muted-foreground">Calls (7 days)</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-md">
+                        <Clock className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-semibold" data-testid="text-talk-time-7days">
+                          {performanceSummary?.stats.talkTimeMinutes || 0}m
+                        </p>
+                        <p className="text-sm text-muted-foreground">Talk Time</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-md">
+                        <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-semibold" data-testid="text-analyzed-calls">
+                          {performanceSummary?.stats.analyzedCalls || 0}
+                        </p>
+                        <p className="text-sm text-muted-foreground">Analyzed Calls</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-md">
+                        <CheckCircle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-semibold" data-testid="text-completed-calls">
+                          {performanceSummary?.stats.completedCallsLast7Days || 0}
+                        </p>
+                        <p className="text-sm text-muted-foreground">Completed</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="border-2 border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-green-100 dark:bg-green-900 rounded-md">
+                        <Trophy className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      </div>
+                      <CardTitle className="text-lg text-green-900 dark:text-green-100">Win Replay</CardTitle>
+                    </div>
+                    <CardDescription className="text-green-700 dark:text-green-300">
+                      Your latest coaching highlight
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {performanceSummary?.winHighlight ? (
+                      <div className="p-4 bg-white dark:bg-green-950/50 rounded-md border border-green-200 dark:border-green-800">
+                        <p className="text-sm text-green-900 dark:text-green-100 leading-relaxed">
+                          "{performanceSummary.winHighlight.text}"
+                        </p>
+                        <p className="text-xs text-green-600 dark:text-green-400 mt-3">
+                          From call on {new Date(performanceSummary.winHighlight.callDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-green-600 dark:text-green-400">
+                        <Trophy className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">Complete some calls to see your wins!</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="border-2 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-amber-100 dark:bg-amber-900 rounded-md">
+                        <Zap className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                      </div>
+                      <CardTitle className="text-lg text-amber-900 dark:text-amber-100">Focus This Week</CardTitle>
+                    </div>
+                    <CardDescription className="text-amber-700 dark:text-amber-300">
+                      Your top skill to work on
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {performanceSummary?.focusArea ? (
+                      <div className="p-4 bg-white dark:bg-amber-950/50 rounded-md border border-amber-200 dark:border-amber-800">
+                        <Badge className="bg-amber-600 text-white mb-2">
+                          {performanceSummary.focusArea.skill}
+                        </Badge>
+                        <p className="text-sm text-amber-900 dark:text-amber-100 leading-relaxed">
+                          {performanceSummary.focusArea.suggestion}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-amber-600 dark:text-amber-400">
+                        <Zap className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">Complete some calls to get coaching tips!</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Award className="h-5 w-5" />
+                    <CardTitle>Recent Coaching Insights</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Your latest call analyses and personalized feedback
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {performanceSummary?.recentCalls && performanceSummary.recentCalls.length > 0 ? (
+                    <ScrollArea className="h-[300px]">
+                      <div className="space-y-4 pr-4">
+                        {performanceSummary.recentCalls.map((call) => (
+                          <div
+                            key={call.id}
+                            className="p-4 bg-muted/50 rounded-md border"
+                            data-testid={`performance-call-${call.id}`}
+                          >
+                            <div className="flex items-center justify-between gap-2 mb-3">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary">
+                                  {call.toNumber}
+                                </Badge>
+                                {call.disposition && (
+                                  <Badge variant="outline">{call.disposition}</Badge>
+                                )}
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                {call.callDate ? new Date(call.callDate).toLocaleDateString() : ""}
+                                {call.duration && ` - ${Math.round(call.duration / 60)}m`}
+                              </span>
+                            </div>
+                            <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                              {call.coachingNotes.split('\n').map((line, i) => (
+                                <p key={i} className="mb-2">{line}</p>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Lightbulb className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No analyzed calls yet.</p>
+                      <p className="text-sm mt-1">Complete calls and get AI analysis to see insights here.</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={!!selectedCall} onOpenChange={(open) => { 
         if (!open) {
@@ -802,70 +1045,12 @@ export default function CoachingPage() {
               </div>
             )}
 
-            {analysisResult && (
-              <div className="space-y-3">
-                <div className="p-4 bg-primary/5 rounded-md border border-primary/20">
-                  <h4 className="text-sm font-medium mb-2 flex items-center gap-2 text-primary">
-                    <Sparkles className="h-4 w-4" />
-                    Manager Summary
-                  </h4>
-                  <ul className="space-y-1 text-sm list-disc list-inside">
-                    {analysisResult.managerSummary.map((item, i) => (
-                      <li key={i}>{item}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-900">
-                  <h4 className="text-sm font-medium mb-2 flex items-center gap-2 text-blue-900 dark:text-blue-100">
-                    <Lightbulb className="h-4 w-4" />
-                    Personalized Coaching
-                  </h4>
-                  <p className="text-sm text-blue-700 dark:text-blue-300 whitespace-pre-wrap">
-                    {analysisResult.coachingMessage}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {(selectedCall?.managerSummary || selectedCall?.coachingNotes) && !analysisResult && (
-              <div className="space-y-3">
-                {selectedCall.managerSummary && (
-                  <div className="p-4 bg-primary/5 rounded-md border border-primary/20">
-                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2 text-primary">
-                      <Sparkles className="h-4 w-4" />
-                      Manager Summary
-                    </h4>
-                    {(() => {
-                      try {
-                        const parsed = JSON.parse(selectedCall.managerSummary);
-                        if (Array.isArray(parsed)) {
-                          return (
-                            <ul className="space-y-1 text-sm list-disc list-inside">
-                              {parsed.map((item: string, i: number) => (
-                                <li key={i}>{item}</li>
-                              ))}
-                            </ul>
-                          );
-                        }
-                        return <p className="text-sm whitespace-pre-wrap">{selectedCall.managerSummary}</p>;
-                      } catch {
-                        return <p className="text-sm whitespace-pre-wrap">{selectedCall.managerSummary}</p>;
-                      }
-                    })()}
-                  </div>
-                )}
-                {selectedCall.coachingNotes && (
-                  <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-900">
-                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2 text-blue-900 dark:text-blue-100">
-                      <Lightbulb className="h-4 w-4" />
-                      Coaching Notes
-                    </h4>
-                    <p className="text-sm text-blue-700 dark:text-blue-300 whitespace-pre-wrap">
-                      {selectedCall.coachingNotes}
-                    </p>
-                  </div>
-                )}
+            {selectedCall?.coachingNotes && (
+              <div className="p-3 bg-green-50 dark:bg-green-950/30 rounded-md border border-green-200 dark:border-green-800">
+                <p className="text-sm text-green-700 dark:text-green-300 flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  Coaching feedback available in the "My Performance" tab
+                </p>
               </div>
             )}
             

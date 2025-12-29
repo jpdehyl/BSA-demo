@@ -349,4 +349,136 @@ export function registerCoachRoutes(app: Express, requireAuth: (req: Request, re
       res.status(500).json({ message: "Failed to generate monthly report" });
     }
   });
+
+  app.get("/api/coach/performance-summary", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = req.session.userId!;
+      const allSessions = await storage.getCallSessionsByUser(userId);
+      
+      const now = new Date();
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      
+      const last7DaysSessions = allSessions.filter(s => {
+        const sessionDate = s.startedAt ? new Date(s.startedAt) : null;
+        return sessionDate && sessionDate >= sevenDaysAgo;
+      });
+      
+      const completedLast7Days = last7DaysSessions.filter(s => s.status === "completed");
+      const totalTalkTimeSeconds = completedLast7Days.reduce((sum, s) => sum + (s.duration || 0), 0);
+      
+      const analyzedCalls = allSessions
+        .filter(s => s.coachingNotes && s.coachingNotes.length > 0)
+        .sort((a, b) => {
+          const dateA = a.startedAt ? new Date(a.startedAt).getTime() : 0;
+          const dateB = b.startedAt ? new Date(b.startedAt).getTime() : 0;
+          return dateB - dateA;
+        });
+      
+      const latestAnalyzedCall = analyzedCalls[0] || null;
+      
+      let winHighlight: { text: string; callDate: string } | null = null;
+      let focusArea: { skill: string; suggestion: string } | null = null;
+      
+      if (latestAnalyzedCall?.coachingNotes) {
+        const notes = latestAnalyzedCall.coachingNotes;
+        
+        const positivePatterns = [
+          /great job[^.!]*[.!]/gi,
+          /well done[^.!]*[.!]/gi,
+          /excellent[^.!]*[.!]/gi,
+          /good work[^.!]*[.!]/gi,
+          /nicely[^.!]*[.!]/gi,
+          /strong[^.!]*[.!]/gi,
+        ];
+        
+        for (const pattern of positivePatterns) {
+          const match = notes.match(pattern);
+          if (match) {
+            winHighlight = {
+              text: match[0].trim(),
+              callDate: latestAnalyzedCall.startedAt?.toISOString() || new Date().toISOString(),
+            };
+            break;
+          }
+        }
+        
+        const improvementPatterns = [
+          /try[^.!]*[.!]/gi,
+          /consider[^.!]*[.!]/gi,
+          /work on[^.!]*[.!]/gi,
+          /focus on[^.!]*[.!]/gi,
+          /next time[^.!]*[.!]/gi,
+          /could[^.!]*[.!]/gi,
+        ];
+        
+        for (const pattern of improvementPatterns) {
+          const match = notes.match(pattern);
+          if (match) {
+            focusArea = {
+              skill: "Coaching Tip",
+              suggestion: match[0].trim(),
+            };
+            break;
+          }
+        }
+      }
+      
+      const last30DaysSessions = allSessions.filter(s => {
+        const sessionDate = s.startedAt ? new Date(s.startedAt) : null;
+        return sessionDate && sessionDate >= thirtyDaysAgo;
+      });
+      
+      const weeklyTrend: { week: string; calls: number; talkTime: number }[] = [];
+      for (let i = 3; i >= 0; i--) {
+        const weekStart = new Date(now.getTime() - (i + 1) * 7 * 24 * 60 * 60 * 1000);
+        const weekEnd = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
+        
+        const weekSessions = last30DaysSessions.filter(s => {
+          const sessionDate = s.startedAt ? new Date(s.startedAt) : null;
+          return sessionDate && sessionDate >= weekStart && sessionDate < weekEnd;
+        });
+        
+        const weekCompleted = weekSessions.filter(s => s.status === "completed");
+        const weekTalkTime = weekCompleted.reduce((sum, s) => sum + (s.duration || 0), 0);
+        
+        weeklyTrend.push({
+          week: `Week ${4 - i}`,
+          calls: weekSessions.length,
+          talkTime: Math.round(weekTalkTime / 60),
+        });
+      }
+      
+      res.json({
+        stats: {
+          callsLast7Days: last7DaysSessions.length,
+          completedCallsLast7Days: completedLast7Days.length,
+          talkTimeMinutes: Math.round(totalTalkTimeSeconds / 60),
+          analyzedCalls: analyzedCalls.length,
+        },
+        latestCoaching: latestAnalyzedCall ? {
+          id: latestAnalyzedCall.id,
+          callDate: latestAnalyzedCall.startedAt?.toISOString(),
+          toNumber: latestAnalyzedCall.toNumber,
+          duration: latestAnalyzedCall.duration,
+          coachingNotes: latestAnalyzedCall.coachingNotes,
+          disposition: latestAnalyzedCall.disposition,
+        } : null,
+        winHighlight,
+        focusArea,
+        weeklyTrend,
+        recentCalls: analyzedCalls.slice(0, 5).map(c => ({
+          id: c.id,
+          callDate: c.startedAt?.toISOString(),
+          toNumber: c.toNumber,
+          duration: c.duration,
+          coachingNotes: c.coachingNotes,
+          disposition: c.disposition,
+        })),
+      });
+    } catch (error) {
+      console.error("Performance summary error:", error);
+      res.status(500).json({ message: "Failed to generate performance summary" });
+    }
+  });
 }
