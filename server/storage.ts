@@ -8,9 +8,10 @@ import {
   type LiveTranscript, type InsertLiveTranscript,
   type ResearchPacket, type InsertResearchPacket,
   type CallSession, type InsertCallSession,
+  type ManagerCallAnalysis, type InsertManagerCallAnalysis,
   users, managers, sdrs, leads, 
   liveCoachingSessions, liveCoachingTips, liveTranscripts, researchPackets,
-  callSessions
+  callSessions, managerCallAnalyses
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, isNull, desc, inArray, sql } from "drizzle-orm";
@@ -72,6 +73,12 @@ export interface IStorage {
   createCallSession(session: InsertCallSession): Promise<CallSession>;
   updateCallSession(id: string, updates: Partial<InsertCallSession>): Promise<CallSession | undefined>;
   updateCallSessionByCallSid(callSid: string, updates: Partial<InsertCallSession>): Promise<CallSession | undefined>;
+  
+  createManagerCallAnalysis(analysis: InsertManagerCallAnalysis): Promise<ManagerCallAnalysis>;
+  getManagerCallAnalysis(id: string): Promise<ManagerCallAnalysis | undefined>;
+  getManagerCallAnalysisByCallSession(callSessionId: string): Promise<ManagerCallAnalysis | undefined>;
+  getManagerCallAnalysesBySdr(sdrId: string): Promise<ManagerCallAnalysis[]>;
+  getAllManagerCallAnalyses(): Promise<ManagerCallAnalysis[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -340,6 +347,31 @@ export class DatabaseStorage implements IStorage {
   async updateCallSessionByCallSid(callSid: string, updates: Partial<InsertCallSession>): Promise<CallSession | undefined> {
     const [session] = await db.update(callSessions).set(updates).where(eq(callSessions.callSid, callSid)).returning();
     return session;
+  }
+
+  async createManagerCallAnalysis(analysis: InsertManagerCallAnalysis): Promise<ManagerCallAnalysis> {
+    const [result] = await db.insert(managerCallAnalyses).values(analysis).returning();
+    return result;
+  }
+
+  async getManagerCallAnalysis(id: string): Promise<ManagerCallAnalysis | undefined> {
+    const [result] = await db.select().from(managerCallAnalyses).where(eq(managerCallAnalyses.id, id));
+    return result;
+  }
+
+  async getManagerCallAnalysisByCallSession(callSessionId: string): Promise<ManagerCallAnalysis | undefined> {
+    const [result] = await db.select().from(managerCallAnalyses).where(eq(managerCallAnalyses.callSessionId, callSessionId));
+    return result;
+  }
+
+  async getManagerCallAnalysesBySdr(sdrId: string): Promise<ManagerCallAnalysis[]> {
+    return db.select().from(managerCallAnalyses)
+      .where(eq(managerCallAnalyses.sdrId, sdrId))
+      .orderBy(desc(managerCallAnalyses.analyzedAt));
+  }
+
+  async getAllManagerCallAnalyses(): Promise<ManagerCallAnalysis[]> {
+    return db.select().from(managerCallAnalyses).orderBy(desc(managerCallAnalyses.analyzedAt));
   }
 }
 

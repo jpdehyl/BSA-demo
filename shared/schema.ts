@@ -257,6 +257,44 @@ export const insertCallSessionSchema = createInsertSchema(callSessions).omit({
 export type InsertCallSession = z.infer<typeof insertCallSessionSchema>;
 export type CallSession = typeof callSessions.$inferSelect;
 
+// Manager Call Analyses - Detailed performance tracking for managers
+export const managerCallAnalyses = pgTable("manager_call_analyses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  callSessionId: varchar("call_session_id").references(() => callSessions.id).notNull(),
+  sdrId: text("sdr_id").notNull(),
+  sdrName: text("sdr_name").notNull(),
+  callDate: timestamp("call_date").notNull(),
+  callType: text("call_type"),
+  durationSeconds: integer("duration_seconds"),
+  overallScore: integer("overall_score").notNull(),
+  openingScore: integer("opening_score"),
+  discoveryScore: integer("discovery_score"),
+  listeningScore: integer("listening_score"),
+  objectionScore: integer("objection_score"),
+  valuePropositionScore: integer("value_proposition_score"),
+  closingScore: integer("closing_score"),
+  complianceScore: integer("compliance_score"),
+  keyObservations: text("key_observations"),
+  criteriaComparison: text("criteria_comparison"),
+  recommendations: text("recommendations"),
+  managerNotes: text("manager_notes"),
+  summary: text("summary"),
+  fullAnalysis: text("full_analysis"),
+  transcript: text("transcript"),
+  emailSentTo: text("email_sent_to"),
+  emailSentAt: timestamp("email_sent_at"),
+  evaluationDocId: text("evaluation_doc_id"),
+  analyzedAt: timestamp("analyzed_at").defaultNow().notNull(),
+  analyzedBy: text("analyzed_by"),
+});
+
+export const insertManagerCallAnalysisSchema = createInsertSchema(managerCallAnalyses).omit({
+  id: true,
+  analyzedAt: true,
+});
+export type InsertManagerCallAnalysis = z.infer<typeof insertManagerCallAnalysisSchema>;
+export type ManagerCallAnalysis = typeof managerCallAnalyses.$inferSelect;
+
 // Relations
 export const usersRelations = relations(users, ({ one }) => ({
   sdr: one(sdrs, {

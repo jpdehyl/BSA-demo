@@ -683,6 +683,70 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/call-sessions/:id/manager-analysis", requireRole("admin", "manager"), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      
+      const callSession = await storage.getCallSession(id);
+      if (!callSession) {
+        return res.status(404).json({ message: "Call session not found" });
+      }
+
+      if (!callSession.transcriptText) {
+        return res.status(400).json({ message: "No transcript available for analysis" });
+      }
+
+      const user = await storage.getUser(callSession.userId);
+      if (!user || !user.sdrId) {
+        return res.status(400).json({ message: "SDR not found for this call" });
+      }
+
+      const sdr = await storage.getSdr(user.sdrId);
+      if (!sdr) {
+        return res.status(400).json({ message: "SDR record not found" });
+      }
+
+      const existingAnalysis = await storage.getManagerCallAnalysisByCallSession(id);
+      if (existingAnalysis) {
+        return res.json(existingAnalysis);
+      }
+
+      const { analyzeCallForManager, saveManagerAnalysis } = await import("./ai/managerAnalysis");
+      const analysis = await analyzeCallForManager(callSession, sdr);
+      await saveManagerAnalysis(callSession, sdr, analysis);
+
+      const savedAnalysis = await storage.getManagerCallAnalysisByCallSession(id);
+      res.json(savedAnalysis || analysis);
+    } catch (error) {
+      console.error("Manager analysis error:", error);
+      res.status(500).json({ message: "Failed to analyze call for manager" });
+    }
+  });
+
+  app.get("/api/manager-analyses", requireRole("admin", "manager"), async (req: Request, res: Response) => {
+    try {
+      const analyses = await storage.getAllManagerCallAnalyses();
+      res.json(analyses);
+    } catch (error) {
+      console.error("Manager analyses fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch manager analyses" });
+    }
+  });
+
+  app.get("/api/manager-analyses/:id", requireRole("admin", "manager"), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const analysis = await storage.getManagerCallAnalysis(id);
+      if (!analysis) {
+        return res.status(404).json({ message: "Analysis not found" });
+      }
+      res.json(analysis);
+    } catch (error) {
+      console.error("Manager analysis fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch manager analysis" });
+    }
+  });
+
   registerLeadsRoutes(app, requireAuth);
   registerCoachRoutes(app, requireAuth);
   registerTwilioVoiceRoutes(app);

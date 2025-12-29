@@ -1,0 +1,175 @@
+Here's the complete prompt for Manager Call Recording Analysis:
+
+Manager Call Recording Analysis Prompt
+You are a sales performance analyst evaluating a recorded sales call for management review.
+## Evaluation Criteria (Company Standards):
+${evaluationCriteria}
+## Call Information:
+- SDR Name: ${sdrName}
+- SDR ID: ${sdrId}
+- Call Date: ${callDate}
+- Call Type: ${callType}
+- Duration: ${duration || "Not specified"}
+## Call Transcript:
+${transcript}
+## Task:
+Provide a comprehensive analysis for management review. This analysis will be stored for performance tracking and trend analysis.
+### 1. Performance Scorecard (0-100 scale for each):
+Rate each category based on the evaluation criteria document:
+- **Opening/Introduction**: Did they follow the approved opening script?
+- **Discovery Questions**: Quality and depth of questions asked
+- **Active Listening**: Evidence of hearing and responding to prospect
+- **Objection Handling**: How well did they address concerns?
+- **Value Proposition**: Did they connect solutions to prospect needs?
+- **Closing/Next Steps**: Did they secure a commitment or clear next step?
+- **Compliance**: Adherence to required disclosures and protocols
+### 2. Key Observations:
+- 3-5 specific moments from the call (with quotes where possible)
+- What worked well
+- What needs improvement
+- Any red flags or concerns
+### 3. Comparison to Standards:
+- How does this call measure against the evaluation criteria?
+- Which criteria were met/exceeded/missed?
+### 4. Actionable Recommendations:
+- 2-3 specific things this SDR should work on
+- Suggested training or coaching focus areas
+- Scripts or techniques to practice
+### 5. Manager Notes:
+- Should this call be used as a training example (positive or negative)?
+- Follow-up actions needed?
+- Escalation required?
+## Response Format (JSON only):
+{
+  "overallScore": 78,
+  "scores": {
+    "opening": 85,
+    "discovery": 72,
+    "activeListening": 80,
+    "objectionHandling": 65,
+    "valueProposition": 75,
+    "closing": 70,
+    "compliance": 95
+  },
+  "keyObservations": [
+    {"type": "strength", "observation": "Strong rapport building - 'I noticed you mentioned...'", "quote": "actual quote from transcript"},
+    {"type": "concern", "observation": "Missed opportunity to probe deeper on budget", "quote": "prospect said X, SDR moved on"},
+    {"type": "neutral", "observation": "Average pacing, could slow down during value prop"}
+  ],
+  "criteriaComparison": {
+    "met": ["Opening script followed", "Compliance disclosures complete"],
+    "exceeded": ["Rapport building exceptional"],
+    "missed": ["Did not ask all required discovery questions", "No trial close attempted"]
+  },
+  "recommendations": [
+    {"focus": "Discovery depth", "action": "Practice the 'tell me more' technique", "priority": "high"},
+    {"focus": "Objection handling", "action": "Review the 'feel, felt, found' framework", "priority": "medium"}
+  ],
+  "managerNotes": {
+    "useAsTrainingExample": false,
+    "trainingExampleType": null,
+    "followUpRequired": true,
+    "followUpAction": "1:1 coaching on discovery questions",
+    "escalationRequired": false,
+    "escalationReason": null
+  },
+  "summary": "One paragraph executive summary of this call's performance"
+}
+CRITICAL RULES:
+- Be objective and fair - cite specific evidence from the transcript
+- Scores should reflect the evaluation criteria, not general impressions
+- Recommendations must be actionable and specific
+- Flag any compliance issues immediately
+- Output ONLY valid JSON
+Database Schema for Analysis Storage
+export const managerCallAnalyses = pgTable("manager_call_analyses", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  
+  // Call identification
+  sdrId: text("sdr_id").notNull(),
+  sdrName: text("sdr_name").notNull(),
+  callDate: timestamp("call_date").notNull(),
+  callType: text("call_type"),
+  duration: integer("duration_seconds"),
+  
+  // Scores
+  overallScore: integer("overall_score").notNull(),
+  openingScore: integer("opening_score"),
+  discoveryScore: integer("discovery_score"),
+  listeningScore: integer("listening_score"),
+  objectionScore: integer("objection_score"),
+  valuePropositionScore: integer("value_proposition_score"),
+  closingScore: integer("closing_score"),
+  complianceScore: integer("compliance_score"),
+  
+  // Analysis content
+  keyObservations: text("key_observations"),       // JSON array
+  criteriaComparison: text("criteria_comparison"), // JSON object
+  recommendations: text("recommendations"),        // JSON array
+  managerNotes: text("manager_notes"),             // JSON object
+  summary: text("summary"),
+  
+  // Full data storage
+  fullAnalysis: text("full_analysis"),   // Complete JSON response
+  transcript: text("transcript"),         // Original transcript
+  
+  // Email tracking
+  emailSentTo: text("email_sent_to"),
+  emailSentAt: timestamp("email_sent_at"),
+  
+  // Metadata
+  evaluationDocId: text("evaluation_doc_id"),
+  analyzedAt: timestamp("analyzed_at").defaultNow(),
+  analyzedBy: text("analyzed_by"),  // "system" or manager ID
+});
+Email Format for Manager
+export function formatManagerAnalysisEmail(
+  analysis: ManagerCallAnalysis,
+  sdrName: string,
+  callDate: Date
+): string {
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
+      <h2>Call Analysis Report</h2>
+      <p><strong>SDR:</strong> ${sdrName}</p>
+      <p><strong>Call Date:</strong> ${formatCallDate(callDate)}</p>
+      <p><strong>Overall Score:</strong> ${analysis.overallScore}/100</p>
+      
+      <h3>Performance Scorecard</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr><td>Opening</td><td>${analysis.scores.opening}/100</td></tr>
+        <tr><td>Discovery</td><td>${analysis.scores.discovery}/100</td></tr>
+        <tr><td>Active Listening</td><td>${analysis.scores.activeListening}/100</td></tr>
+        <tr><td>Objection Handling</td><td>${analysis.scores.objectionHandling}/100</td></tr>
+        <tr><td>Value Proposition</td><td>${analysis.scores.valueProposition}/100</td></tr>
+        <tr><td>Closing</td><td>${analysis.scores.closing}/100</td></tr>
+        <tr><td>Compliance</td><td>${analysis.scores.compliance}/100</td></tr>
+      </table>
+      
+      <h3>Executive Summary</h3>
+      <p>${analysis.summary}</p>
+      
+      <h3>Key Observations</h3>
+      <ul>
+        ${analysis.keyObservations.map(o => `<li><strong>${o.type}:</strong> ${o.observation}</li>`).join('')}
+      </ul>
+      
+      <h3>Recommendations</h3>
+      <ul>
+        ${analysis.recommendations.map(r => `<li><strong>${r.focus}:</strong> ${r.action} (${r.priority} priority)</li>`).join('')}
+      </ul>
+      
+      <p style="color: #666; font-size: 12px; margin-top: 30px;">
+        Generated by GameTime.ai Call Analysis
+      </p>
+    </div>
+  `;
+}
+Implementation Plan
+Would you like me to build this? Here's what I'd create:
+
+Add managerCallAnalyses table to the database schema
+Create server/ai/managerAnalysis.ts with the analysis prompt
+Add API routes for triggering analysis and retrieving history
+Create dashboard page to view past analyses, filter by SDR, date range, scores
+Add email sending with option to specify recipient

@@ -120,6 +120,7 @@ let cachedKnowledgeBase: { content: string; fetchedAt: number } | null = null;
 let cachedPersona: { content: string; fetchedAt: number } | null = null;
 let cachedDailySummaryCriteria: { content: string; fetchedAt: number } | null = null;
 let cachedScoringParams: { content: string; fetchedAt: number } | null = null;
+let cachedEvaluationCriteria: { content: string; fetchedAt: number } | null = null;
 const CACHE_TTL = 5 * 60 * 1000;
 
 export async function getKnowledgebaseContent(): Promise<string> {
@@ -171,6 +172,19 @@ export async function getLeadScoringParameters(): Promise<string> {
   const content = await getDocumentContent(GOOGLE_CONFIG.LEAD_SCORING_PARAMS_DOC_ID);
   
   cachedScoringParams = { content, fetchedAt: Date.now() };
+  return content;
+}
+
+export async function getEvaluationCriteria(): Promise<string> {
+  if (cachedEvaluationCriteria && (Date.now() - cachedEvaluationCriteria.fetchedAt) < CACHE_TTL) {
+    console.log("[Drive] Using cached evaluation criteria");
+    return cachedEvaluationCriteria.content;
+  }
+
+  console.log("[Drive] Fetching evaluation criteria from knowledge base");
+  const content = await getDocumentContent(GOOGLE_CONFIG.KNOWLEDGE_BASE_DOC_ID);
+  
+  cachedEvaluationCriteria = { content, fetchedAt: Date.now() };
   return content;
 }
 
