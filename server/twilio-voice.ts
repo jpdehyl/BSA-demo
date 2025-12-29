@@ -3,6 +3,7 @@ import twilio from "twilio";
 import { storage } from "./storage";
 import { uploadFileToDrive } from "./google/driveClient";
 import { GOOGLE_CONFIG } from "./google/config";
+import { processPostCallCoaching } from "./ai/coachingAnalysis";
 
 const { AccessToken } = twilio.jwt;
 const { VoiceGrant } = AccessToken;
@@ -189,6 +190,16 @@ export function registerTwilioVoiceRoutes(app: Express): void {
         }
         
         await storage.updateCallSessionByCallSid(CallSid, updates);
+        
+        if (CallStatus === "completed" && existingSession.transcriptText) {
+          console.log(`[Coaching] Call completed with transcript, triggering coaching email for call ${CallSid}`);
+          const updatedSession = await storage.getCallSessionByCallSid(CallSid);
+          if (updatedSession) {
+            processPostCallCoaching(updatedSession).catch(err => {
+              console.error("[Coaching] Failed to process post-call coaching:", err);
+            });
+          }
+        }
       }
     } catch (error) {
       console.error("Error updating call session:", error);
