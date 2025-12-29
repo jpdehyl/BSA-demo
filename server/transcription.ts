@@ -180,10 +180,27 @@ export function registerTranscriptionRoutes(app: Express): void {
     // Check Final field from the webhook body, not transcriptionData
     const isFinal = req.body.Final === "true";
     
-    const callSession = await storage.getCallSessionByCallSid(CallSid);
+    console.log(`[Transcription] Looking up session for CallSid: ${CallSid}`);
+    let callSession = await storage.getCallSessionByCallSid(CallSid);
+    
+    if (!callSession) {
+      console.log(`[Transcription] WARNING: No session found for CallSid ${CallSid}, trying fallback lookup...`);
+      const allSessions = await storage.getAllCallSessions();
+      const recentSession = allSessions.find(s => 
+        s.status === "in-progress" || s.status === "ringing" || s.status === "initiated"
+      );
+      if (recentSession) {
+        console.log(`[Transcription] Found fallback session: ${recentSession.id}, linking CallSid`);
+        await storage.updateCallSession(recentSession.id, { callSid: CallSid, status: "in-progress" });
+        callSession = await storage.getCallSession(recentSession.id);
+      } else {
+        console.log(`[Transcription] CRITICAL: No active session found at all! Coaching tips will NOT work.`);
+      }
+    } else {
+      console.log(`[Transcription] Found session: ${callSession.id} for user: ${callSession.userId}`);
+    }
     
     if (callSession) {
-      // Always broadcast to show real-time updates in UI
       broadcastToUser(callSession.userId, {
         type: "transcript",
         callSid: CallSid,
@@ -195,7 +212,6 @@ export function registerTranscriptionRoutes(app: Express): void {
       });
     }
 
-    // Only store final transcripts to avoid duplicates
     if (!isFinal) {
       return res.sendStatus(200);
     }
@@ -212,21 +228,19 @@ export function registerTranscriptionRoutes(app: Express): void {
     callTranscripts.get(CallSid)!.push(transcriptEntry);
 
     if (callSession) {
-
       const transcripts = callTranscripts.get(CallSid) || [];
       const fullTranscript = transcripts
         .map((t) => `${t.speaker}: ${t.text}`)
         .join("\n");
 
-      // Generate coaching tip every 2 transcripts, or on the first one
       const shouldGenerateTip = transcripts.length === 1 || transcripts.length % 2 === 0;
-      console.log(`Transcript count: ${transcripts.length}, shouldGenerateTip: ${shouldGenerateTip}`);
+      console.log(`[Transcription] Transcript count: ${transcripts.length}, shouldGenerateTip: ${shouldGenerateTip}`);
       
       if (shouldGenerateTip) {
-        console.log("Generating coaching tip for transcript:", fullTranscript.slice(0, 100));
+        console.log(`[Transcription] Generating coaching tip, session: ${callSession.id}`);
         try {
           const tip = await generateCoachingTip(fullTranscript, callSession.id);
-          console.log("Generated coaching tip:", tip);
+          console.log(`[Transcription] Coaching tip result: ${tip ? tip.slice(0, 50) + '...' : 'NULL'}`);
           if (tip) {
             broadcastToUser(callSession.userId, {
               type: "coaching_tip",
@@ -234,10 +248,10 @@ export function registerTranscriptionRoutes(app: Express): void {
               tip,
               timestamp: new Date().toISOString(),
             });
-            console.log("Broadcasted coaching tip to user:", callSession.userId);
+            console.log(`[Transcription] Broadcasted coaching tip to user: ${callSession.userId}`);
           }
         } catch (err) {
-          console.error("Error generating coaching tip:", err);
+          console.error("[Transcription] Error generating coaching tip:", err);
         }
       }
 

@@ -101,16 +101,19 @@ export function registerTwilioVoiceRoutes(app: Express): void {
 
     // Link the CallSid to the most recent initiated call session for this phone number
     try {
+      console.log(`[OutboundWebhook] Looking for recent session to phone: ${To}`);
       const recentSession = await storage.getRecentInitiatedCallSession(To);
       if (recentSession) {
         await storage.updateCallSession(recentSession.id, { 
           callSid: CallSid,
           status: "ringing"
         });
-        console.log("Linked CallSid", CallSid, "to session", recentSession.id);
+        console.log(`[OutboundWebhook] SUCCESS: Linked CallSid ${CallSid} to session ${recentSession.id}`);
+      } else {
+        console.log(`[OutboundWebhook] WARNING: No recent session found for ${To}, coaching tips may not work!`);
       }
     } catch (error) {
-      console.error("Error linking CallSid to session:", error);
+      console.error("[OutboundWebhook] Error linking CallSid to session:", error);
     }
 
     const baseUrl = process.env.NODE_ENV === "production" 
