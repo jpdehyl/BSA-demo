@@ -21,6 +21,7 @@ import TeamPage from "@/pages/team";
 import ReportsPage from "@/pages/reports";
 import AEPipelinePage from "@/pages/ae-pipeline";
 import BudgetingPage from "@/pages/budgeting";
+import SettingsPage from "@/pages/settings";
 
 function LoadingScreen() {
   return (
@@ -214,7 +215,7 @@ function Router() {
       <Route path="/settings">
         <ProtectedRoute>
           <DashboardLayout>
-            <PlaceholderPage title="Settings" />
+            <SettingsPage />
           </DashboardLayout>
         </ProtectedRoute>
       </Route>
