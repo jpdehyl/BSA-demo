@@ -380,6 +380,18 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
       updates.updatedAt = new Date();
       
       const updatedPacket = await storage.updateResearchPacket(researchPacket.id, updates);
+      
+      const leadUpdates: Record<string, unknown> = {};
+      if ('fitScore' in updates) {
+        leadUpdates.fitScore = updates.fitScore;
+      }
+      if ('priority' in updates) {
+        leadUpdates.priority = updates.priority;
+      }
+      if (Object.keys(leadUpdates).length > 0) {
+        await storage.updateLead(req.params.id, leadUpdates);
+      }
+      
       res.json(updatedPacket);
     } catch (error) {
       console.error("Research update error:", error);
