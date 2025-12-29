@@ -83,8 +83,13 @@ async function getKnowledgeBase(): Promise<string> {
 }
 
 async function generateCoachingTip(transcript: string, sessionId: string): Promise<string | null> {
+  console.log("[CoachingTip] Starting generation for session:", sessionId);
+  console.log("[CoachingTip] API Key exists:", !!process.env.AI_INTEGRATIONS_GEMINI_API_KEY);
+  console.log("[CoachingTip] Base URL:", process.env.AI_INTEGRATIONS_GEMINI_BASE_URL);
+  
   try {
     const knowledgeBase = await getKnowledgeBase();
+    console.log("[CoachingTip] Knowledge base length:", knowledgeBase.length);
     
     const prompt = `You are an expert sales coach for Hawk Ridge Systems analyzing a live sales call. Based on the transcript and company guidelines, provide ONE brief, actionable coaching tip. Keep it under 50 words and make it immediately actionable.
 
@@ -99,16 +104,19 @@ ${transcript}
 
 Provide only the coaching tip, no preamble.`;
 
+    console.log("[CoachingTip] Calling Gemini API...");
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
+    console.log("[CoachingTip] Gemini response received:", JSON.stringify(response).slice(0, 500));
 
     const candidate = response.candidates?.[0];
     const textPart = candidate?.content?.parts?.find(
       (part: { text?: string }) => part.text
     );
     const tip = textPart?.text?.trim();
+    console.log("[CoachingTip] Extracted tip:", tip);
     
     if (tip && sessionId) {
       await storage.createLiveCoachingTip({
@@ -117,11 +125,12 @@ Provide only the coaching tip, no preamble.`;
         content: tip,
         context: transcript.slice(-200),
       });
+      console.log("[CoachingTip] Saved to database");
     }
 
     return tip || null;
   } catch (error) {
-    console.error("Error generating coaching tip:", error);
+    console.error("[CoachingTip] Error generating coaching tip:", error);
     return null;
   }
 }
@@ -209,15 +218,26 @@ export function registerTranscriptionRoutes(app: Express): void {
         .map((t) => `${t.speaker}: ${t.text}`)
         .join("\n");
 
-      if (transcripts.length % 3 === 0 && transcripts.length > 0) {
-        const tip = await generateCoachingTip(fullTranscript, callSession.id);
-        if (tip) {
-          broadcastToUser(callSession.userId, {
-            type: "coaching_tip",
-            callSid: CallSid,
-            tip,
-            timestamp: new Date().toISOString(),
-          });
+      // Generate coaching tip every 2 transcripts, or on the first one
+      const shouldGenerateTip = transcripts.length === 1 || transcripts.length % 2 === 0;
+      console.log(`Transcript count: ${transcripts.length}, shouldGenerateTip: ${shouldGenerateTip}`);
+      
+      if (shouldGenerateTip) {
+        console.log("Generating coaching tip for transcript:", fullTranscript.slice(0, 100));
+        try {
+          const tip = await generateCoachingTip(fullTranscript, callSession.id);
+          console.log("Generated coaching tip:", tip);
+          if (tip) {
+            broadcastToUser(callSession.userId, {
+              type: "coaching_tip",
+              callSid: CallSid,
+              tip,
+              timestamp: new Date().toISOString(),
+            });
+            console.log("Broadcasted coaching tip to user:", callSession.userId);
+          }
+        } catch (err) {
+          console.error("Error generating coaching tip:", err);
         }
       }
 
