@@ -132,16 +132,8 @@ Provide only the coaching tip, no preamble.`;
     const tip = textPart?.text?.trim();
     console.log("[CoachingTip] Extracted tip:", tip);
     
-    if (tip && sessionId) {
-      await storage.createLiveCoachingTip({
-        sessionId,
-        tipType: "real-time",
-        content: tip,
-        context: transcript.slice(-200),
-      });
-      console.log("[CoachingTip] Saved to database");
-    }
-
+    // Return tip directly for real-time WebSocket broadcast
+    // Database persistence is not needed for ephemeral real-time coaching tips
     return tip || null;
   } catch (error) {
     console.error("[CoachingTip] Error generating coaching tip:", error);
