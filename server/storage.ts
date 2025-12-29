@@ -19,8 +19,13 @@ import { eq, and, isNull, desc, inArray, sql } from "drizzle-orm";
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   updateUserLastLogin(id: string): Promise<void>;
+  updateUserProfile(id: string, updates: { name?: string; email?: string }): Promise<User | undefined>;
+  updateUserPassword(id: string, hashedPassword: string): Promise<void>;
+  updateUserRole(id: string, role: string): Promise<User | undefined>;
+  deleteUser(id: string): Promise<boolean>;
   
   getManager(id: string): Promise<Manager | undefined>;
   getAllManagers(): Promise<Manager[]>;
@@ -99,6 +104,29 @@ export class DatabaseStorage implements IStorage {
 
   async updateUserLastLogin(id: string): Promise<void> {
     await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, id));
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return db.select().from(users).orderBy(users.name);
+  }
+
+  async updateUserProfile(id: string, updates: { name?: string; email?: string }): Promise<User | undefined> {
+    const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+    return user;
+  }
+
+  async updateUserPassword(id: string, hashedPassword: string): Promise<void> {
+    await db.update(users).set({ password: hashedPassword }).where(eq(users.id, id));
+  }
+
+  async updateUserRole(id: string, role: string): Promise<User | undefined> {
+    const [user] = await db.update(users).set({ role }).where(eq(users.id, id)).returning();
+    return user;
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    const result = await db.delete(users).where(eq(users.id, id)).returning();
+    return result.length > 0;
   }
 
   async getManager(id: string): Promise<Manager | undefined> {
