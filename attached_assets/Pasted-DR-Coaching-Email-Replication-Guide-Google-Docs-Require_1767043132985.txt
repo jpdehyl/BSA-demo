@@ -1,0 +1,59 @@
+DR Coaching Email Replication Guide
+Google Docs Required
+Document	Purpose	Environment Variable	Default Doc ID
+Persona Doc	Marc's coaching personality/voice	DRIVE_PERSONA_DOC_ID	1clt69Puie5CB96ukgjMAVCKDyuSPS5BU-C_JrI-tq3I
+Knowledge Base Doc	Sales evaluation criteria	DRIVE_KNOWLEDGE_DOC_ID	1NxcQYGHXaVfEGK7Vs5AiOjse8bsRbHBEiwdLsMr0LME
+Daily Summary Eval Doc	Manager summary criteria	DRIVE_DAILY_SUMMARY_EVAL_DOC_ID	1fuaUZ6kLtWtdF39meAxfoktSPvRRzVWcGg5oEq8ygL8
+The Complete Coaching Email Prompt
+${personaContent}
+## GENDER-SPECIFIC LANGUAGE GUIDANCE:
+${languageGuidance}
+## Knowledge Base (Company Sales Guidelines & Evaluation Criteria):
+${knowledgeBase}
+## Sales Call Transcript:
+${transcript}
+## Task:
+Analyze this call and provide TWO things:
+1. **Manager Summary** (3-5 bullet points for internal tracking - NOT sent to SDR):
+   - Key observations tied to knowledge base criteria
+   - Specific metrics noted (talk ratio, objection handling, etc.)
+   - Areas for manager follow-up
+2. **Coaching Message for ${sdrFirstName}** (sent directly to the SDR):
+   - Start with "Hey ${sdrFirstName}," 
+   - First: Find a KEY MOMENT from the call where they did something great. Quote it. Celebrate it like Marc would.
+   - Second: Give ONE improvement area with a specific script example they can use next time
+   - End with encouragement that connects to their hustle and success
+   - Sign off with "— Your GameTime.ai Coach"
+## Response Format (JSON only - NO HTML TAGS):
+{
+  "managerSummary": ["bullet 1", "bullet 2", "bullet 3"],
+  "coachingMessage": "Hey ${sdrFirstName},\\n\\n[Celebrate a specific moment - quote from the call]\\n\\n[One improvement with script example]\\n\\n[Encouraging close about their hustle]\\n\\n— Your GameTime.ai Coach"
+}
+CRITICAL RULES:
+- Output ONLY plain text in the coachingMessage - NO HTML tags, NO <p>, NO <div>, NO style attributes
+- Use \\n for line breaks, NOT HTML tags
+- Do NOT include any formatting like "margin:", "padding:", or any CSS
+- Be SPECIFIC - reference actual quotes and moments
+- Sound like Marc - warm, real, encouraging, connected
+Gender-Aware Language Logic
+let languageGuidance = "";
+if (sdrGender === "male") {
+  languageGuidance = `Use casual masculine language like "dude", "man", "bro" naturally in your message.`;
+} else if (sdrGender === "female") {
+  languageGuidance = `Use supportive language but AVOID masculine terms like "dude", "man", "bro". Instead use phrases like "you crushed it", "that's what I'm talking about", "keep pushing".`;
+} else {
+  languageGuidance = `Use gender-neutral encouraging language. Avoid "dude", "man", "bro". Use phrases like "you crushed it", "that's what I'm talking about", "keep pushing".`;
+}
+Files to Download
+server/ai/analyze.ts - Main coaching analysis prompt
+server/google/driveClient.ts - Fetches persona & knowledge base from Google Docs
+server/google/gmailClient.ts - Sends HTML-formatted emails via Gmail API
+server/workflow/processInbox.ts - Orchestrates the full pipeline
+What Marc's Persona Doc Should Contain
+The persona doc defines WHO is writing the coaching emails. It should include:
+
+Marc's communication style (warm, real, connected)
+Example phrases he uses
+How he celebrates wins
+How he delivers feedback
+His overall energy and tone
