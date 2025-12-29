@@ -259,7 +259,7 @@ export default function DashboardPage() {
             <CardDescription>Get started with common tasks</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Link href="/softphone">
+            <Link href="/coaching">
               <Button className="w-full justify-start gap-2" variant="outline" data-testid="button-new-call">
                 <Phone className="h-4 w-4" />
                 Start New Call
@@ -340,7 +340,7 @@ export default function DashboardPage() {
                         <Badge variant="outline">{lead.status}</Badge>
                       </td>
                       <td className="py-3 px-2 text-right">
-                        <Link href="/softphone">
+                        <Link href={`/coaching?phone=${encodeURIComponent(lead.contactPhone || '')}`}>
                           <Button size="sm" variant="ghost">
                             <Phone className="h-4 w-4" />
                           </Button>
