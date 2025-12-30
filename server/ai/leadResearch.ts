@@ -78,6 +78,14 @@ export interface CareerHistoryItem {
   relevance: string;
 }
 
+export interface ConfidenceAssessment {
+  overall: "high" | "medium" | "low";
+  companyInfoConfidence: "high" | "medium" | "low";
+  contactInfoConfidence: "high" | "medium" | "low";
+  reasoning: string;
+  warnings: string[];
+}
+
 export interface LeadDossier {
   companySummary: string;
   companyNews: string[];
@@ -108,6 +116,8 @@ export interface LeadDossier {
   jobTitle?: string;
   companyWebsite?: string;
   companyAddress?: string;
+  
+  confidenceAssessment?: ConfidenceAssessment;
 }
 
 export interface LinkedInProfile {
@@ -370,9 +380,27 @@ Return a JSON object with these EXACT keys:
   "linkedInUrl": "LinkedIn profile URL from scraped data or found via search",
   "phoneNumber": "Phone number if found",
   "jobTitle": "Accurate job title from LinkedIn data",
-  "companyWebsite": "Company website URL",
-  "companyAddress": "Company headquarters address if found"
+  "companyWebsite": "Company website URL - VERY IMPORTANT: Always include if found from scraped data or search",
+  "companyAddress": "Company headquarters address if found",
+  
+  "confidenceAssessment": {
+    "overall": "high/medium/low - Your overall confidence that this research is about the CORRECT company and person",
+    "companyInfoConfidence": "high/medium/low - Confidence that company information is accurate and about the right entity",
+    "contactInfoConfidence": "high/medium/low - Confidence that contact information matches the right person at this company",
+    "reasoning": "Explain WHY you assigned these confidence levels. Be specific about what evidence supports or undermines confidence.",
+    "warnings": [
+      "List any red flags or concerns about data accuracy",
+      "Examples: 'Multiple companies with similar names found', 'Contact may have left company', 'Website domain doesn't match company name', 'Limited verifiable sources'"
+    ]
+  }
 }
+
+CONFIDENCE ASSESSMENT GUIDELINES:
+- HIGH confidence: Multiple corroborating sources (website, LinkedIn, news), company domain matches email domain, recent activity confirms current employment
+- MEDIUM confidence: Some verification but gaps exist (e.g., LinkedIn found but not recently updated, company website found but contact not mentioned)
+- LOW confidence: Significant uncertainty (e.g., common company name with multiple entities, no verifiable website, contact might have wrong company, generic email domain)
+
+BE HONEST about uncertainty. It's better to flag potential issues than give false confidence.
 
 BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with web search for recent news.`;
 
@@ -470,6 +498,15 @@ BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with we
       ? `AI Score: ${raw.fitScore || 50}\nPenalties Applied:\n${penaltyBreakdown.join("\n")}\nFinal Score: ${finalScore}\n\n${raw.fitScoreBreakdown || ""}`
       : raw.fitScoreBreakdown || "";
     
+    const confidenceFromAI = raw.confidenceAssessment || {};
+    const confidenceAssessment: ConfidenceAssessment = {
+      overall: ["high", "medium", "low"].includes(confidenceFromAI.overall) ? confidenceFromAI.overall : "medium",
+      companyInfoConfidence: ["high", "medium", "low"].includes(confidenceFromAI.companyInfoConfidence) ? confidenceFromAI.companyInfoConfidence : "medium",
+      contactInfoConfidence: ["high", "medium", "low"].includes(confidenceFromAI.contactInfoConfidence) ? confidenceFromAI.contactInfoConfidence : "medium",
+      reasoning: confidenceFromAI.reasoning || "Confidence assessment not provided by AI",
+      warnings: Array.isArray(confidenceFromAI.warnings) ? confidenceFromAI.warnings.filter((w: string) => w && !w.startsWith("Examples:")) : []
+    };
+
     const dossier: LeadDossier = {
       companySummary: raw.companySummary || "",
       companyNews: Array.isArray(raw.companyNews) ? raw.companyNews : [],
@@ -498,11 +535,12 @@ BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with we
       linkedInUrl: scraped.contactLinkedIn?.linkedInUrl || raw.linkedInUrl,
       phoneNumber: phoneFromScrape || raw.phoneNumber,
       jobTitle: scraped.contactLinkedIn?.currentTitle || raw.jobTitle,
-      companyWebsite: lead.companyWebsite || raw.companyWebsite,
-      companyAddress: raw.companyAddress
+      companyWebsite: lead.companyWebsite || scraped.scrapedIntel.website?.url || raw.companyWebsite,
+      companyAddress: raw.companyAddress,
+      confidenceAssessment
     };
     
-    console.log(`[LeadResearch] Dossier generated. AI Score: ${raw.fitScore || 50}, Penalties: ${penaltyBreakdown.length}, Final: ${finalScore}, Priority: ${adjustedPriority}`);
+    console.log(`[LeadResearch] Dossier generated. AI Score: ${raw.fitScore || 50}, Penalties: ${penaltyBreakdown.length}, Final: ${finalScore}, Priority: ${adjustedPriority}, Confidence: ${confidenceAssessment.overall}`);
     
     return dossier;
   } catch (error) {
@@ -545,6 +583,13 @@ BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with we
       priority: "cool",
       
       sources: "Fallback template - AI research unavailable",
+      confidenceAssessment: {
+        overall: "low",
+        companyInfoConfidence: "low",
+        contactInfoConfidence: "low",
+        reasoning: "Research could not be completed - AI unavailable or encountered an error",
+        warnings: ["Research incomplete - manual verification recommended"]
+      }
     };
   }
 }

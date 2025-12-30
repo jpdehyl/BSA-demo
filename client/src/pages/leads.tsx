@@ -48,12 +48,15 @@ import {
   Plus,
   ArrowRight,
   CheckCircle2,
+  CheckCircle,
+  AlertCircle,
   Trash2,
   Pencil,
   Save,
   X,
   Edit2,
-  Check
+  Check,
+  Link2
 } from "lucide-react";
 import {
   Select,
@@ -859,6 +862,23 @@ interface CareerHistoryData {
   relevance?: string;
 }
 
+interface ConfidenceAssessmentData {
+  overall: "high" | "medium" | "low";
+  companyInfoConfidence: "high" | "medium" | "low";
+  contactInfoConfidence: "high" | "medium" | "low";
+  reasoning: string;
+  warnings: string[];
+}
+
+interface DossierData {
+  companyWebsite?: string;
+  companyAddress?: string;
+  linkedInUrl?: string;
+  phoneNumber?: string;
+  jobTitle?: string;
+  confidenceAssessment?: ConfidenceAssessmentData;
+}
+
 function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWithResearch }) {
   const { toast } = useToast();
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -1017,6 +1037,10 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
   const xIntelJson = packet.xIntelJson as XIntelData | null;
   const linkedInProfileJson = packet.linkedInProfileJson as LinkedInProfileData | null;
   const careerHistoryJson = packet.careerHistoryJson as CareerHistoryData[] | null;
+  const dossierJson = packet.dossierJson as DossierData | null;
+  
+  const companyWebsite = dossierJson?.companyWebsite || lead.companyWebsite;
+  const confidenceAssessment = dossierJson?.confidenceAssessment;
 
   const painPoints = (painPointsJson && Array.isArray(painPointsJson) && painPointsJson.length > 0)
     ? painPointsJson
@@ -1044,6 +1068,24 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
     if (score >= 80) return 'text-green-600 dark:text-green-400';
     if (score >= 60) return 'text-yellow-600 dark:text-yellow-400';
     return 'text-red-600 dark:text-red-400';
+  };
+
+  const getConfidenceColor = (level: string) => {
+    switch (level) {
+      case 'high': return 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 border-green-200 dark:border-green-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800';
+      case 'low': return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border-red-200 dark:border-red-800';
+      default: return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  const getConfidenceIcon = (level: string) => {
+    switch (level) {
+      case 'high': return <CheckCircle className="h-3 w-3" />;
+      case 'medium': return <AlertCircle className="h-3 w-3" />;
+      case 'low': return <AlertTriangle className="h-3 w-3" />;
+      default: return null;
+    }
   };
 
   return (
@@ -1168,6 +1210,49 @@ function IntelDossier({ packet, lead }: { packet: ResearchPacket; lead: LeadWith
         </TabsList>
 
         <TabsContent value="company" className="mt-6 space-y-6">
+          {(companyWebsite || confidenceAssessment) && (
+            <div className="flex flex-wrap items-start gap-4 p-4 bg-muted/30 rounded-md border">
+              {companyWebsite && (
+                <div className="flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Website:</span>
+                  <a 
+                    href={companyWebsite.startsWith('http') ? companyWebsite : `https://${companyWebsite}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                    data-testid="link-company-website"
+                  >
+                    {companyWebsite.replace(/^https?:\/\//, '')}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
+              
+              {confidenceAssessment && (
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm text-muted-foreground">Research Confidence:</span>
+                    <Badge 
+                      variant="secondary"
+                      className={`${getConfidenceColor(confidenceAssessment.overall)} flex items-center gap-1`}
+                    >
+                      {getConfidenceIcon(confidenceAssessment.overall)}
+                      {confidenceAssessment.overall.charAt(0).toUpperCase() + confidenceAssessment.overall.slice(1)}
+                    </Badge>
+                  </div>
+                  
+                  {confidenceAssessment.warnings && confidenceAssessment.warnings.length > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                      <AlertTriangle className="h-3 w-3" />
+                      <span>{confidenceAssessment.warnings[0]}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          
           <IntelCard 
             icon={Building2}
             title="Company Overview"
