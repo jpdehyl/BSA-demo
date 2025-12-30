@@ -261,6 +261,8 @@ export default function TeamPage() {
   const { toast } = useToast();
   const [editingSdr, setEditingSdr] = useState<Sdr | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [editingAe, setEditingAe] = useState<AccountExecutive | null>(null);
+  const [aeForm, setAeForm] = useState({ name: "", email: "", phone: "", region: "", specialty: "" });
 
   const { data: teamData, isLoading } = useQuery<TeamData>({
     queryKey: ["/api/team"],
@@ -304,6 +306,56 @@ export default function TeamPage() {
       toast({ title: "Delete Failed", description: error.message, variant: "destructive" });
     },
   });
+
+  const updateAeMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { id: string; name?: string; email?: string; phone?: string; region?: string; specialty?: string }) => {
+      const res = await apiRequest("PATCH", `/api/account-executives/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Account Executive Updated", description: "Changes saved successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/account-executives"] });
+      setEditingAe(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Update Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteAeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/account-executives/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Account Executive Removed", description: "AE removed from team" });
+      queryClient.invalidateQueries({ queryKey: ["/api/account-executives"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Delete Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const openEditAeDialog = (ae: AccountExecutive) => {
+    setEditingAe(ae);
+    setAeForm({
+      name: ae.name,
+      email: ae.email,
+      phone: ae.phone || "",
+      region: ae.region || "",
+      specialty: ae.specialty || ""
+    });
+  };
+
+  const handleAeSave = () => {
+    if (!aeForm.name || !aeForm.email) {
+      toast({ title: "Missing Fields", description: "Name and email are required", variant: "destructive" });
+      return;
+    }
+    if (editingAe) {
+      updateAeMutation.mutate({ id: editingAe.id, ...aeForm });
+    }
+  };
 
   const allManagers = teamData?.teamByManager.map(t => t.manager) || [];
 
@@ -573,6 +625,25 @@ export default function TeamPage() {
                             <Mail className="h-4 w-4" />
                           </a>
                         </Button>
+                        {user?.role === "admin" && (
+                          <>
+                            <Button variant="ghost" size="icon" onClick={() => openEditAeDialog(ae)} data-testid={`button-edit-ae-${ae.id}`}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => {
+                                if (confirm(`Are you sure you want to remove ${ae.name}?`)) {
+                                  deleteAeMutation.mutate(ae.id);
+                                }
+                              }}
+                              data-testid={`button-delete-ae-${ae.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -614,6 +685,76 @@ export default function TeamPage() {
         onClose={() => setShowAddDialog(false)}
         managers={allManagers}
       />
+
+      <Dialog open={!!editingAe} onOpenChange={(open) => !open && setEditingAe(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Account Executive</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="ae-name">Name</Label>
+                <Input 
+                  id="ae-name" 
+                  value={aeForm.name} 
+                  onChange={(e) => setAeForm(prev => ({ ...prev, name: e.target.value }))} 
+                  data-testid="input-ae-name" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ae-email">Email</Label>
+                <Input 
+                  id="ae-email" 
+                  type="email" 
+                  value={aeForm.email} 
+                  onChange={(e) => setAeForm(prev => ({ ...prev, email: e.target.value }))} 
+                  data-testid="input-ae-email" 
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="ae-phone">Phone</Label>
+                <Input 
+                  id="ae-phone" 
+                  value={aeForm.phone} 
+                  onChange={(e) => setAeForm(prev => ({ ...prev, phone: e.target.value }))} 
+                  placeholder="+1 (555) 123-4567"
+                  data-testid="input-ae-phone" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ae-region">Region</Label>
+                <Input 
+                  id="ae-region" 
+                  value={aeForm.region} 
+                  onChange={(e) => setAeForm(prev => ({ ...prev, region: e.target.value }))} 
+                  placeholder="e.g., West Coast"
+                  data-testid="input-ae-region" 
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ae-specialty">Specialty</Label>
+              <Input 
+                id="ae-specialty" 
+                value={aeForm.specialty} 
+                onChange={(e) => setAeForm(prev => ({ ...prev, specialty: e.target.value }))} 
+                placeholder="e.g., Enterprise, SolidWorks"
+                data-testid="input-ae-specialty" 
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingAe(null)}>Cancel</Button>
+            <Button onClick={handleAeSave} disabled={updateAeMutation.isPending} data-testid="button-save-ae">
+              {updateAeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
