@@ -582,7 +582,7 @@ function LeadListItem({
   };
 
   const getFitScoreColor = (score: number | null) => {
-    if (!score) return "text-muted-foreground";
+    if (score === null || score === undefined) return "text-muted-foreground";
     if (score >= 70) return "text-green-600 dark:text-green-400";
     if (score >= 40) return "text-yellow-600 dark:text-yellow-400";
     return "text-red-600 dark:text-red-400";
@@ -609,7 +609,7 @@ function LeadListItem({
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          {lead.fitScore && (
+          {lead.fitScore !== null && lead.fitScore !== undefined && (
             <span className={`text-xs font-mono font-bold ${getFitScoreColor(lead.fitScore)}`}>
               {lead.fitScore}
             </span>
@@ -667,7 +667,7 @@ function LeadDetailPanel({
   };
 
   const getFitScoreDisplay = (score: number | null) => {
-    if (!score) return null;
+    if (score === null || score === undefined) return null;
     const color = score >= 70 ? "text-green-600" : score >= 40 ? "text-yellow-600" : "text-red-600";
     const bgColor = score >= 70 ? "bg-green-100 dark:bg-green-900/30" : 
                     score >= 40 ? "bg-yellow-100 dark:bg-yellow-900/30" : 
