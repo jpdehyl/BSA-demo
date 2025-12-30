@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { uploadFileToDrive } from "./google/driveClient";
 import { GOOGLE_CONFIG } from "./google/config";
 import { processPostCallCoaching } from "./ai/coachingAnalysis";
+import { notifyCallCompleted } from "./notificationService";
 
 const { AccessToken } = twilio.jwt;
 const { VoiceGrant } = AccessToken;
@@ -194,6 +195,17 @@ export function registerTwilioVoiceRoutes(app: Express): void {
         if (CallStatus === "completed") {
           // Re-fetch session to get the latest transcript (may have been updated via WebSocket)
           const updatedSession = await storage.getCallSessionByCallSid(CallSid);
+          
+          if (updatedSession?.userId) {
+            const lead = updatedSession.leadId ? await storage.getLead(updatedSession.leadId) : null;
+            const leadName = lead?.contactName || lead?.companyName || "Unknown";
+            const duration = updatedSession.duration || parseInt(CallDuration, 10) || 0;
+            
+            notifyCallCompleted(updatedSession.userId, updatedSession.id, leadName, duration).catch(err => {
+              console.error("[Notification] Failed to send call completion notification:", err);
+            });
+          }
+          
           if (updatedSession?.transcriptText && updatedSession.transcriptText.trim().length >= 50) {
             console.log(`[Coaching] Call completed with transcript, triggering coaching email for call ${CallSid}`);
             processPostCallCoaching(updatedSession).catch(err => {

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { fetchLeadsFromSheet, parseLeadsFromSheet, detectColumnMapping, getSpreadsheetInfo } from "./google/sheetsClient";
 import { researchLead } from "./ai/leadResearch";
 import { extractQualificationFromTranscript, QualificationDraft } from "./ai/qualificationExtractor";
+import { notifyLeadStatusChange, notifyLeadQualified, notifyManagersOfQualifiedLead, notifyAEHandoff, notifyResearchReady } from "./notificationService";
 
 export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, res: Response, next: () => void) => void) {
   
@@ -126,7 +127,13 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
 
   app.patch("/api/leads/:id", requireAuth, async (req: Request, res: Response) => {
     try {
+      const existingLead = await storage.getLead(req.params.id);
+      if (!existingLead) {
+        return res.status(404).json({ message: "Lead not found" });
+      }
+      
       const updates = { ...req.body };
+      const oldStatus = existingLead.status;
       
       if (updates.handedOffAt && typeof updates.handedOffAt === 'string') {
         updates.handedOffAt = new Date(updates.handedOffAt);
@@ -142,6 +149,30 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
       if (!lead) {
         return res.status(404).json({ message: "Lead not found" });
       }
+      
+      if (updates.status && updates.status !== oldStatus) {
+        const userId = req.session.userId!;
+        const leadName = lead.contactName || lead.companyName;
+        
+        await notifyLeadStatusChange(userId, lead.id, leadName, oldStatus, updates.status);
+        
+        if (updates.status === "qualified") {
+          await notifyLeadQualified(userId, lead.id, leadName, lead.companyName);
+          
+          const user = await storage.getUser(userId);
+          if (user) {
+            await notifyManagersOfQualifiedLead(lead.id, leadName, lead.companyName, user.name);
+          }
+        }
+        
+        if (updates.status === "handed_off" && updates.assignedAeId) {
+          const ae = await storage.getAccountExecutive(updates.assignedAeId);
+          if (ae) {
+            await notifyAEHandoff(userId, lead.id, leadName, ae.name);
+          }
+        }
+      }
+      
       res.json(lead);
     } catch (error) {
       console.error("Lead update error:", error);
@@ -297,6 +328,9 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
         await storage.updateLead(lead.id, updateData);
         console.log(`[LeadResearch] Updated lead ${lead.id} with:`, Object.keys(updateData));
       }
+      
+      const userId = req.session.userId!;
+      await notifyResearchReady(userId, lead.id, lead.contactName, lead.companyName);
       
       res.json({ 
         message: "Research completed", 
