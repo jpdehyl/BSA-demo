@@ -270,17 +270,20 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
     }
   });
 
+  const researchInProgress = new Set<string>();
+  
   app.post("/api/leads/:id/research", requireAuth, async (req: Request, res: Response) => {
     try {
-      const lead = await storage.getLead(req.params.id);
+      const leadId = req.params.id;
+      const lead = await storage.getLead(leadId);
       if (!lead) {
         return res.status(404).json({ message: "Lead not found" });
       }
       
       const existingPacket = await storage.getResearchPacketByLead(lead.id);
-      const isFallbackData = existingPacket?.sources?.includes("Fallback template");
+      const existingIsFallback = existingPacket?.sources?.includes("Fallback template");
       
-      if (existingPacket && req.query.refresh !== "true" && !isFallbackData) {
+      if (existingPacket && req.query.refresh !== "true" && !existingIsFallback) {
         return res.json({ 
           message: "Research already exists", 
           researchPacket: existingPacket,
@@ -288,11 +291,40 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
         });
       }
       
-      if (isFallbackData) {
+      if (researchInProgress.has(leadId)) {
+        console.log(`[LeadResearch] Research already in progress for ${lead.contactName}, returning existing or waiting`);
+        if (existingPacket) {
+          return res.json({
+            message: "Research in progress",
+            researchPacket: existingPacket,
+            isExisting: true
+          });
+        }
+        return res.status(429).json({ message: "Research already in progress for this lead" });
+      }
+      
+      researchInProgress.add(leadId);
+      
+      if (existingIsFallback) {
         console.log(`[LeadResearch] Existing research has fallback data, regenerating for ${lead.contactName}`);
       }
       
-      const researchResult = await researchLead(lead);
+      let researchResult;
+      try {
+        researchResult = await researchLead(lead);
+      } finally {
+        researchInProgress.delete(leadId);
+      }
+      
+      const newIsFallback = researchResult.packet.sources?.includes("Fallback template");
+      if (existingPacket && !existingIsFallback && newIsFallback) {
+        console.log(`[LeadResearch] New result is fallback but existing is good, keeping existing for ${lead.contactName}`);
+        return res.json({
+          message: "Research already exists",
+          researchPacket: existingPacket,
+          isExisting: true
+        });
+      }
       
       let researchPacket;
       if (existingPacket) {
