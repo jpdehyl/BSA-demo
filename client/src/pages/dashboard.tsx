@@ -1,123 +1,291 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { 
   Users, 
   Phone, 
-  FileSearch, 
   TrendingUp, 
-  Clock, 
+  TrendingDown,
   ArrowUpRight,
   ArrowDownRight,
-  Zap,
   Loader2,
-  Building2
+  DollarSign,
+  Target,
+  Calendar,
+  Zap,
+  AlertCircle,
+  FileSearch,
+  ChevronRight,
+  Trophy,
+  Crown,
+  Medal,
+  Award
 } from "lucide-react";
-import type { Lead, CallSession } from "@shared/schema";
+import { 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip
+} from "recharts";
 
-interface MetricCardProps {
-  title: string;
-  value: string | number;
-  description?: string;
-  icon: React.ReactNode;
-  trend?: {
-    value: number;
-    isPositive: boolean;
+interface DashboardMetrics {
+  hero: {
+    pipelineValue: number;
+    pipelineLeads: number;
+    conversionRate: number;
+    conversionTrend: number;
+    callsToday: number;
+    callsThisWeek: number;
+    callsTrend: number;
+    meetingsBooked: number;
+    qualifiedLeads: number;
   };
-  loading?: boolean;
+  funnel: {
+    totalCalls: number;
+    connected: number;
+    qualified: number;
+    meetings: number;
+  };
+  dispositionBreakdown: Record<string, number>;
+  dailyActivity: Array<{ date: string; calls: number; qualified: number }>;
+  sdrLeaderboard: Array<{
+    sdrId: string;
+    sdrName: string;
+    userId: string | null;
+    calls: number;
+    qualified: number;
+    meetings: number;
+    connectRate: number;
+    talkTimeMinutes: number;
+  }>;
+  actionItems: {
+    callsNeedingAnalysis: Array<{ id: string; toNumber: string; duration: number | null; startedAt: Date }>;
+    hotLeads: Array<{ id: string; companyName: string; contactName: string; phone: string | null }>;
+    leadsWithoutResearch: Array<{ id: string; companyName: string; contactName: string }>;
+  };
+  teamSize: {
+    sdrs: number;
+    aes: number;
+    leads: number;
+  };
+  isPrivileged: boolean;
+  currentUserId: string;
 }
 
-function MetricCard({ title, value, description, icon, trend, loading }: MetricCardProps) {
+const DISPOSITION_COLORS: Record<string, string> = {
+  "qualified": "#22c55e",
+  "meeting-booked": "#3b82f6",
+  "connected": "#8b5cf6",
+  "callback-scheduled": "#f59e0b",
+  "not-interested": "#ef4444",
+  "no-answer": "#6b7280",
+  "voicemail": "#94a3b8",
+  "wrong-number": "#dc2626",
+  "unknown": "#9ca3af",
+};
+
+const DISPOSITION_LABELS: Record<string, string> = {
+  "qualified": "Qualified",
+  "meeting-booked": "Meeting Booked",
+  "connected": "Connected",
+  "callback-scheduled": "Callback",
+  "not-interested": "Not Interested",
+  "no-answer": "No Answer",
+  "voicemail": "Voicemail",
+  "wrong-number": "Wrong Number",
+  "unknown": "Unknown",
+};
+
+function formatCurrency(value: number): string {
+  if (value >= 1000000) {
+    return `$${(value / 1000000).toFixed(1)}M`;
+  }
+  if (value >= 1000) {
+    return `$${(value / 1000).toFixed(0)}K`;
+  }
+  return `$${value}`;
+}
+
+function HeroMetric({ 
+  label, 
+  value, 
+  trend, 
+  icon, 
+  prefix = "",
+  suffix = "",
+  loading = false,
+  accentColor = "primary"
+}: { 
+  label: string; 
+  value: number | string; 
+  trend?: number; 
+  icon: React.ReactNode;
+  prefix?: string;
+  suffix?: string;
+  loading?: boolean;
+  accentColor?: "primary" | "green" | "blue" | "purple";
+}) {
+  const accentClasses = {
+    primary: "from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10",
+    green: "from-green-500/10 to-green-500/5 dark:from-green-500/20 dark:to-green-500/10",
+    blue: "from-blue-500/10 to-blue-500/5 dark:from-blue-500/20 dark:to-blue-500/10",
+    purple: "from-purple-500/10 to-purple-500/5 dark:from-purple-500/20 dark:to-purple-500/10",
+  };
+
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        <div className="text-muted-foreground">{icon}</div>
-      </CardHeader>
-      <CardContent>
+    <Card className={`bg-gradient-to-br ${accentClasses[accentColor]} border-0`}>
+      <CardContent className="pt-6">
         {loading ? (
-          <Loader2 className="h-6 w-6 animate-spin" />
+          <div className="flex items-center justify-center h-20">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
         ) : (
-          <>
-            <div className="text-3xl font-semibold" data-testid={`metric-${title.toLowerCase().replace(/\s/g, '-')}`}>
-              {value}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-muted-foreground">{label}</span>
+              <div className="p-2 rounded-md bg-background/50">{icon}</div>
             </div>
-            {trend && (
-              <div className="flex items-center gap-1 mt-1">
-                {trend.isPositive ? (
-                  <ArrowUpRight className="h-4 w-4 text-green-600" />
-                ) : (
-                  <ArrowDownRight className="h-4 w-4 text-red-500" />
-                )}
-                <span className={`text-sm ${trend.isPositive ? 'text-green-600' : 'text-red-500'}`}>
-                  {trend.value}%
-                </span>
-                <span className="text-sm text-muted-foreground">vs last week</span>
-              </div>
-            )}
-            {description && !trend && (
-              <p className="text-sm text-muted-foreground mt-1">{description}</p>
-            )}
-          </>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-bold" data-testid={`metric-${label.toLowerCase().replace(/\s/g, '-')}`}>
+                {prefix}{typeof value === "number" ? value.toLocaleString() : value}{suffix}
+              </span>
+              {trend !== undefined && trend !== 0 && (
+                <div className={`flex items-center text-sm font-medium ${trend > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                  {trend > 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                  {Math.abs(trend)}%
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>
   );
 }
 
-function ActivityIcon({ type }: { type: string }) {
-  switch (type) {
-    case "call":
-      return <Phone className="h-4 w-4" />;
-    case "research":
-      return <FileSearch className="h-4 w-4" />;
-    case "lead":
-      return <Users className="h-4 w-4" />;
-    default:
-      return <Zap className="h-4 w-4" />;
-  }
+function FunnelStage({ 
+  label, 
+  value, 
+  percentage, 
+  color 
+}: { 
+  label: string; 
+  value: number; 
+  percentage: number; 
+  color: string;
+}) {
+  return (
+    <div className="flex-1 text-center">
+      <div 
+        className="mx-auto mb-2 flex items-center justify-center rounded-md text-white font-bold text-xl"
+        style={{ 
+          backgroundColor: color,
+          width: `${Math.max(60, percentage * 1.5)}%`,
+          height: "48px",
+          transition: "width 0.5s ease-out"
+        }}
+      >
+        {value}
+      </div>
+      <p className="text-sm font-medium">{label}</p>
+      <p className="text-xs text-muted-foreground">{percentage}%</p>
+    </div>
+  );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const variants: Record<string, { label: string; variant: "default" | "secondary" | "outline" }> = {
-    completed: { label: "Completed", variant: "default" },
-    "in-progress": { label: "In Progress", variant: "secondary" },
-    initiated: { label: "Initiated", variant: "outline" },
-    ringing: { label: "Ringing", variant: "outline" },
-    failed: { label: "Failed", variant: "outline" },
+function LeaderboardRow({ 
+  rank, 
+  name, 
+  qualified, 
+  meetings, 
+  calls, 
+  connectRate 
+}: { 
+  rank: number; 
+  name: string; 
+  qualified: number; 
+  meetings: number;
+  calls: number;
+  connectRate: number;
+}) {
+  const RankIcon = rank === 1 ? Crown : rank === 2 ? Medal : rank === 3 ? Award : Trophy;
+  const rankColor = rank === 1 ? "text-yellow-500" : rank === 2 ? "text-gray-400" : rank === 3 ? "text-orange-400" : "text-muted-foreground";
+
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-md hover-elevate" data-testid={`leaderboard-row-${rank}`}>
+      <div className={`flex items-center justify-center w-8 h-8 rounded-full ${rank <= 3 ? 'bg-muted' : ''}`}>
+        {rank <= 3 ? (
+          <RankIcon className={`h-4 w-4 ${rankColor}`} />
+        ) : (
+          <span className="text-sm font-medium text-muted-foreground">{rank}</span>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-medium truncate">{name}</p>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>{calls} calls</span>
+          <span className="text-green-600">{connectRate}% connect</span>
+        </div>
+      </div>
+      <div className="text-right">
+        <p className="font-semibold text-green-600">{qualified}</p>
+        <p className="text-xs text-muted-foreground">qualified</p>
+      </div>
+      <div className="text-right">
+        <p className="font-semibold text-blue-600">{meetings}</p>
+        <p className="text-xs text-muted-foreground">meetings</p>
+      </div>
+    </div>
+  );
+}
+
+function ActionItem({ 
+  icon, 
+  title, 
+  subtitle, 
+  href, 
+  variant = "default" 
+}: { 
+  icon: React.ReactNode; 
+  title: string; 
+  subtitle: string; 
+  href: string;
+  variant?: "default" | "warning" | "success";
+}) {
+  const variantClasses = {
+    default: "bg-muted/50",
+    warning: "bg-yellow-50 dark:bg-yellow-950/30",
+    success: "bg-green-50 dark:bg-green-950/30",
   };
-  
-  const { label, variant } = variants[status] || { label: status, variant: "outline" as const };
-  
-  return <Badge variant={variant} className="text-xs">{label}</Badge>;
-}
 
-function formatTimeAgo(date: Date | string): string {
-  const now = new Date();
-  const then = new Date(date);
-  const diffMs = now.getTime() - then.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins} min ago`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  return (
+    <Link href={href}>
+      <div className={`flex items-center gap-3 p-3 rounded-md hover-elevate cursor-pointer ${variantClasses[variant]}`}>
+        <div className="flex-shrink-0">{icon}</div>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-sm truncate">{title}</p>
+          <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
+        </div>
+        <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+      </div>
+    </Link>
+  );
 }
 
 export default function DashboardPage() {
   const { user } = useAuth();
 
-  const { data: leads = [], isLoading: leadsLoading } = useQuery<(Lead & { hasResearch?: boolean })[]>({
-    queryKey: ["/api/leads"],
-  });
-
-  const { data: callSessions = [], isLoading: callsLoading } = useQuery<CallSession[]>({
-    queryKey: ["/api/call-sessions"],
+  const { data: metrics, isLoading } = useQuery<DashboardMetrics>({
+    queryKey: ["/api/dashboard/metrics"],
   });
 
   const getGreeting = () => {
@@ -127,233 +295,385 @@ export default function DashboardPage() {
     return "Good evening";
   };
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  const callsToday = callSessions.filter(s => {
-    const callDate = new Date(s.startedAt);
-    callDate.setHours(0, 0, 0, 0);
-    return callDate.getTime() === today.getTime();
-  });
+  const pieData = metrics?.dispositionBreakdown 
+    ? Object.entries(metrics.dispositionBreakdown).map(([name, value]) => ({
+        name: DISPOSITION_LABELS[name] || name,
+        value,
+        color: DISPOSITION_COLORS[name] || "#9ca3af"
+      }))
+    : [];
 
-  const completedCalls = callSessions.filter(s => s.status === "completed");
-  const researchedLeads = leads.filter(l => l.hasResearch);
-  
-  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
-  
-  const callsThisWeek = callSessions.filter(s => new Date(s.startedAt) >= weekAgo).length;
-  const callsLastWeek = callSessions.filter(s => {
-    const d = new Date(s.startedAt);
-    return d >= twoWeeksAgo && d < weekAgo;
-  }).length;
-  
-  const callTrend = callsLastWeek > 0 
-    ? Math.round(((callsThisWeek - callsLastWeek) / callsLastWeek) * 100) 
-    : callsThisWeek > 0 ? 100 : 0;
-
-  const recentCalls = callSessions.slice(0, 5);
+  const totalDispositions = pieData.reduce((sum, d) => sum + d.value, 0);
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold" data-testid="text-greeting">
-          {getGreeting()}, {user?.name?.split(" ")[0]}
-        </h1>
-        <p className="text-muted-foreground">
-          Here's what's happening with your sales pipeline today.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold" data-testid="text-greeting">
+            {getGreeting()}, {user?.name?.split(" ")[0]}
+          </h1>
+          <p className="text-muted-foreground">
+            {metrics?.isPrivileged 
+              ? "Your team's performance at a glance" 
+              : "Your sales performance at a glance"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="gap-1">
+            <Users className="h-3 w-3" />
+            {metrics?.teamSize.sdrs || 0} SDRs
+          </Badge>
+          <Badge variant="outline" className="gap-1">
+            <Target className="h-3 w-3" />
+            {metrics?.teamSize.leads || 0} Leads
+          </Badge>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard
-          title="Total Leads"
-          value={leads.length}
-          icon={<Users className="h-5 w-5" />}
-          loading={leadsLoading}
-          description={`${researchedLeads.length} researched`}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <HeroMetric
+          label="Pipeline Value"
+          value={formatCurrency(metrics?.hero.pipelineValue || 0)}
+          icon={<DollarSign className="h-5 w-5 text-green-600" />}
+          loading={isLoading}
+          accentColor="green"
         />
-        <MetricCard
-          title="Calls Today"
-          value={callsToday.length}
-          icon={<Phone className="h-5 w-5" />}
-          loading={callsLoading}
-          trend={callTrend !== 0 ? { value: Math.abs(callTrend), isPositive: callTrend > 0 } : undefined}
+        <HeroMetric
+          label="Conversion Rate"
+          value={metrics?.hero.conversionRate || 0}
+          suffix="%"
+          trend={metrics?.hero.conversionTrend}
+          icon={<TrendingUp className="h-5 w-5 text-blue-600" />}
+          loading={isLoading}
+          accentColor="blue"
         />
-        <MetricCard
-          title="Research Completed"
-          value={researchedLeads.length}
-          icon={<FileSearch className="h-5 w-5" />}
-          loading={leadsLoading}
-          description={leads.length > 0 ? `${Math.round((researchedLeads.length / leads.length) * 100)}% of leads` : "No leads yet"}
+        <HeroMetric
+          label="Calls This Week"
+          value={metrics?.hero.callsThisWeek || 0}
+          trend={metrics?.hero.callsTrend}
+          icon={<Phone className="h-5 w-5 text-purple-600" />}
+          loading={isLoading}
+          accentColor="purple"
         />
-        <MetricCard
-          title="Total Calls"
-          value={completedCalls.length}
-          icon={<TrendingUp className="h-5 w-5" />}
-          loading={callsLoading}
-          description={`${callsThisWeek} this week`}
+        <HeroMetric
+          label="Meetings Booked"
+          value={metrics?.hero.meetingsBooked || 0}
+          icon={<Calendar className="h-5 w-5 text-primary" />}
+          loading={isLoading}
+          accentColor="primary"
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between gap-4">
-            <div>
-              <CardTitle>Recent Calls</CardTitle>
-              <CardDescription>Your latest call activity</CardDescription>
-            </div>
-            <Link href="/coaching">
-              <Button variant="outline" size="sm" data-testid="button-view-all">
-                View all
-              </Button>
-            </Link>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">7-Day Activity</CardTitle>
+            <CardDescription>Calls and qualified leads over the past week</CardDescription>
           </CardHeader>
           <CardContent>
-            {callsLoading ? (
-              <div className="flex items-center justify-center py-8">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-[200px]">
                 <Loader2 className="h-6 w-6 animate-spin" />
               </div>
-            ) : recentCalls.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Phone className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                <p className="font-medium">No calls yet</p>
-                <p className="text-sm mt-1">Start making calls to see your activity here</p>
-              </div>
             ) : (
-              <div className="space-y-4">
-                {recentCalls.map((call) => (
-                  <div 
-                    key={call.id} 
-                    className="flex items-start gap-4 p-3 rounded-md hover-elevate"
-                    data-testid={`activity-item-${call.id}`}
-                  >
-                    <div className="p-2 rounded-md bg-muted">
-                      <ActivityIcon type="call" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium text-sm">
-                          {call.direction === "outbound" ? "Outbound call" : "Inbound call"} to {call.toNumber}
-                        </p>
-                        <StatusBadge status={call.status} />
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-0.5">
-                        {call.duration ? `${Math.floor(call.duration / 60)}m ${call.duration % 60}s` : "No duration recorded"}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
-                      <Clock className="h-3 w-3" />
-                      {formatTimeAgo(call.startedAt)}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={metrics?.dailyActivity || []}>
+                  <defs>
+                    <linearGradient id="callsGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="qualifiedGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis 
+                    dataKey="date" 
+                    axisLine={false} 
+                    tickLine={false}
+                    tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false}
+                    tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                    width={30}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px',
+                      fontSize: '12px'
+                    }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="calls" 
+                    stroke="hsl(var(--primary))" 
+                    strokeWidth={2}
+                    fill="url(#callsGradient)"
+                    name="Total Calls"
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="qualified" 
+                    stroke="#22c55e" 
+                    strokeWidth={2}
+                    fill="url(#qualifiedGradient)"
+                    name="Qualified"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             )}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Get started with common tasks</CardDescription>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Call Outcomes</CardTitle>
+            <CardDescription>This week's disposition breakdown</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <Link href="/coaching">
-              <Button className="w-full justify-start gap-2" variant="outline" data-testid="button-new-call">
-                <Phone className="h-4 w-4" />
-                Start New Call
-              </Button>
-            </Link>
-            <Link href="/leads">
-              <Button className="w-full justify-start gap-2" variant="outline" data-testid="button-add-lead">
-                <Users className="h-4 w-4" />
-                View Leads
-              </Button>
-            </Link>
-            <Link href="/coaching">
-              <Button className="w-full justify-start gap-2" variant="outline" data-testid="button-research">
-                <FileSearch className="h-4 w-4" />
-                Call Coaching
-              </Button>
-            </Link>
-            <Link href="/leads">
-              <Button className="w-full justify-start gap-2 bg-[#2C88C9] hover:bg-[#2C88C9]/90" data-testid="button-import">
-                <Zap className="h-4 w-4" />
-                Import Leads
-              </Button>
-            </Link>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex items-center justify-center h-[200px]">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            ) : pieData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-[200px] text-muted-foreground">
+                <Phone className="h-8 w-8 mb-2 opacity-50" />
+                <p className="text-sm">No calls this week</p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-4">
+                <ResponsiveContainer width={120} height={120}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={35}
+                      outerRadius={55}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex-1 space-y-1.5">
+                  {pieData.slice(0, 4).map((item) => (
+                    <div key={item.name} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-2.5 h-2.5 rounded-full" 
+                          style={{ backgroundColor: item.color }}
+                        />
+                        <span className="text-muted-foreground truncate max-w-[80px]">{item.name}</span>
+                      </div>
+                      <span className="font-medium">
+                        {Math.round((item.value / totalDispositions) * 100)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-4">
-          <div>
-            <CardTitle>Recent Leads</CardTitle>
-            <CardDescription>Latest leads added to your pipeline</CardDescription>
-          </div>
-          <Link href="/leads">
-            <Button variant="outline" size="sm" data-testid="button-view-leads">
-              View all leads
-            </Button>
-          </Link>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">Sales Funnel</CardTitle>
+          <CardDescription>This week's conversion journey</CardDescription>
         </CardHeader>
         <CardContent>
-          {leadsLoading ? (
-            <div className="flex items-center justify-center py-8">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-24">
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
-          ) : leads.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Building2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
-              <p className="font-medium">No leads yet</p>
-              <p className="text-sm mt-1">Import leads from Google Sheets to get started</p>
-            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Company</th>
-                    <th className="text-left py-3 px-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Contact</th>
-                    <th className="text-left py-3 px-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Industry</th>
-                    <th className="text-left py-3 px-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Research</th>
-                    <th className="text-left py-3 px-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-                    <th className="text-right py-3 px-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {leads.slice(0, 5).map((lead) => (
-                    <tr key={lead.id} className="border-b last:border-0 hover:bg-muted/50">
-                      <td className="py-3 px-2">
-                        <span className="font-medium">{lead.companyName}</span>
-                      </td>
-                      <td className="py-3 px-2 text-muted-foreground">{lead.contactName}</td>
-                      <td className="py-3 px-2 text-muted-foreground">{lead.companyIndustry || "-"}</td>
-                      <td className="py-3 px-2">
-                        <Badge variant={lead.hasResearch ? "default" : "outline"}>
-                          {lead.hasResearch ? "Researched" : "Pending"}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-2">
-                        <Badge variant="outline">{lead.status}</Badge>
-                      </td>
-                      <td className="py-3 px-2 text-right">
-                        <Link href={`/coaching?phone=${encodeURIComponent(lead.contactPhone || '')}`}>
-                          <Button size="sm" variant="ghost">
-                            <Phone className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex items-end gap-4 py-4">
+              <FunnelStage 
+                label="Total Calls" 
+                value={metrics?.funnel.totalCalls || 0} 
+                percentage={100}
+                color="hsl(var(--primary))"
+              />
+              <div className="text-muted-foreground">
+                <ChevronRight className="h-5 w-5" />
+              </div>
+              <FunnelStage 
+                label="Connected" 
+                value={metrics?.funnel.connected || 0} 
+                percentage={metrics?.funnel.totalCalls ? Math.round((metrics.funnel.connected / metrics.funnel.totalCalls) * 100) : 0}
+                color="#8b5cf6"
+              />
+              <div className="text-muted-foreground">
+                <ChevronRight className="h-5 w-5" />
+              </div>
+              <FunnelStage 
+                label="Qualified" 
+                value={metrics?.funnel.qualified || 0} 
+                percentage={metrics?.funnel.totalCalls ? Math.round((metrics.funnel.qualified / metrics.funnel.totalCalls) * 100) : 0}
+                color="#22c55e"
+              />
+              <div className="text-muted-foreground">
+                <ChevronRight className="h-5 w-5" />
+              </div>
+              <FunnelStage 
+                label="Meetings" 
+                value={metrics?.funnel.meetings || 0} 
+                percentage={metrics?.funnel.totalCalls ? Math.round((metrics.funnel.meetings / metrics.funnel.totalCalls) * 100) : 0}
+                color="#3b82f6"
+              />
             </div>
           )}
         </CardContent>
       </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {metrics?.isPrivileged && (
+          <Card className="lg:col-span-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+              <div>
+                <CardTitle className="text-lg">SDR Leaderboard</CardTitle>
+                <CardDescription>Top performers this week</CardDescription>
+              </div>
+              <Link href="/team">
+                <Button variant="ghost" size="sm" data-testid="button-view-team">
+                  View Team
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </Link>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex items-center justify-center h-48">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : metrics?.sdrLeaderboard.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+                  <Trophy className="h-8 w-8 mb-2 opacity-50" />
+                  <p className="text-sm">No activity this week</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {metrics?.sdrLeaderboard.slice(0, 5).map((sdr, index) => (
+                    <LeaderboardRow
+                      key={sdr.sdrId}
+                      rank={index + 1}
+                      name={sdr.sdrName}
+                      qualified={sdr.qualified}
+                      meetings={sdr.meetings}
+                      calls={sdr.calls}
+                      connectRate={sdr.connectRate}
+                    />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        <Card className={metrics?.isPrivileged ? "" : "lg:col-span-2"}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Zap className="h-5 w-5 text-yellow-500" />
+              Action Required
+            </CardTitle>
+            <CardDescription>Items needing your attention</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex items-center justify-center h-48">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {(metrics?.actionItems.callsNeedingAnalysis.length || 0) > 0 && (
+                  <ActionItem
+                    icon={<AlertCircle className="h-5 w-5 text-yellow-600" />}
+                    title={`${metrics?.actionItems.callsNeedingAnalysis.length} calls need analysis`}
+                    subtitle="Review and get AI coaching feedback"
+                    href="/coaching"
+                    variant="warning"
+                  />
+                )}
+                {metrics?.actionItems.hotLeads.slice(0, 2).map((lead) => (
+                  <ActionItem
+                    key={lead.id}
+                    icon={<Target className="h-5 w-5 text-green-600" />}
+                    title={lead.companyName}
+                    subtitle={`${lead.contactName} - Qualified lead`}
+                    href={`/coaching?phone=${encodeURIComponent(lead.phone || '')}`}
+                    variant="success"
+                  />
+                ))}
+                {metrics?.actionItems.leadsWithoutResearch.slice(0, 2).map((lead) => (
+                  <ActionItem
+                    key={lead.id}
+                    icon={<FileSearch className="h-5 w-5 text-muted-foreground" />}
+                    title={lead.companyName}
+                    subtitle={`${lead.contactName} - Needs research`}
+                    href="/leads"
+                  />
+                ))}
+                {(!metrics?.actionItems.callsNeedingAnalysis.length && 
+                  !metrics?.actionItems.hotLeads.length && 
+                  !metrics?.actionItems.leadsWithoutResearch.length) && (
+                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                    <div className="p-3 rounded-full bg-green-100 dark:bg-green-900/30 mb-2">
+                      <Target className="h-6 w-6 text-green-600" />
+                    </div>
+                    <p className="text-sm font-medium">All caught up!</p>
+                    <p className="text-xs">No pending action items</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {!metrics?.isPrivileged && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Quick Actions</CardTitle>
+              <CardDescription>Get started with common tasks</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Link href="/coaching">
+                <Button className="w-full justify-start gap-2" variant="outline" data-testid="button-new-call">
+                  <Phone className="h-4 w-4" />
+                  Start New Call
+                </Button>
+              </Link>
+              <Link href="/leads">
+                <Button className="w-full justify-start gap-2" variant="outline" data-testid="button-view-leads">
+                  <Users className="h-4 w-4" />
+                  View Leads
+                </Button>
+              </Link>
+              <Link href="/learning">
+                <Button className="w-full justify-start gap-2" variant="outline" data-testid="button-learning">
+                  <Trophy className="h-4 w-4" />
+                  Learning Hub
+                </Button>
+              </Link>
+              <Link href="/leads">
+                <Button className="w-full justify-start gap-2 bg-[#2C88C9] hover:bg-[#2C88C9]/90 text-white" data-testid="button-import">
+                  <Zap className="h-4 w-4" />
+                  Import Leads
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

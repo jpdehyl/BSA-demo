@@ -441,6 +441,189 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/dashboard/metrics", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const isPrivileged = currentUser.role === "admin" || currentUser.role === "manager";
+      const allLeads = await storage.getAllLeads();
+      const allSdrs = await storage.getAllSdrs();
+      const allAEs = await storage.getAllAccountExecutives();
+      const sdrIds = allSdrs.map(sdr => sdr.id);
+      const sdrUsers = await storage.getUsersBySdrIds(sdrIds);
+      
+      let callSessions;
+      if (isPrivileged) {
+        const sdrUserIds = sdrUsers.map(u => u.id);
+        callSessions = await storage.getCallSessionsByUserIds(sdrUserIds);
+      } else {
+        callSessions = await storage.getCallSessionsByUser(req.session.userId!);
+      }
+      
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      const todaySessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= today);
+      const weekSessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= weekAgo);
+      const lastWeekSessions = callSessions.filter(s => {
+        const d = s.startedAt ? new Date(s.startedAt) : null;
+        return d && d >= twoWeeksAgo && d < weekAgo;
+      });
+      const monthSessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= monthAgo);
+
+      const qualifiedWeek = weekSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked");
+      const qualifiedLastWeek = lastWeekSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked");
+      const meetingsWeek = weekSessions.filter(s => s.disposition === "meeting-booked");
+      const connectedWeek = weekSessions.filter(s => 
+        s.disposition === "connected" || s.disposition === "qualified" || 
+        s.disposition === "meeting-booked" || s.disposition === "callback-scheduled"
+      );
+
+      const conversionRate = weekSessions.length > 0 
+        ? Math.round((qualifiedWeek.length / weekSessions.length) * 100) 
+        : 0;
+      const lastConversionRate = lastWeekSessions.length > 0 
+        ? Math.round((qualifiedLastWeek.length / lastWeekSessions.length) * 100) 
+        : 0;
+
+      const qualifiedLeads = allLeads.filter(l => l.status === "qualified" || l.status === "sent_to_ae");
+      const pipelineValue = qualifiedLeads.length * 15000;
+
+      const dailyActivity: { date: string; calls: number; qualified: number }[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const day = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+        const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+        const daySessions = callSessions.filter(s => {
+          const d = s.startedAt ? new Date(s.startedAt) : null;
+          return d && d >= dayStart && d < dayEnd;
+        });
+        dailyActivity.push({
+          date: dayStart.toLocaleDateString("en-US", { weekday: "short" }),
+          calls: daySessions.length,
+          qualified: daySessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked").length,
+        });
+      }
+
+      const dispositionBreakdown = weekSessions.reduce((acc, s) => {
+        const disp = s.disposition || "no-answer";
+        acc[disp] = (acc[disp] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const funnel = {
+        totalCalls: weekSessions.length,
+        connected: connectedWeek.length,
+        qualified: qualifiedWeek.length,
+        meetings: meetingsWeek.length,
+      };
+
+      let sdrLeaderboard: Array<{
+        sdrId: string;
+        sdrName: string;
+        userId: string | null;
+        calls: number;
+        qualified: number;
+        meetings: number;
+        connectRate: number;
+        talkTimeMinutes: number;
+      }> = [];
+
+      if (isPrivileged) {
+        sdrLeaderboard = allSdrs.map(sdr => {
+          const sdrUser = sdrUsers.find(u => u.sdrId === sdr.id);
+          const sdrSessions = sdrUser ? weekSessions.filter(s => s.userId === sdrUser.id) : [];
+          const completed = sdrSessions.filter(s => s.status === "completed");
+          const connected = sdrSessions.filter(s => 
+            s.disposition === "connected" || s.disposition === "qualified" || 
+            s.disposition === "meeting-booked" || s.disposition === "callback-scheduled"
+          );
+          return {
+            sdrId: sdr.id,
+            sdrName: sdr.name,
+            userId: sdrUser?.id || null,
+            calls: sdrSessions.length,
+            qualified: sdrSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked").length,
+            meetings: sdrSessions.filter(s => s.disposition === "meeting-booked").length,
+            connectRate: sdrSessions.length > 0 ? Math.round((connected.length / sdrSessions.length) * 100) : 0,
+            talkTimeMinutes: Math.round(completed.reduce((sum, s) => sum + (s.duration || 0), 0) / 60),
+          };
+        }).sort((a, b) => b.qualified - a.qualified || b.meetings - a.meetings);
+      }
+
+      const callsNeedingAnalysis = callSessions.filter(s => 
+        s.status === "completed" && !s.coachingNotes && s.transcriptText
+      ).slice(0, 10);
+
+      const hotLeads = allLeads.filter(l => 
+        l.status === "qualified" || l.status === "sent_to_ae"
+      ).slice(0, 5);
+
+      const leadsWithResearchStatus = await Promise.all(
+        allLeads.slice(0, 50).map(async (lead) => {
+          const researchPacket = await storage.getResearchPacketByLead(lead.id);
+          return { ...lead, hasResearch: !!researchPacket };
+        })
+      );
+      const leadsWithoutResearch = leadsWithResearchStatus.filter(l => !l.hasResearch).slice(0, 5);
+
+      res.json({
+        hero: {
+          pipelineValue,
+          pipelineLeads: qualifiedLeads.length,
+          conversionRate,
+          conversionTrend: conversionRate - lastConversionRate,
+          callsToday: todaySessions.length,
+          callsThisWeek: weekSessions.length,
+          callsTrend: lastWeekSessions.length > 0 
+            ? Math.round(((weekSessions.length - lastWeekSessions.length) / lastWeekSessions.length) * 100)
+            : weekSessions.length > 0 ? 100 : 0,
+          meetingsBooked: meetingsWeek.length,
+          qualifiedLeads: qualifiedWeek.length,
+        },
+        funnel,
+        dispositionBreakdown,
+        dailyActivity,
+        sdrLeaderboard: sdrLeaderboard.slice(0, 10),
+        actionItems: {
+          callsNeedingAnalysis: callsNeedingAnalysis.map(c => ({
+            id: c.id,
+            toNumber: c.toNumber,
+            duration: c.duration,
+            startedAt: c.startedAt,
+          })),
+          hotLeads: hotLeads.map(l => ({
+            id: l.id,
+            companyName: l.companyName,
+            contactName: l.contactName,
+            phone: l.contactPhone,
+          })),
+          leadsWithoutResearch: leadsWithoutResearch.map(l => ({
+            id: l.id,
+            companyName: l.companyName,
+            contactName: l.contactName,
+          })),
+        },
+        teamSize: {
+          sdrs: allSdrs.length,
+          aes: allAEs.length,
+          leads: allLeads.length,
+        },
+        isPrivileged,
+        currentUserId: req.session.userId,
+      });
+    } catch (error) {
+      console.error("Dashboard metrics error:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard metrics" });
+    }
+  });
+
   app.get("/api/manager/oversight", requireRole("admin", "manager"), async (req: Request, res: Response) => {
     try {
       const user = await storage.getUser(req.session.userId!);

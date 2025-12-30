@@ -114,14 +114,15 @@ export function registerCoachRoutes(app: Express, requireAuth: (req: Request, re
   app.post("/api/coach/resend-email/:sessionId", requireAuth, async (req: Request, res: Response) => {
     try {
       const { sessionId } = req.params;
-      const currentUser = (req as any).user;
+      const currentUserId = req.session.userId;
+      const currentUser = currentUserId ? await storage.getUser(currentUserId) : null;
       
       const callSession = await storage.getCallSession(sessionId);
       if (!callSession) {
         return res.status(404).json({ message: "Call session not found" });
       }
       
-      const isOwner = callSession.userId === currentUser?.id;
+      const isOwner = callSession.userId === currentUserId;
       const isPrivileged = currentUser?.role === "admin" || currentUser?.role === "manager";
       
       if (!isOwner && !isPrivileged) {
