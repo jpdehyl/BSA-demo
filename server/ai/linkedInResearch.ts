@@ -165,6 +165,7 @@ Be thorough and specific. Use web search to find accurate information. Make inte
       config: {
         temperature: 0.5,
         maxOutputTokens: 3000,
+        responseMimeType: "application/json",
       },
     });
 

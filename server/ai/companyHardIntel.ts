@@ -70,6 +70,7 @@ Be accurate. If you cannot find specific information, use null for that field. D
       config: {
         temperature: 0.3,
         maxOutputTokens: 2000,
+        responseMimeType: "application/json",
       },
     });
 

@@ -389,6 +389,7 @@ BE THOROUGH. Use the pre-scraped data as your primary source. Supplement with we
       config: {
         temperature: 0.7,
         maxOutputTokens: 6000,
+        responseMimeType: "application/json",
       },
     });
 
