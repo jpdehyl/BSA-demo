@@ -14,8 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertCircle, Check, KeyRound, Loader2, Mail, Shield, Trash2, User, UserCog, Users } from "lucide-react";
-import type { User as UserType } from "@shared/schema";
+import { AlertCircle, Briefcase, Check, KeyRound, Loader2, Mail, Phone, MapPin, Shield, Trash2, User, UserCog, Users, Plus, Edit2 } from "lucide-react";
+import type { User as UserType, AccountExecutive } from "@shared/schema";
 
 type UserWithoutPassword = Omit<UserType, "password">;
 
@@ -48,6 +48,11 @@ export default function SettingsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserWithoutPassword | null>(null);
   const [updatingRoleUserId, setUpdatingRoleUserId] = useState<string | null>(null);
+  const [aeDialogOpen, setAeDialogOpen] = useState(false);
+  const [editingAe, setEditingAe] = useState<AccountExecutive | null>(null);
+  const [aeDeleteDialogOpen, setAeDeleteDialogOpen] = useState(false);
+  const [aeToDelete, setAeToDelete] = useState<AccountExecutive | null>(null);
+  const [aeForm, setAeForm] = useState({ name: "", email: "", phone: "", region: "", specialty: "" });
 
   const isAdmin = user?.role === "admin";
   const isManager = user?.role === "manager";
@@ -55,6 +60,11 @@ export default function SettingsPage() {
 
   const { data: allUsers = [], isLoading: usersLoading } = useQuery<UserWithoutPassword[]>({
     queryKey: ["/api/users"],
+    enabled: canManageUsers
+  });
+
+  const { data: accountExecutives = [], isLoading: aesLoading } = useQuery<AccountExecutive[]>({
+    queryKey: ["/api/account-executives"],
     enabled: canManageUsers
   });
 
@@ -121,6 +131,79 @@ export default function SettingsPage() {
     }
   });
 
+  const createAeMutation = useMutation({
+    mutationFn: async (data: { name: string; email: string; phone?: string; region?: string; specialty?: string }) => {
+      const res = await apiRequest("POST", "/api/account-executives", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/account-executives"] });
+      setAeDialogOpen(false);
+      setAeForm({ name: "", email: "", phone: "", region: "", specialty: "" });
+      toast({ title: "Account Executive added", description: "The AE has been added to the team" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to add AE", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const updateAeMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { id: string; name?: string; email?: string; phone?: string; region?: string; specialty?: string }) => {
+      const res = await apiRequest("PATCH", `/api/account-executives/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/account-executives"] });
+      setAeDialogOpen(false);
+      setEditingAe(null);
+      setAeForm({ name: "", email: "", phone: "", region: "", specialty: "" });
+      toast({ title: "Account Executive updated", description: "Changes have been saved" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Update failed", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const deleteAeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/account-executives/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/account-executives"] });
+      setAeDeleteDialogOpen(false);
+      setAeToDelete(null);
+      toast({ title: "Account Executive removed", description: "The AE has been removed from the team" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const handleAeSubmit = () => {
+    if (!aeForm.name || !aeForm.email) {
+      toast({ title: "Missing required fields", description: "Name and email are required", variant: "destructive" });
+      return;
+    }
+    if (editingAe) {
+      updateAeMutation.mutate({ id: editingAe.id, ...aeForm });
+    } else {
+      createAeMutation.mutate(aeForm);
+    }
+  };
+
+  const openEditAeDialog = (ae: AccountExecutive) => {
+    setEditingAe(ae);
+    setAeForm({
+      name: ae.name,
+      email: ae.email,
+      phone: ae.phone || "",
+      region: ae.region || "",
+      specialty: ae.specialty || ""
+    });
+    setAeDialogOpen(true);
+  };
+
   const handleProfileSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const updates: { name?: string; email?: string } = {};
@@ -154,7 +237,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3" data-testid="tabs-settings">
+        <TabsList className={`grid w-full ${canManageUsers ? 'grid-cols-4' : 'grid-cols-2'}`} data-testid="tabs-settings">
           <TabsTrigger value="profile" data-testid="tab-profile">
             <User className="h-4 w-4 mr-2" />
             Profile
@@ -166,7 +249,13 @@ export default function SettingsPage() {
           {canManageUsers && (
             <TabsTrigger value="users" data-testid="tab-users">
               <Users className="h-4 w-4 mr-2" />
-              User Management
+              Users
+            </TabsTrigger>
+          )}
+          {canManageUsers && (
+            <TabsTrigger value="account-executives" data-testid="tab-account-executives">
+              <Briefcase className="h-4 w-4 mr-2" />
+              AEs
             </TabsTrigger>
           )}
         </TabsList>
@@ -435,7 +524,243 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
         )}
+
+        {canManageUsers && (
+          <TabsContent value="account-executives" className="space-y-6 mt-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Briefcase className="h-5 w-5" />
+                      Account Executives
+                    </CardTitle>
+                    <CardDescription>
+                      Manage account executives for lead handoffs
+                    </CardDescription>
+                  </div>
+                  {isAdmin && (
+                    <Button
+                      onClick={() => {
+                        setEditingAe(null);
+                        setAeForm({ name: "", email: "", phone: "", region: "", specialty: "" });
+                        setAeDialogOpen(true);
+                      }}
+                      data-testid="button-add-ae"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add AE
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {aesLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {accountExecutives.map((ae) => (
+                      <div
+                        key={ae.id}
+                        className="flex items-center justify-between gap-4 p-4 rounded-md border"
+                        data-testid={`ae-row-${ae.id}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10">
+                            <AvatarFallback className="bg-primary/10 text-primary">
+                              {getInitials(ae.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">{ae.name}</p>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Mail className="h-3 w-3" />
+                                {ae.email}
+                              </span>
+                              {ae.phone && (
+                                <span className="flex items-center gap-1">
+                                  <Phone className="h-3 w-3" />
+                                  {ae.phone}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex gap-2 mt-1 flex-wrap">
+                              {ae.region && (
+                                <Badge variant="outline" className="text-xs">
+                                  <MapPin className="h-3 w-3 mr-1" />
+                                  {ae.region}
+                                </Badge>
+                              )}
+                              {ae.specialty && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {ae.specialty}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        {isAdmin && (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEditAeDialog(ae)}
+                              data-testid={`button-edit-ae-${ae.id}`}
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setAeToDelete(ae);
+                                setAeDeleteDialogOpen(true);
+                              }}
+                              data-testid={`button-delete-ae-${ae.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {accountExecutives.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Briefcase className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p>No account executives added yet</p>
+                        {isAdmin && <p className="text-sm mt-1">Click "Add AE" to add your first account executive</p>}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
+
+      <Dialog open={aeDialogOpen} onOpenChange={(open) => {
+        setAeDialogOpen(open);
+        if (!open) {
+          setEditingAe(null);
+          setAeForm({ name: "", email: "", phone: "", region: "", specialty: "" });
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingAe ? "Edit Account Executive" : "Add Account Executive"}</DialogTitle>
+            <DialogDescription>
+              {editingAe ? "Update the account executive's information" : "Add a new account executive to your team for lead handoffs"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="ae-name">Name *</Label>
+                <Input
+                  id="ae-name"
+                  value={aeForm.name}
+                  onChange={(e) => setAeForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Full name"
+                  data-testid="input-ae-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ae-email">Email *</Label>
+                <Input
+                  id="ae-email"
+                  type="email"
+                  value={aeForm.email}
+                  onChange={(e) => setAeForm(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="ae@company.com"
+                  data-testid="input-ae-email"
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="ae-phone">Phone</Label>
+                <Input
+                  id="ae-phone"
+                  value={aeForm.phone}
+                  onChange={(e) => setAeForm(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="+1 (555) 123-4567"
+                  data-testid="input-ae-phone"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ae-region">Region</Label>
+                <Input
+                  id="ae-region"
+                  value={aeForm.region}
+                  onChange={(e) => setAeForm(prev => ({ ...prev, region: e.target.value }))}
+                  placeholder="e.g., West Coast, EMEA"
+                  data-testid="input-ae-region"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ae-specialty">Specialty</Label>
+              <Input
+                id="ae-specialty"
+                value={aeForm.specialty}
+                onChange={(e) => setAeForm(prev => ({ ...prev, specialty: e.target.value }))}
+                placeholder="e.g., Enterprise, SMB, SolidWorks"
+                data-testid="input-ae-specialty"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAeDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAeSubmit}
+              disabled={createAeMutation.isPending || updateAeMutation.isPending}
+              data-testid="button-save-ae"
+            >
+              {(createAeMutation.isPending || updateAeMutation.isPending) ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Check className="h-4 w-4 mr-2" />
+              )}
+              {editingAe ? "Save Changes" : "Add Account Executive"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={aeDeleteDialogOpen} onOpenChange={setAeDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Account Executive</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove {aeToDelete?.name} from the team? They will no longer receive lead handoffs.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAeDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => aeToDelete && deleteAeMutation.mutate(aeToDelete.id)}
+              disabled={deleteAeMutation.isPending}
+              data-testid="button-confirm-delete-ae"
+            >
+              {deleteAeMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Remove AE
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>

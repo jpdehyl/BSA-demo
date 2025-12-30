@@ -921,6 +921,46 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/account-executives/:id", requireRole("admin"), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const updateSchema = z.object({
+        name: z.string().min(1).optional(),
+        email: z.string().email().optional(),
+        phone: z.string().optional().nullable(),
+        region: z.string().optional().nullable(),
+        specialty: z.string().optional().nullable(),
+        isActive: z.boolean().optional()
+      });
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid update data", errors: parsed.error.flatten() });
+      }
+      const updated = await storage.updateAccountExecutive(id, parsed.data);
+      if (!updated) {
+        return res.status(404).json({ message: "Account executive not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Account executive update error:", error);
+      res.status(500).json({ message: "Failed to update account executive" });
+    }
+  });
+
+  app.delete("/api/account-executives/:id", requireRole("admin"), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deleteAccountExecutive(id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Account executive not found" });
+      }
+      res.json({ message: "Account executive deleted" });
+    } catch (error) {
+      console.error("Account executive delete error:", error);
+      res.status(500).json({ message: "Failed to delete account executive" });
+    }
+  });
+
   app.post("/api/call-sessions/:id/send-to-ae", requireAuth, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
