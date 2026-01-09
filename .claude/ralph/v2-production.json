@@ -1,0 +1,678 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "feature": "Lead Intel v2.0 - Production Rebuild for Hawk Ridge Systems",
+  "branchName": "feature/v2-production-hawk-ridge",
+  "created": "2026-01-09T00:00:00Z",
+  "timeline": {
+    "mvpDemo": "2026-01-13T00:00:00Z",
+    "hardDeadline": "2026-01-18T00:00:00Z",
+    "daysToMvp": 4,
+    "daysToDeadline": 9
+  },
+  "mvpScope": {
+    "critical": [
+      "Salesforce lead sync (read-only)",
+      "Enhanced research engine (Google News, job postings)",
+      "Kanban board with 9 stages",
+      "Manager metrics dashboard",
+      "AE handoff system (email + Salesforce task)",
+      "Azure deployment"
+    ],
+    "deferred": [
+      "Live call coaching",
+      "Twilio integration (replaced by Zoom - implemented later)",
+      "Advanced analytics",
+      "Mobile app"
+    ]
+  },
+  "stories": [
+    {
+      "id": "story-1",
+      "title": "Azure Infrastructure Setup",
+      "description": "Provision all required Azure resources: App Service, SQL Database, Blob Storage, Key Vault, Application Insights. Configure networking, firewall rules, and secrets management.",
+      "agentType": "director",
+      "priority": "high",
+      "effort": "medium",
+      "sprint": "Foundation (Jan 9-10)",
+      "acceptanceCriteria": [
+        "Azure resource group created (rg-leadintel-prod)",
+        "Azure SQL Database provisioned and accessible",
+        "Azure App Service created with Node.js 20 runtime",
+        "Azure Blob Storage with containers (call-recordings, handoff-documents)",
+        "Azure Key Vault configured with managed identity",
+        "All secrets stored in Key Vault (SF, Zoom, Gemini, DB)",
+        "Application Insights enabled for monitoring"
+      ],
+      "files": [
+        ".azure/infrastructure.bicep",
+        ".azure/deploy.sh",
+        "docs/azure-setup.md"
+      ],
+      "passes": false,
+      "completedAt": null,
+      "estimatedHours": 3,
+      "dependencies": []
+    },
+    {
+      "id": "story-2",
+      "title": "Database Migration (Schema + Data)",
+      "description": "Migrate database schema from PostgreSQL (Replit) to Azure SQL Database. Update Drizzle ORM configuration, add new tables (salesforce_sync_log, zoom_call_recordings, handoff_logs), and migrate existing data.",
+      "agentType": "director",
+      "priority": "high",
+      "effort": "high",
+      "sprint": "Foundation (Jan 9-10)",
+      "acceptanceCriteria": [
+        "Update shared/schema.ts for Azure SQL compatibility (SERIAL → IDENTITY)",
+        "Create new tables: salesforce_sync_log, zoom_call_recordings, handoff_logs",
+        "Modify leads table: add salesforce_lead_id, budget_tier, BANT fields",
+        "Modify call_sessions table: add zoom_call_id, zoom_recording_id, bant_extracted",
+        "Update server/db.ts for Azure SQL connection with SSL",
+        "Run npm run db:push successfully",
+        "Export data from Replit PostgreSQL",
+        "Import data to Azure SQL and verify integrity"
+      ],
+      "files": [
+        "shared/schema.ts",
+        "server/db.ts",
+        "drizzle.config.ts",
+        "scripts/migrate-data.ts"
+      ],
+      "passes": false,
+      "completedAt": null,
+      "estimatedHours": 4,
+      "dependencies": ["story-1"]
+    },
+    {
+      "id": "story-3",
+      "title": "Azure Blob Storage Integration",
+      "description": "Create blob storage service for call recordings and handoff documents. Implement upload, download, and URL generation methods.",
+      "agentType": "researcher",
+      "priority": "high",
+      "effort": "low",
+      "sprint": "Foundation (Jan 9-10)",
+      "acceptanceCriteria": [
+        "Create server/storage/blobStorage.ts module",
+        "Implement uploadRecording(callId, buffer) method",
+        "Implement uploadHandoffDocument(leadId, pdfBuffer) method",
+        "Implement downloadRecording(blobUrl) method",
+        "Use @azure/storage-blob SDK",
+        "Test upload/download with sample files",
+        "Add error handling for network failures"
+      ],
+      "files": [
+        "server/storage/blobStorage.ts"
+      ],
+      "passes": false,
+      "completedAt": null,
+      "estimatedHours": 2,
+      "dependencies": ["story-1"]
+    },
+    {
+      "id": "story-4",
+      "title": "Salesforce OAuth Integration",
+      "description": "Implement Salesforce OAuth 2.0 authentication flow for lead sync. Create service to manage tokens, refresh tokens, and API calls.",
+      "agentType": "researcher",
+      "priority": "high",
+      "effort": "medium",
+      "sprint": "Foundation (Jan 9-10)",
+      "acceptanceCriteria": [
+        "Create server/integrations/salesforce.ts module",
+        "Implement OAuth 2.0 authorization flow",
+        "Handle callback and store refresh tokens",
+        "Implement token refresh logic (auto-refresh on expiry)",
+        "Create API endpoint: POST /api/salesforce/auth",
+        "Create API endpoint: GET /api/salesforce/auth/callback",
+        "Create API endpoint: GET /api/salesforce/auth/status",
+        "Test OAuth flow with Salesforce Connected App"
+      ],
+      "files": [
+        "server/integrations/salesforce.ts",
+        "server/routes.ts"
+      ],
+      "passes": false,
+      "completedAt": null,
+      "estimatedHours": 3,
+      "dependencies": ["story-1", "story-2"]
+    },
+    {
+      "id": "story-5",
+      "title": "Salesforce Lead Sync (One-Way: SF → Lead Intel)",
+      "description": "Implement lead sync from Salesforce to Lead Intel. Support webhook (preferred) or polling (fallback) for real-time updates.",
+      "agentType": "researcher",
+      "priority": "high",
+      "effort": "high",
+      "sprint": "Integrations (Jan 10-11)",
+      "acceptanceCriteria": [
+        "Extend server/integrations/salesforce.ts with sync methods",
+        "Implement syncLeads(lastSyncTime?) to fetch leads from SF",
+        "Implement webhook handler: POST /api/webhooks/salesforce",
+        "Validate Salesforce webhook signatures (HMAC)",
+        "Transform Salesforce Lead object to Lead Intel schema",
+        "Check for duplicates (by salesforce_lead_id)",
+        "Create lead in database if new, update if exists",
+        "Trigger research job after lead creation",
+        "Create salesforce_sync_log entries for tracking"
+      ],
+      "files": [
+        "server/integrations/salesforce.ts",
+        "server/routes.ts",
+        "server/storage.ts"
+      ],
+      "passes": false,
+      "completedAt": null,
+      "estimatedHours": 4,
+      "dependencies": ["story-4"]
+    },
+    {
+      "id": "story-6",
+      "title": "Enhanced Research Engine - Google News Integration",
+      "description": "Add Google News scraping to research engine to identify recent company mentions, funding news, and market activity.",
+      "agentType": "researcher",
+      "priority": "high",
+      "effort": "medium",
+      "sprint": "Research (Jan 11-12)",
+      "acceptanceCriteria": [
+        "Create server/ai/newsResearch.ts module",
+        "Use SerpAPI or Google News RSS for news scraping",
+        "Search for: company name + industry keywords",
+        "Return structured news articles: title, date, summary, url, relevance",
+        "Rank by recency (< 30 days = high priority)",
+        "Extract buyinbg signals (funding, expansion, new products)",
+        "Include confidence scoring (number of sources)",
+        "Add to research orchestrator in server/ai/leadResearch.ts"
+      ],
+      "files": [
+        "server/ai/newsResearch.ts",
+        "server/ai/leadResearch.ts"
+      ],
+      "passes": false,
+      "completedAt": null,
+      "estimatedHours": 3,
+      "dependencies": ["story-2"]
+    },
+    {
+      "id": "story-7",
+      "title": "Enhanced Research Engine - Job Postings Analysis",
+      "description": "Analyze company job postings to identify pain points from hiring patterns (e.g., 5 CAD engineer roles = CAD workflow capacity issue).",
+      "agentType": "researcher",
+      "priority": "high",
+      "effort": "medium",
+      "sprint": "Research (Jan 11-12)",
+      "acceptanceCriteria": [
+        "Create server/ai/jobPostingsAnalysis.ts module",
+        "Scrape job postings from company careers page",
+        "Extract: job title, department, description, posted date",
+        "Identify pain signals from high-volume roles",
+        "Map roles to Hawk Ridge product categories (CAD, PDM, CAM)",
+        "Generate structured pain points with evidence",
+        "Include confidence scoring (number of postings)",
+        "Add to research orchestrator"
+      ],
+      "files": [
+        "server/ai/jobPostingsAnalysis.ts",
+        "server/ai/leadResearch.ts"
+      ],
+      "passes": false,
+      "completedAt": null,
+      "estimatedHours": 3,
+      "dependencies": ["story-2"]
+    },
+    {
+      "id": "story-8",
+      "title": "Research Orchestrator Enhancement",
+      "description": "Update lead research orchestrator to integrate Google News and Job Postings analysis. Generate complete research dossier with BANT indicators.",
+      "agentType": "researcher",
+      "priority": "high",
+      "effort": "medium",
+      "sprint": "Research (Jan 11-12)",
+      "acceptanceCriteria": [
+        "Update server/ai/leadResearch.ts to call newsResearch module",
+        "Update to call jobPostingsAnalysis module",
+        "Update to include Salesforce historical data (if available)",
+        "Enhance Gemini prompt to generate BANT indicators",
+        "Add budget_tier estimation (high/medium/low) based on company size/revenue",
+        "Generate complete dossier: company overview, pain points, product fit, budget, decision maker profile",
+        "Store research_packet with updated schema",
+        "Update confidence scoring logic"
+      ],
+      "files": [
+        "server/ai/leadResearch.ts"
+      ],
+      "passes": false,
+      "completedAt": null,
+      "estimatedHours": 3,
+      "dependencies": ["story-6", "story-7"]
+    },
+    {
+      "id": "story-9",
+      "title": "Kanban Board Component (Frontend)",
+      "description": "Create Apple-style kanban board component with 9 stages, drag-and-drop, filters, and real-time updates. Focus on minimalist design and smooth animations.",
+      "agentType": "ux",
+      "priority": "high",
+      "effort": "high",
+      "sprint": "Frontend (Jan 11-12)",
+      "acceptanceCriteria": [
+        "Create client/src/components/KanbanBoard.tsx",
+        "Implement 9 columns: New Lead, Researching, Researched, Contacted, Engaged, Qualified, Handed Off, Won, Lost",
+        "Use @dnd-kit/core for drag-and-drop between columns",
+        "Use framer-motion for smooth card animations",
+        "Add filters: SDR (multi-select), source, industry, date range, status",
+        "Display lead cards with: company name, contact, fit score, priority badge",
+        "Auto-refresh every 30 seconds (or WebSocket for real-time)",
+        "Apple-style design: minimalist, clear typography, subtle shadows, smooth transitions",
+        "Test on desktop and mobile viewports with Playwright"
+      ],
+      "files": [
+        "client/src/components/KanbanBoard.tsx",
+        "client/src/components/KanbanCard.tsx",
+        "client/src/components/KanbanFilters.tsx"
+      ],
+      "passes": false,
+      "completedAt": null,
+      "estimatedHours": 5,
+      "dependencies": ["story-2"]
+    },
+    {
+      "id": "story-10",
+      "title": "Kanban API Endpoints",
+      "description": "Create backend API endpoints to support kanban board: get cards, update stage, get metrics, save filters.",
+      "agentType": "director",
+      "priority": "high",
+      "effort": "low",
+      "sprint": "Frontend (Jan 11-12)",
+      "acceptanceCriteria": [
+        "Create GET /api/kanban/board - return all leads grouped by stage",
+        "Create GET /api/kanban/board/:stage - return leads in specific stage",
+        "Create PUT /api/kanban/cards/:id/stage - update lead stage (drag-drop)",
+        "Create GET /api/kanban/metrics - return board metrics (count per stage, velocity)",
+        "Create POST /api/kanban/filters - save filter preset for user",
+        "Add authorization checks (managers see all, SDRs see only their leads)",
+        "Test with Postman/curl"
+      ],
+      "files": [
+        "server/routes.ts",
+        "server/storage.ts"
+      ],
+      "passes": false,
+      "completedAt": null,
+      "estimatedHours": 2,
+      "dependencies": ["story-2"]
+    },
+    {
+      "id": "story-11",
+      "title": "Research Display Component (Apple-Style)",
+      "description": "Redesign research brief display with Apple-style minimalism, progressive disclosure, and clear visual hierarchy.",
+      "agentType": "ux",
+      "priority": "high",
+      "effort": "medium",
+      "sprint": "Frontend (Jan 11-12)",
+      "acceptanceCriteria": [
+        "Create client/src/components/ResearchDisplay.tsx",
+        "Executive summary always visible (1-2 sentences, fit score badge)",
+        "Pain points section: top 3 expanded by default, rest collapsible",
+        "Product fit section: primary match visible, secondary collapsible",
+        "Budget & timeline: compact display with indicators",
+        "Decision maker profile: collapsed by default, expand on click",
+        "Confidence indicators: color-coded badges (green=high, yellow=medium, red=low)",
+        "Quick actions: copy-to-clipboard for talk track, email snippets",
+        "Apple-style: clean typography (SF Pro Display), subtle shadows, ample whitespace",
+        "Test on mobile and desktop with Playwright"
+      ],
+      "files": [
+        "client/src/components/ResearchDisplay.tsx"
+      ],
+      "passes": false,
+      "completedAt": null,
+      "estimatedHours": 3,
+      "dependencies": ["story-8"]
+    },
+    {
+      "id": "story-12",
+      "title": "Manager Metrics Dashboard",
+      "description": "Create manager dashboard with key metrics: leads in pipeline, qualified leads, conversion rate, team leaderboard, activity charts.",
+      "agentType": "analyst",
+      "priority": "high",
+      "effort": "high",
+      "sprint": "Analytics (Jan 12-13)",
+      "acceptanceCriteria": [
+        "Create client/src/pages/dashboard.tsx (redesign existing)",
+        "Top-line KPIs: total leads, qualified leads, conversion rate, avg research time",
+        "Activity chart: calls/emails over time (recharts line chart)",
+        "Team leaderboard: sortable table by qualified leads, calls made, win rate",
+        "Pipeline velocity: avg days in each stage",
+        "Win rate funnel: visual funnel chart (Researched → Qualified → Won)",
+        "Filters: date range, SDR, team",
+        "Create API endpoint: GET /api/metrics/dashboard",
+        "Apple-style design: big numbers, clear charts, minimal chrome"
+      ],
+      "files": [
+        "client/src/pages/dashboard.tsx",
+        "client/src/components/MetricsDashboard.tsx",
+        "server/routes.ts"
+      ],
+      "passes": false,
+      "completedAt": null,
+      "estimatedHours": 4,
+      "dependencies": ["story-2", "story-10"]
+    },
+    {
+      "id": "story-13",
+      "title": "AE Handoff Generator",
+      "description": "Create handoff generator service that produces complete lead analysis document for AE handoff.",
+      "agentType": "analyst",
+      "priority": "high",
+      "effort": "medium",
+      "sprint": "Handoff (Jan 12-13)",
+      "acceptanceCriteria": [
+        "Create server/services/handoffGenerator.ts",
+        "Implement generateAnalysis(leadId) method",
+        "Generate document with sections: Executive Summary, Pain Points (top 3), Product Fit, Budget Indicators, Decision Maker Profile, Recommended Next Steps, Call History",
+        "Use Gemini to synthesize analysis from research + call transcripts",
+        "Format as structured JSON and HTML (for email)",
+        "Generate PDF version (optional for MVP, use HTML for now)",
+        "Include fit score, budget tier, product recommendations",
+        "Validate lead is qualified before generating"
+      ],
+      "files": [
+        "server/services/handoffGenerator.ts"
+      ],
+      "passes": false,
+      "completedAt": null,
+      "estimatedHours": 3,
+      "dependencies": ["story-8"]
+    },
+    {
+      "id": "story-14",
+      "title": "AE Handoff Execution (Email + Salesforce Task)",
+      "description": "Implement handoff execution that sends email to AE and creates Salesforce task with lead analysis.",
+      "agentType": "researcher",
+      "priority": "high",
+      "effort": "medium",
+      "sprint": "Handoff (Jan 12-13)",
+      "acceptanceCriteria": [
+        "Extend server/services/handoffGenerator.ts",
+        "Implement sendToAE(document, aeId) method",
+        "Send formatted HTML email with analysis",
+        "Implement createSalesforceTask(leadId, aeId) method",
+        "Create Salesforce Task with link to Lead Intel lead detail page",
+        "Include summary in task description",
+        "Implement completeHandoff(leadId, aeId) method",
+        "Update lead status to 'handed_off'",
+        "Create handoff_logs entry",
+        "Create API endpoint: POST /api/handoff/execute",
+        "Add settings page for AE notification preferences (email/SF task toggles)"
+      ],
+      "files": [
+        "server/services/handoffGenerator.ts",
+        "server/integrations/salesforce.ts",
+        "server/routes.ts",
+        "client/src/pages/settings.tsx"
+      ],
+      "passes": false,
+      "completedAt": null,
+      "estimatedHours": 3,
+      "dependencies": ["story-13", "story-4"]
+    },
+    {
+      "id": "story-15",
+      "title": "Handoff Form Component (Frontend)",
+      "description": "Create handoff form with validation checks, analysis preview, AE selection, and confirmation modal.",
+      "agentType": "ux",
+      "priority": "high",
+      "effort": "low",
+      "sprint": "Handoff (Jan 12-13)",
+      "acceptanceCriteria": [
+        "Create client/src/components/HandoffForm.tsx",
+        "Show validation checklist: status=Qualified, research complete, call logged, BANT filled",
+        "Preview analysis document before sending",
+        "Dropdown to select Account Executive",
+        "Toggles for email/Salesforce task (user preference)",
+        "Optional notes field",
+        "Confirmation modal: 'Hand off [Company] to [AE Name]?'",
+        "Success toast on completion",
+        "Error handling with clear messages",
+        "Apple-style: clean form, clear buttons, smooth transitions"
+      ],
+      "files": [
+        "client/src/components/HandoffForm.tsx"
+      ],
+      "passes": false,
+      "completedAt": null,
+      "estimatedHours": 2,
+      "dependencies": ["story-14"]
+    },
+    {
+      "id": "story-16",
+      "title": "Azure Deployment Configuration",
+      "description": "Configure CI/CD pipeline for Azure App Service deployment using GitHub Actions. Set up environment variables and health checks.",
+      "agentType": "director",
+      "priority": "high",
+      "effort": "medium",
+      "sprint": "Deployment (Jan 13)",
+      "acceptanceCriteria": [
+        "Create .github/workflows/azure-deploy.yml",
+        "Configure deployment to Azure App Service on push to main",
+        "Add build step: npm ci, npm run build",
+        "Add test step: npm test (if tests exist)",
+        "Deploy using azure/webapps-deploy@v2 action",
+        "Configure environment variables in App Service (from Key Vault)",
+        "Add health check endpoint: GET /health",
+        "Add database status endpoint: GET /api/debug/db-status",
+        "Test deployment manually first",
+        "Document deployment process in docs/deployment.md"
+      ],
+      "files": [
+        ".github/workflows/azure-deploy.yml",
+        "server/routes.ts",
+        "docs/deployment.md"
+      ],
+      "passes": false,
+      "completedAt": null,
+      "estimatedHours": 3,
+      "dependencies": ["story-1", "story-2"]
+    },
+    {
+      "id": "story-17",
+      "title": "Zoom Phone Webhook Handler (Stub for Post-MVP)",
+      "description": "Create Zoom webhook handler stub for recording.completed events. Full implementation deferred to post-MVP.",
+      "agentType": "researcher",
+      "priority": "medium",
+      "effort": "low",
+      "sprint": "Post-MVP (Jan 14-17)",
+      "acceptanceCriteria": [
+        "Create server/integrations/zoom.ts module",
+        "Implement webhook validation (signature check)",
+        "Create API endpoint: POST /api/webhooks/zoom/recording",
+        "Handle recording.completed event (log only for now)",
+        "Return proper response for Zoom validation",
+        "Document Zoom integration steps for future implementation",
+        "Add TODO comments for download, transcription, analysis"
+      ],
+      "files": [
+        "server/integrations/zoom.ts",
+        "server/routes.ts",
+        "docs/zoom-integration.md"
+      ],
+      "passes": false,
+      "completedAt": null,
+      "estimatedHours": 2,
+      "dependencies": ["story-1"]
+    },
+    {
+      "id": "story-18",
+      "title": "Comprehensive Testing & Bug Fixes",
+      "description": "Run smoke tests, integration tests, UAT, and fix any bugs discovered before MVP demo.",
+      "agentType": "director",
+      "priority": "high",
+      "effort": "high",
+      "sprint": "Testing (Jan 13)",
+      "acceptanceCriteria": [
+        "Run smoke tests: health check, database, auth, lead creation",
+        "Test Salesforce integration: webhook receives lead, research triggers",
+        "Test end-to-end flow: SF sync → research → kanban → handoff",
+        "Test kanban drag-and-drop on desktop and mobile",
+        "Test research display on all viewports",
+        "Test manager dashboard metrics accuracy",
+        "Test AE handoff email delivery and SF task creation",
+        "Run Playwright accessibility audit",
+        "Fix all critical bugs",
+        "Document known issues for post-MVP"
+      ],
+      "files": [
+        "tests/smoke-test.sh",
+        "tests/integration/*",
+        "docs/known-issues.md"
+      ],
+      "passes": false,
+      "completedAt": null,
+      "estimatedHours": 4,
+      "dependencies": ["story-9", "story-11", "story-12", "story-15", "story-16"]
+    },
+    {
+      "id": "story-19",
+      "title": "UX Polish & Apple-Style Refinement",
+      "description": "Final UX polish pass: consistent spacing, typography, colors, animations, and micro-interactions. Ensure Apple-style simplicity throughout.",
+      "agentType": "ux",
+      "priority": "high",
+      "effort": "medium",
+      "sprint": "Polish (Jan 13)",
+      "acceptanceCriteria": [
+        "Audit all pages for consistent spacing (8px grid)",
+        "Ensure typography consistency (SF Pro Display headings, SF Pro Text body)",
+        "Verify color palette matches design system (see design_guidelines.md)",
+        "Add smooth transitions (200ms ease-out) to all interactive elements",
+        "Add micro-interactions: button press states, card hover effects",
+        "Remove unnecessary UI chrome (minimize borders, dividers)",
+        "Test all flows for friction points",
+        "Run Playwright screenshot comparison (before/after)",
+        "Get UX signoff from stakeholder"
+      ],
+      "files": [
+        "client/src/index.css",
+        "client/src/components/**/*.tsx",
+        "docs/ux-audit-report.md"
+      ],
+      "passes": false,
+      "completedAt": null,
+      "estimatedHours": 3,
+      "dependencies": ["story-9", "story-11", "story-12", "story-15"]
+    },
+    {
+      "id": "story-20",
+      "title": "MVP Demo Preparation",
+      "description": "Prepare MVP demo: seed database with realistic data, create demo script, test demo flow, create presentation materials.",
+      "agentType": "director",
+      "priority": "high",
+      "effort": "low",
+      "sprint": "Demo Prep (Jan 13)",
+      "acceptanceCriteria": [
+        "Seed database with 20 realistic leads (mix of stages)",
+        "Create 3 demo user accounts: SDR (demo@sdr), Manager (demo@mgr), AE (demo@ae)",
+        "Prepare demo script covering: Salesforce sync, research display, kanban board, handoff",
+        "Test demo flow multiple times",
+        "Create presentation slides (if needed)",
+        "Prepare backup plan if Azure has issues (fallback to local)",
+        "Document demo notes in docs/mvp-demo-script.md"
+      ],
+      "files": [
+        "scripts/seed-demo-data.ts",
+        "docs/mvp-demo-script.md"
+      ],
+      "passes": false,
+      "completedAt": null,
+      "estimatedHours": 2,
+      "dependencies": ["story-18"]
+    }
+  ],
+  "sprintPlan": {
+    "sprint1": {
+      "name": "Foundation",
+      "dates": "Jan 9-10",
+      "stories": ["story-1", "story-2", "story-3", "story-4"],
+      "goal": "Azure infrastructure setup, database migration, Salesforce OAuth"
+    },
+    "sprint2": {
+      "name": "Integrations & Research",
+      "dates": "Jan 10-12",
+      "stories": ["story-5", "story-6", "story-7", "story-8"],
+      "goal": "Salesforce lead sync, enhanced research engine (news, job postings)"
+    },
+    "sprint3": {
+      "name": "Frontend & Analytics",
+      "dates": "Jan 11-12",
+      "stories": ["story-9", "story-10", "story-11", "story-12"],
+      "goal": "Kanban board, research display, manager dashboard"
+    },
+    "sprint4": {
+      "name": "Handoff & Deployment",
+      "dates": "Jan 12-13",
+      "stories": ["story-13", "story-14", "story-15", "story-16"],
+      "goal": "AE handoff system, Azure deployment"
+    },
+    "sprint5": {
+      "name": "Testing & Demo",
+      "dates": "Jan 13",
+      "stories": ["story-18", "story-19", "story-20"],
+      "goal": "Comprehensive testing, UX polish, MVP demo preparation"
+    },
+    "postMvp": {
+      "name": "Refinement",
+      "dates": "Jan 14-17",
+      "stories": ["story-17"],
+      "goal": "Bug fixes, performance optimization, Zoom integration prep"
+    }
+  },
+  "successMetrics": {
+    "technical": [
+      "All smoke tests passing",
+      "Response time p95 < 2 seconds",
+      "Error rate < 1%",
+      "Database migration with zero data loss",
+      "Salesforce webhook processing < 5 seconds"
+    ],
+    "business": [
+      "Research briefs generated within 5 minutes",
+      "Kanban board displays all leads correctly",
+      "Manager dashboard shows accurate metrics",
+      "AE handoff email delivered within 1 minute",
+      "Salesforce task created successfully"
+    ],
+    "ux": [
+      "Apple-style simplicity achieved (minimalist, fast, clear)",
+      "No critical UX issues in UAT",
+      "Mobile-friendly (tested on iPhone/iPad)",
+      "Accessibility score > 90 (Lighthouse)",
+      "Positive feedback from SDRs, managers, AEs"
+    ]
+  },
+  "risks": [
+    {
+      "risk": "Azure infrastructure delays",
+      "mitigation": "Start infrastructure setup on Day 1, have fallback to Replit for demo"
+    },
+    {
+      "risk": "Salesforce OAuth complexity",
+      "mitigation": "Thoroughly test OAuth flow, use Salesforce sandbox for testing"
+    },
+    {
+      "risk": "Database migration data loss",
+      "mitigation": "Multiple backups, test migration on staging first, verify row counts"
+    },
+    {
+      "risk": "Timeline slippage",
+      "mitigation": "Daily standups, ruthless prioritization, defer non-MVP features"
+    },
+    {
+      "risk": "UX not meeting Apple-style standards",
+      "mitigation": "UX Agent involvement in every UI story, Playwright audits, early stakeholder feedback"
+    }
+  ],
+  "notes": [
+    "MVP DEMO on Monday, January 13, 2026 - hard deadline",
+    "Production launch on Saturday, January 18, 2026 - hard deadline",
+    "Focus on Apple-style simplicity in all UX work",
+    "Defer live coaching and Zoom full integration to post-MVP",
+    "All stories must pass quality gates: npm run check, npm run build, Playwright tests",
+    "Each story should be completable in one Ralph iteration (fresh context)"
+  ]
+}
