@@ -23,6 +23,8 @@ This document provides comprehensive guidance for AI assistants working on the L
 11. [Testing & Debugging](#testing--debugging)
 12. [Deployment](#deployment)
 13. [Key Files Reference](#key-files-reference)
+14. [Multi-Agent System](#multi-agent-system)
+15. [Ralph Iterative Development](#ralph-iterative-development)
 
 ---
 
@@ -1666,6 +1668,233 @@ All environment variables must be set in Replit Secrets:
 - **`LEAD_INTEL_TECHNICAL_DOCUMENTATION.md`** - Comprehensive technical documentation
 - **`design_guidelines.md`** - Design system documentation
 - **`replit.md`** - Replit setup guide
+- **`.claude/agents/README.md`** - Multi-agent system documentation
+
+---
+
+## Multi-Agent System
+
+### Overview
+
+Lead Intel uses a **multi-agent architecture** with specialized AI agents for different domains:
+
+1. **🎬 Director Agent** - Orchestrates and coordinates all sub-agents
+2. **🔍 Researcher Agent** - Deep intelligence gathering and lead research
+3. **📊 Business Analyst Agent** - Strategic insights and analytics
+4. **🎨 UX Agent** - User experience optimization
+
+### Architecture
+
+```
+                    DIRECTOR AGENT 🎬
+                    (Orchestration Layer)
+                            ↓
+         ┌──────────────────┼──────────────────┐
+         ↓                  ↓                  ↓
+    RESEARCHER 🔍    BUSINESS ANALYST 📊    UX AGENT 🎨
+    Intelligence     Strategic Insights   UX Optimization
+```
+
+### When to Use Each Agent
+
+**Director Agent** (Your entry point for complex tasks)
+```
+Use when: Task requires multiple agents or coordination
+Example: "Research lead X, analyze fit, and recommend approach"
+```
+
+**Researcher Agent**
+```
+Use when: Need deep lead intelligence or market research
+Example: "Research Acme Corp and identify pain points"
+Enhances: server/ai/leadResearch.ts
+```
+
+**Business Analyst Agent**
+```
+Use when: Need analytics, insights, or strategic recommendations
+Example: "Why is our qualification rate declining?"
+Creates: New server/analytics/ module
+```
+
+**UX Agent**
+```
+Use when: Need design improvements or workflow optimization
+Example: "Simplify the lead creation flow"
+Modifies: client/src/ frontend code
+```
+
+### Communication Patterns
+
+**Sequential Workflow:**
+```
+Researcher → Business Analyst → User
+(Research lead → Analyze fit → Present recommendation)
+```
+
+**Parallel Workflow:**
+```
+[Researcher + Business Analyst] → Aggregate → User
+(Simultaneous data gathering and analysis)
+```
+
+**Feedback Loop:**
+```
+UX Agent → User Approval → Implementation → Validation
+(Design → Approve → Build → Measure)
+```
+
+### Human Approval Gates
+
+The Director requires approval for:
+- ❌ Database schema changes
+- ❌ Deleting data
+- ❌ Significant UI changes
+- ❌ External API integrations
+- ❌ Production deployments
+
+### Agent Files
+
+All agent configurations are in `.claude/agents/`:
+- `director.md` - Director Agent prompt
+- `researcher.md` - Researcher Agent prompt
+- `business-analyst.md` - Business Analyst Agent prompt
+- `ux-agent.md` - UX Agent prompt
+- `README.md` - Complete multi-agent system guide
+
+### Philosophy
+
+> "The best process is no process. The best tool is no tool unless necessary."
+
+Each agent:
+- ✅ Focuses on ONE domain exceptionally well
+- ✅ Removes friction before adding features
+- ✅ Delivers actionable results, not just data
+- ✅ Makes users faster and smarter
+- ❌ Adds unnecessary complexity
+- ❌ Builds features nobody asked for
+
+### Quick Examples
+
+**Simple Task (Single Agent):**
+```
+@researcher Find recent news about Tesla relevant to our products
+```
+
+**Complex Task (Multi-Agent via Director):**
+```
+@director Why aren't SDRs using the coaching feature? Diagnose and fix it.
+
+Result: Business Analyst identifies usage issue → UX Agent proposes fixes →
+        Director presents integrated solution → User approves → Implementation
+```
+
+**Strategic Planning (Full Pipeline):**
+```
+@director Create a plan to 2x our qualified leads in 90 days
+
+Result: Business Analyst diagnoses bottlenecks → Researcher gathers market intel →
+        UX Agent designs improvements → Director presents comprehensive 90-day plan
+```
+
+For complete documentation, see `.claude/agents/README.md`
+
+---
+
+## Ralph Iterative Development
+
+### Overview
+
+**Ralph** is an autonomous AI agent loop methodology that runs fresh agent instances repeatedly until all PRD items are complete. Each iteration starts with clean context, preventing token exhaustion and context pollution.
+
+**Core Principle:** Small tasks + Fresh context + Quality gates + Persistent memory = Reliable iterative development
+
+### How It Works
+
+```
+1. Create PRD (prd.json) with small, granular tasks
+2. Start feature branch
+3. Loop:
+   - Get next incomplete task
+   - Route to appropriate agent (researcher/analyst/ux/director)
+   - Implement with fresh context
+   - Run quality gates (typecheck, tests, build)
+   - Commit if passes
+   - Log learnings to progress.txt
+   - Mark task complete in prd.json
+4. Repeat until all tasks have passes: true
+```
+
+### Key Files
+
+```
+.claude/ralph/
+├── README.md                    # Full Ralph methodology
+├── QUICKSTART.md                # Get started in 5 minutes
+├── AGENTS.md                    # Project context for agents
+├── progress.txt                 # Learnings log (append-only)
+├── prd.json                     # Task registry (auto-generated)
+└── templates/
+    └── prd-template.json        # PRD structure template
+```
+
+### Quick Start
+
+**1. Create PRD:**
+```bash
+cp .claude/ralph/templates/prd-template.json .claude/ralph/my-feature.json
+# Edit my-feature.json with your tasks
+```
+
+**2. Run Iteration:**
+```bash
+# Get next task
+STORY_ID=$(jq -r '.stories[] | select(.passes == false) | .id' .claude/ralph/my-feature.json | head -1)
+AGENT=$(jq -r ".stories[] | select(.id == \"$STORY_ID\") | .agentType" .claude/ralph/my-feature.json)
+
+# Invoke agent
+@$AGENT Implement story: [paste story details]
+
+# Quality gates
+npm run check && npm run build
+
+# Commit if passes
+git add -A && git commit -m "feat: story complete"
+
+# Mark complete
+jq "(.stories[] | select(.id == \"$STORY_ID\") | .passes) = true" .claude/ralph/my-feature.json > tmp.json && mv tmp.json .claude/ralph/my-feature.json
+```
+
+**3. Repeat until all tasks complete**
+
+### Benefits
+
+- **Fresh Context:** No token exhaustion or context pollution
+- **Quality Gates:** Only working code commits
+- **Persistent Memory:** Git + progress.txt + prd.json preserve state
+- **Multi-Agent:** Routes tasks to specialist agents automatically
+- **Incremental:** Small tasks complete reliably
+
+### Task Sizing
+
+**✅ Right-sized (< 5 acceptance criteria):**
+- Add Google News integration module
+- Create lead creation UI component
+- Implement conversion rate analytics
+- Fix accessibility issues on leads page
+
+**❌ Over-sized (will exhaust context):**
+- Build entire analytics dashboard
+- Implement complete research system
+- Redesign all UX
+- Create full pipeline from scratch
+
+### Documentation
+
+- **Full Methodology:** `.claude/ralph/README.md`
+- **Quick Start Guide:** `.claude/ralph/QUICKSTART.md`
+- **Project Context:** `.claude/ralph/AGENTS.md`
+- **Original Ralph:** https://github.com/snarktank/ralph
 
 ---
 
@@ -1729,6 +1958,9 @@ git push -u origin claude/branch-name-sessionId
 - **Technical Documentation:** `LEAD_INTEL_TECHNICAL_DOCUMENTATION.md`
 - **Design Guidelines:** `design_guidelines.md`
 - **Replit Setup:** `replit.md`
+- **Multi-Agent System:** `.claude/agents/README.md`
+- **Ralph Methodology:** `.claude/ralph/README.md`
+- **Ralph Quick Start:** `.claude/ralph/QUICKSTART.md`
 - **Drizzle ORM Docs:** https://orm.drizzle.team/
 - **React Query Docs:** https://tanstack.com/query/latest
 - **Tailwind CSS Docs:** https://tailwindcss.com/

@@ -1,0 +1,213 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Lead Intel PRD Template",
+  "description": "Template for Product Requirements Documents used in Ralph iterations",
+  "type": "object",
+  "required": ["feature", "branchName", "created", "stories"],
+  "properties": {
+    "feature": {
+      "type": "string",
+      "description": "Feature name (e.g., 'Enhanced Lead Research')",
+      "examples": ["Enhanced Lead Research", "Analytics Dashboard v2"]
+    },
+    "branchName": {
+      "type": "string",
+      "description": "Git branch name for this feature",
+      "pattern": "^feature/[a-z0-9-]+$",
+      "examples": ["feature/enhanced-lead-research", "feature/analytics-v2"]
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of PRD creation"
+    },
+    "stories": {
+      "type": "array",
+      "description": "List of user stories to implement",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "description", "agentType", "priority", "effort", "acceptanceCriteria", "files", "passes"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique story identifier",
+            "pattern": "^story-[0-9]+$",
+            "examples": ["story-1", "story-2"]
+          },
+          "title": {
+            "type": "string",
+            "description": "Short, descriptive title",
+            "maxLength": 100,
+            "examples": ["Add Google News Integration", "UX: Display Research by Default"]
+          },
+          "description": {
+            "type": "string",
+            "description": "Detailed description of what to build",
+            "examples": ["Create newsResearch.ts module to scrape Google News for company mentions"]
+          },
+          "agentType": {
+            "type": "string",
+            "enum": ["researcher", "analyst", "ux", "director"],
+            "description": "Which specialist agent should handle this story"
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["high", "medium", "low"],
+            "description": "Story priority (high stories implemented first)"
+          },
+          "effort": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "Estimated effort (low: <2h, medium: 2-4h, high: 4-6h)"
+          },
+          "acceptanceCriteria": {
+            "type": "array",
+            "description": "List of concrete, testable requirements",
+            "minItems": 1,
+            "maxItems": 7,
+            "items": {
+              "type": "string"
+            },
+            "examples": [
+              ["Create server/ai/newsResearch.ts module", "Integrate with Google News API", "Return structured news articles"]
+            ]
+          },
+          "files": {
+            "type": "array",
+            "description": "Files that will be created or modified",
+            "items": {
+              "type": "string"
+            },
+            "examples": [
+              ["server/ai/newsResearch.ts", "server/ai/leadResearch.ts"]
+            ]
+          },
+          "passes": {
+            "type": "boolean",
+            "description": "Completion status (false = pending, true = complete)",
+            "default": false
+          },
+          "completedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "ISO 8601 timestamp when story was completed",
+            "default": null
+          }
+        }
+      }
+    }
+  },
+  "example": {
+    "feature": "Enhanced Lead Research",
+    "branchName": "feature/enhanced-lead-research",
+    "created": "2026-01-09T12:00:00Z",
+    "stories": [
+      {
+        "id": "story-1",
+        "title": "Add Google News Integration",
+        "description": "Create newsResearch.ts module to scrape Google News for company mentions and recent activity",
+        "agentType": "researcher",
+        "priority": "high",
+        "effort": "medium",
+        "acceptanceCriteria": [
+          "Create server/ai/newsResearch.ts module",
+          "Integrate with Google News API",
+          "Return structured news articles (title, date, summary, url)",
+          "Add to leadResearch.ts orchestrator",
+          "Include confidence scoring based on article recency"
+        ],
+        "files": [
+          "server/ai/newsResearch.ts",
+          "server/ai/leadResearch.ts"
+        ],
+        "passes": false,
+        "completedAt": null
+      },
+      {
+        "id": "story-2",
+        "title": "Add Job Postings Analysis",
+        "description": "Analyze company job postings to identify pain points from hiring patterns",
+        "agentType": "researcher",
+        "priority": "high",
+        "effort": "medium",
+        "acceptanceCriteria": [
+          "Create server/ai/jobPostingsAnalysis.ts",
+          "Scrape job postings from company website",
+          "Extract pain signals (e.g., '5 CAD engineer roles = capacity issue')",
+          "Return structured pain points with evidence",
+          "Add confidence scoring"
+        ],
+        "files": [
+          "server/ai/jobPostingsAnalysis.ts",
+          "server/ai/leadResearch.ts"
+        ],
+        "passes": false,
+        "completedAt": null
+      },
+      {
+        "id": "story-3",
+        "title": "UX: Display Research by Default",
+        "description": "Show research briefs expanded by default instead of accordion to improve SDR visibility",
+        "agentType": "ux",
+        "priority": "high",
+        "effort": "low",
+        "acceptanceCriteria": [
+          "Modify client/src/pages/leads.tsx",
+          "Change accordion to expanded-by-default",
+          "Make research collapsible (not hidden)",
+          "Test on mobile viewport with Playwright"
+        ],
+        "files": [
+          "client/src/pages/leads.tsx"
+        ],
+        "passes": false,
+        "completedAt": null
+      },
+      {
+        "id": "story-4",
+        "title": "Create Analytics Module for Conversion Tracking",
+        "description": "Build analytics engine to track and analyze lead-to-qualified conversion rates",
+        "agentType": "analyst",
+        "priority": "medium",
+        "effort": "high",
+        "acceptanceCriteria": [
+          "Create server/analytics/ directory structure",
+          "Create server/analytics/engine.ts with metric calculation",
+          "Add conversion rate metrics (lead → contacted → qualified)",
+          "Create API endpoint GET /api/analytics/conversion-rates",
+          "Return time-series data with trends"
+        ],
+        "files": [
+          "server/analytics/engine.ts",
+          "server/analytics/metrics.ts",
+          "server/analytics-routes.ts"
+        ],
+        "passes": false,
+        "completedAt": null
+      },
+      {
+        "id": "story-5",
+        "title": "Integrate All Research Modules",
+        "description": "Coordinate Researcher and Analyst agents to deliver complete lead intelligence pipeline",
+        "agentType": "director",
+        "priority": "medium",
+        "effort": "low",
+        "acceptanceCriteria": [
+          "Ensure leadResearch.ts calls newsResearch and jobPostingsAnalysis",
+          "Add caching layer for API rate limit management",
+          "Create unified confidence scoring across modules",
+          "Test end-to-end research flow",
+          "Document integration in AGENTS.md"
+        ],
+        "files": [
+          "server/ai/leadResearch.ts",
+          "server/cache.ts",
+          ".claude/ralph/AGENTS.md"
+        ],
+        "passes": false,
+        "completedAt": null
+      }
+    ]
+  }
+}

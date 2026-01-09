@@ -8,7 +8,13 @@
     "build": "tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "test:e2e": "playwright test",
+    "test:ui": "playwright test --ui",
+    "playwright:screenshot": "tsx scripts/playwright-ux/screenshot.ts",
+    "playwright:accessibility": "tsx scripts/playwright-ux/accessibility-audit.ts",
+    "playwright:flows": "tsx scripts/playwright-ux/user-flow.ts",
+    "ux:audit-all": "npm run playwright:accessibility http://localhost:5000 && npm run playwright:flows"
   },
   "dependencies": {
     "@google/genai": "^1.34.0",
@@ -88,6 +94,7 @@
     "zod-validation-error": "^3.5.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@replit/vite-plugin-cartographer": "^0.4.4",
     "@replit/vite-plugin-dev-banner": "^0.1.1",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
@@ -106,6 +113,7 @@
     "autoprefixer": "^10.4.20",
     "drizzle-kit": "^0.31.8",
     "esbuild": "^0.25.0",
+    "playwright": "^1.57.0",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.20.5",
