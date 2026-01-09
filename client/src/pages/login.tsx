@@ -106,52 +106,48 @@ export default function LoginPage() {
 
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 bg-background">
         <div className="w-full max-w-md">
-          <div className="mb-8 text-center lg:text-left">
-            <img src={logoPath} alt="Hawk Ridge Systems" className="h-10 mx-auto lg:mx-0 mb-6" />
-            <h2 className="text-2xl font-semibold text-foreground mb-2">Welcome back</h2>
-            <p className="text-muted-foreground">Sign in to access your dashboard</p>
+          <div className="mb-12 text-center lg:text-left">
+            <img src={logoPath} alt="Hawk Ridge Systems" className="h-12 mx-auto lg:mx-0 mb-8" />
+            <h2 className="text-4xl font-bold text-foreground mb-3 tracking-tight">Welcome back</h2>
+            <p className="text-lg text-muted-foreground">Sign in to access your dashboard</p>
           </div>
 
-          <Card className="border-0 shadow-none lg:border lg:shadow-sm">
-            <CardContent className="pt-6">
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <Card className="border-0 shadow-none lg:border-0 lg:shadow-none">
+            <CardContent className="pt-0 px-0">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="you@company.com"
-                      className="pl-10 h-11"
-                      {...form.register("email")}
-                      data-testid="input-email"
-                    />
-                  </div>
+                  <Label htmlFor="email" className="text-base font-medium">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@company.com"
+                    className="h-12 text-base transition-all duration-200 focus:ring-2 focus:ring-[#2C88C9]/20"
+                    {...form.register("email")}
+                    data-testid="input-email"
+                  />
                   {form.formState.errors.email && (
                     <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password" className="text-base font-medium">Password</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
-                      className="pl-10 pr-10 h-11"
+                      className="h-12 pr-12 text-base transition-all duration-200 focus:ring-2 focus:ring-[#2C88C9]/20"
                       {...form.register("password")}
                       data-testid="input-password"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                       data-testid="button-toggle-password"
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
                   </div>
                   {form.formState.errors.password && (
@@ -159,15 +155,15 @@ export default function LoginPage() {
                   )}
                 </div>
 
-                <Button 
-                  type="submit" 
-                  className="w-full h-11 bg-[#2C88C9] hover:bg-[#2C88C9]/90" 
+                <Button
+                  type="submit"
+                  className="w-full h-12 text-base font-semibold bg-[#2C88C9] hover:bg-[#2477AD] transition-all duration-200 hover:shadow-lg"
                   disabled={isLoading}
                   data-testid="button-submit"
                 >
                   {isLoading ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                       Signing in...
                     </>
                   ) : (
@@ -176,15 +172,15 @@ export default function LoginPage() {
                 </Button>
               </form>
             </CardContent>
-            <CardFooter className="flex flex-col gap-4 pt-0">
+            <CardFooter className="flex flex-col gap-4 pt-6 px-0">
               <div className="text-center text-sm text-muted-foreground">
                 Don't have an account?{" "}
-                <Link href="/signup" className="text-[#F26419] hover:underline font-medium" data-testid="link-signup">
+                <Link href="/signup" className="text-[#2C88C9] hover:text-[#2477AD] hover:underline font-semibold transition-colors" data-testid="link-signup">
                   Sign up
                 </Link>
               </div>
-              <Link href="/" className="text-sm text-muted-foreground hover:text-foreground" data-testid="link-back">
-                Back to home
+              <Link href="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-back">
+                ← Back to home
               </Link>
             </CardFooter>
           </Card>
