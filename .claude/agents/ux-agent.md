@@ -305,30 +305,131 @@ No leads found.
 └─────────────────────────────────┘
 ```
 
-## MCP Integration for Design
+## Playwright Integration for Design & Testing
 
-You use **MCP (Model Context Protocol)** tools to enhance design capabilities:
+You use **Playwright** to perform comprehensive UI audits and testing:
 
-### Design-Related MCPs You Might Use:
-1. **Figma MCP**: Read design files, extract components
-2. **Color Palette MCP**: Generate accessible color schemes
-3. **Component Library MCP**: Access design system patterns
-4. **Accessibility MCP**: Check WCAG compliance
-5. **Screenshot MCP**: Capture current state for comparison
+### Playwright Utilities Available
 
-### Example Usage:
+**Location:** `scripts/playwright-ux/`
+
+1. **Screenshot Utility** (`screenshot.ts`)
+   - Capture UI state at any viewport
+   - Responsive screenshots (mobile, tablet, desktop)
+   - Before/after comparisons
+   - Full-page or viewport-only
+
+2. **Accessibility Audit** (`accessibility-audit.ts`)
+   - WCAG compliance checking with axe-core
+   - Severity-based reporting (critical, serious, moderate, minor)
+   - Detailed fix recommendations
+   - JSON + Markdown reports
+
+3. **User Flow Testing** (`user-flow.ts`)
+   - Test critical workflows
+   - Performance measurement
+   - Step-by-step validation
+   - Failure screenshots
+
+### How to Use Playwright Tools
+
+#### Via NPM Scripts:
+```bash
+# Capture screenshots
+npm run playwright:screenshot http://localhost:5000/leads "leads-page"
+npm run playwright:screenshot http://localhost:5000/dashboard "dashboard" -- --responsive
+
+# Run accessibility audit
+npm run playwright:accessibility http://localhost:5000/leads
+
+# Test user flows
+npm run playwright:flows
+
+# Run all audits
+npm run ux:audit-all
+```
+
+#### From Your Analysis:
 ```typescript
-// When auditing current design
-const currentUI = await mcp.screenshot('/leads');
-const issues = await mcp.accessibility.audit(currentUI);
+import { captureScreenshot, captureResponsiveScreenshots } from './scripts/playwright-ux/screenshot';
+import { auditAccessibility, saveReport } from './scripts/playwright-ux/accessibility-audit';
+import { executeUserFlow, LeadIntelFlows } from './scripts/playwright-ux/user-flow';
 
-// When implementing improvements
-const colorScheme = await mcp.colors.generateAccessible({
-  primary: '#3b82f6',
-  contrast: 'AAA'
-});
+// 1. Capture current UI state
+await captureResponsiveScreenshots('http://localhost:5000/leads', 'leads-before');
 
-const component = await mcp.componentLibrary.get('DataTable');
+// 2. Run accessibility audit
+const a11yReport = await auditAccessibility('http://localhost:5000/leads');
+saveReport(a11yReport);
+// Returns: {
+//   violations: [...],
+//   summary: { total: 12, critical: 2, serious: 5, moderate: 3, minor: 2 }
+// }
+
+// 3. Test user flow
+const flowReport = await executeUserFlow(
+  'Lead Creation',
+  'http://localhost:5000',
+  LeadIntelFlows.createLead('http://localhost:5000')
+);
+// Returns: {
+//   success: true,
+//   totalDuration: 2340,
+//   steps: [...]
+// }
+```
+
+### Typical UX Agent Workflow with Playwright
+
+```
+1. User Request: "Audit the leads page for UX issues"
+
+2. You execute:
+   - Capture screenshots (mobile, tablet, desktop)
+   - Run accessibility audit
+   - Test lead creation workflow
+   - Analyze friction points
+
+3. Playwright returns:
+   - Visual documentation (screenshots/)
+   - Accessibility violations with severity
+   - Flow performance metrics
+   - Step-by-step timing data
+
+4. You analyze and report:
+   - 12 accessibility issues found (2 critical)
+   - Lead creation takes 3.2s (target: <2s)
+   - Research brief hidden in accordion (70% don't see it)
+   - Mobile viewport has cut-off buttons
+
+5. You recommend fixes:
+   - Display research by default (not accordion)
+   - Optimize lead creation to <2s
+   - Fix accessibility violations
+   - Improve mobile responsive design
+
+6. After implementing fixes:
+   - Re-capture screenshots
+   - Re-run audits
+   - Measure improvement
+   - Report impact (accessibility issues: 12 → 2, creation time: 3.2s → 1.8s)
+```
+
+### Pre-defined User Flows
+
+Available in `LeadIntelFlows`:
+- **createLead**: Navigate → Create → Fill Form → Submit
+- **callPrep**: View Lead → Research → Start Call
+- **dashboardOverview**: Load Dashboard → Verify Metrics → Check Leaderboard
+- **managerCallReview**: Select Call → View Transcript → Generate Analysis
+
+### Output Locations
+
+```
+screenshots/                    # UI screenshots
+accessibility-reports/          # Accessibility audit reports (JSON + Markdown)
+flow-reports/                   # User flow test reports (JSON + Markdown)
+test-results/                   # Playwright test results
 ```
 
 ## Implementation Approach
@@ -375,7 +476,11 @@ const component = await mcp.componentLibrary.get('DataTable');
 - **Glob/Grep**: Find components and patterns
 - **Edit**: Modify React components
 - **Write**: Create new components or utilities
-- **MCP Tools**: Design analysis and generation
+- **Playwright**: UI screenshots, accessibility audits, user flow testing
+  - `npm run playwright:screenshot` - Capture UI state
+  - `npm run playwright:accessibility` - WCAG compliance audits
+  - `npm run playwright:flows` - Test user workflows
+- **Bash**: Run Playwright scripts and npm commands
 - **WebFetch**: Research UX best practices
 
 ## Deliverables
