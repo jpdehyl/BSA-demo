@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lead Intel v2.0 - Apple-Style Dashboard Demo</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary-blue: #2C88C9;
+      --accent-orange: #F26419;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --danger: #EF4444;
+      --background: #ffffff;
+      --foreground: #1a1a1a;
+      --muted: #f5f5f5;
+      --muted-foreground: #737373;
+      --border: #e5e5e5;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+      background: var(--background);
+      color: var(--foreground);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 48px 24px;
+    }
+
+    .header {
+      margin-bottom: 48px;
+    }
+
+    .header h1 {
+      font-size: 32px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+
+    .header p {
+      color: var(--muted-foreground);
+      font-size: 16px;
+    }
+
+    /* KPI Grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      margin-bottom: 48px;
+    }
+
+    .kpi-card {
+      background: white;
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+      text-align: center;
+    }
+
+    .kpi-card:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.10);
+      transform: translateY(-2px);
+    }
+
+    .kpi-value {
+      font-size: 56px;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, var(--primary-blue), var(--accent-orange));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .kpi-label {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted-foreground);
+      margin-bottom: 16px;
+    }
+
+    .kpi-trend {
+      font-size: 14px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .kpi-trend.positive {
+      color: var(--success);
+    }
+
+    .kpi-trend.negative {
+      color: var(--danger);
+    }
+
+    /* Charts Grid */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 24px;
+      margin-bottom: 48px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    }
+
+    .card-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .card-description {
+      color: var(--muted-foreground);
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+
+    /* Leaderboard */
+    .leaderboard {
+      width: 100%;
+    }
+
+    .leaderboard-header {
+      display: grid;
+      grid-template-columns: 40px 1fr 100px 100px;
+      gap: 16px;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted-foreground);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .leaderboard-row {
+      display: grid;
+      grid-template-columns: 40px 1fr 100px 100px;
+      gap: 16px;
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      transition: background 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .leaderboard-row:hover {
+      background: var(--muted);
+    }
+
+    .leaderboard-rank {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--muted);
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .leaderboard-rank.top {
+      background: linear-gradient(135deg, #FFD700, #FFA500);
+      color: white;
+    }
+
+    .leaderboard-name {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .leaderboard-name strong {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .leaderboard-name span {
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+
+    .leaderboard-stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .leaderboard-stat-value {
+      font-weight: 600;
+      font-size: 18px;
+      color: var(--success);
+    }
+
+    .leaderboard-stat-label {
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+
+    /* Chart placeholder */
+    .chart-placeholder {
+      height: 200px;
+      background: linear-gradient(135deg, var(--muted) 0%, white 100%);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted-foreground);
+      font-size: 14px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .chart-placeholder::before {
+      content: '';
+      position: absolute;
+      top: 20%;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(
+        to top,
+        transparent,
+        rgba(44, 136, 201, 0.1) 20%,
+        rgba(44, 136, 201, 0.2) 40%,
+        rgba(44, 136, 201, 0.1) 60%,
+        transparent
+      );
+      clip-path: polygon(
+        0% 100%,
+        10% 80%,
+        20% 85%,
+        30% 60%,
+        40% 70%,
+        50% 50%,
+        60% 55%,
+        70% 40%,
+        80% 50%,
+        90% 30%,
+        100% 35%,
+        100% 100%
+      );
+    }
+
+    /* Velocity bars */
+    .velocity-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .velocity-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .velocity-label {
+      width: 120px;
+      font-size: 14px;
+      color: var(--foreground);
+      font-weight: 500;
+    }
+
+    .velocity-bar-container {
+      flex: 1;
+      height: 32px;
+      background: var(--muted);
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .velocity-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary-blue), var(--accent-orange));
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      font-size: 14px;
+      transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .kpi-value {
+        font-size: 48px;
+      }
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .kpi-card,
+    .card {
+      animation: fadeIn 400ms cubic-bezier(0.4, 0, 0.2, 1) backwards;
+    }
+
+    .kpi-card:nth-child(1) { animation-delay: 0ms; }
+    .kpi-card:nth-child(2) { animation-delay: 100ms; }
+    .kpi-card:nth-child(3) { animation-delay: 200ms; }
+    .kpi-card:nth-child(4) { animation-delay: 300ms; }
+
+    /* Badge */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--success);
+      margin-left: 8px;
+    }
+
+    .logo {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--primary-blue);
+      margin-bottom: 32px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo::before {
+      content: '⚡';
+      font-size: 28px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">Lead Intel v2.0</div>
+
+    <div class="header">
+      <h1>Good afternoon, Team 👋</h1>
+      <p>Your team's performance at a glance <span class="badge">Live Demo</span></p>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-value">156</div>
+        <div class="kpi-label">Total Leads</div>
+        <div class="kpi-trend positive">
+          <span>↑</span>
+          <span>12% vs prev</span>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-value">42</div>
+        <div class="kpi-label">Qualified</div>
+        <div class="kpi-trend positive">
+          <span>↑</span>
+          <span>8% vs prev</span>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-value">27%</div>
+        <div class="kpi-label">Conversion Rate</div>
+        <div class="kpi-trend negative">
+          <span>↓</span>
+          <span>3% vs prev</span>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-value">4.2m</div>
+        <div class="kpi-label">Avg Research Time</div>
+        <div class="kpi-trend positive">
+          <span>↓</span>
+          <span>15s faster</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Grid -->
+    <div class="charts-grid">
+      <div class="card" style="grid-column: span 2;">
+        <h2 class="card-title">Activity Over Time</h2>
+        <p class="card-description">Calls and qualified leads over the past 30 days</p>
+        <div class="chart-placeholder">
+          📈 Chart: Activity trend showing calls and qualified leads
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Pipeline Velocity</h2>
+        <p class="card-description">Average days in each stage</p>
+        <div class="velocity-bars">
+          <div class="velocity-bar-row">
+            <div class="velocity-label">New Lead</div>
+            <div class="velocity-bar-container">
+              <div class="velocity-bar" style="width: 20%;">1.2 days</div>
+            </div>
+          </div>
+          <div class="velocity-bar-row">
+            <div class="velocity-label">Researching</div>
+            <div class="velocity-bar-container">
+              <div class="velocity-bar" style="width: 40%;">2.5 days</div>
+            </div>
+          </div>
+          <div class="velocity-bar-row">
+            <div class="velocity-label">Contacted</div>
+            <div class="velocity-bar-container">
+              <div class="velocity-bar" style="width: 60%;">3.8 days</div>
+            </div>
+          </div>
+          <div class="velocity-bar-row">
+            <div class="velocity-label">Engaged</div>
+            <div class="velocity-bar-container">
+              <div class="velocity-bar" style="width: 85%;">5.2 days</div>
+            </div>
+          </div>
+          <div class="velocity-bar-row">
+            <div class="velocity-label">Qualified</div>
+            <div class="velocity-bar-container">
+              <div class="velocity-bar" style="width: 30%;">1.8 days</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leaderboard -->
+    <div class="card">
+      <h2 class="card-title">Team Leaderboard</h2>
+      <p class="card-description">Top performers this week</p>
+
+      <div class="leaderboard">
+        <div class="leaderboard-header">
+          <div>Rank</div>
+          <div>Name</div>
+          <div>Qualified</div>
+          <div>Calls</div>
+        </div>
+
+        <div class="leaderboard-row">
+          <div class="leaderboard-rank top">1</div>
+          <div class="leaderboard-name">
+            <strong>Sarah Chen</strong>
+            <span>45 calls • 87% connect rate</span>
+          </div>
+          <div class="leaderboard-stat">
+            <div class="leaderboard-stat-value">12</div>
+            <div class="leaderboard-stat-label">qualified</div>
+          </div>
+          <div class="leaderboard-stat">
+            <div class="leaderboard-stat-value" style="color: var(--primary-blue);">45</div>
+            <div class="leaderboard-stat-label">calls</div>
+          </div>
+        </div>
+
+        <div class="leaderboard-row">
+          <div class="leaderboard-rank top">2</div>
+          <div class="leaderboard-name">
+            <strong>Mike Rodriguez</strong>
+            <span>38 calls • 82% connect rate</span>
+          </div>
+          <div class="leaderboard-stat">
+            <div class="leaderboard-stat-value">10</div>
+            <div class="leaderboard-stat-label">qualified</div>
+          </div>
+          <div class="leaderboard-stat">
+            <div class="leaderboard-stat-value" style="color: var(--primary-blue);">38</div>
+            <div class="leaderboard-stat-label">calls</div>
+          </div>
+        </div>
+
+        <div class="leaderboard-row">
+          <div class="leaderboard-rank top">3</div>
+          <div class="leaderboard-name">
+            <strong>Emma Wilson</strong>
+            <span>42 calls • 79% connect rate</span>
+          </div>
+          <div class="leaderboard-stat">
+            <div class="leaderboard-stat-value">9</div>
+            <div class="leaderboard-stat-label">qualified</div>
+          </div>
+          <div class="leaderboard-stat">
+            <div class="leaderboard-stat-value" style="color: var(--primary-blue);">42</div>
+            <div class="leaderboard-stat-label">calls</div>
+          </div>
+        </div>
+
+        <div class="leaderboard-row">
+          <div class="leaderboard-rank">4</div>
+          <div class="leaderboard-name">
+            <strong>James Lee</strong>
+            <span>35 calls • 75% connect rate</span>
+          </div>
+          <div class="leaderboard-stat">
+            <div class="leaderboard-stat-value">8</div>
+            <div class="leaderboard-stat-label">qualified</div>
+          </div>
+          <div class="leaderboard-stat">
+            <div class="leaderboard-stat-value" style="color: var(--primary-blue);">35</div>
+            <div class="leaderboard-stat-label">calls</div>
+          </div>
+        </div>
+
+        <div class="leaderboard-row">
+          <div class="leaderboard-rank">5</div>
+          <div class="leaderboard-name">
+            <strong>Lisa Park</strong>
+            <span>40 calls • 73% connect rate</span>
+          </div>
+          <div class="leaderboard-stat">
+            <div class="leaderboard-stat-value">7</div>
+            <div class="leaderboard-stat-label">qualified</div>
+          </div>
+          <div class="leaderboard-stat">
+            <div class="leaderboard-stat-value" style="color: var(--primary-blue);">40</div>
+            <div class="leaderboard-stat-label">calls</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Animate velocity bars on load
+    window.addEventListener('load', () => {
+      const bars = document.querySelectorAll('.velocity-bar');
+      bars.forEach((bar, index) => {
+        setTimeout(() => {
+          bar.style.width = bar.style.width;
+        }, index * 100);
+      });
+    });
+  </script>
+</body>
+</html>
