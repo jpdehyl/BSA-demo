@@ -47,6 +47,8 @@ import {
   ListFilter,
   Plus,
   ArrowRight,
+  LayoutList,
+  LayoutGrid,
   CheckCircle2,
   CheckCircle,
   AlertCircle,
@@ -72,6 +74,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { LeadActivityTimeline } from "@/components/lead-activity-timeline";
+import { KanbanBoard } from "@/components/kanban-board";
 import type { Lead, ResearchPacket, CallSession } from "@shared/schema";
 
 interface LeadWithResearch extends Lead {
@@ -81,6 +84,7 @@ interface LeadWithResearch extends Lead {
 
 type SortField = "score" | "name" | "company";
 type SortDirection = "asc" | "desc";
+type ViewMode = "list" | "kanban";
 
 export default function LeadsPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -91,6 +95,7 @@ export default function LeadsPage() {
   const [sortField, setSortField] = useState<SortField>("score");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [hideGenericEmails, setHideGenericEmails] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [showQualifyDialog, setShowQualifyDialog] = useState(false);
   const [qualifyData, setQualifyData] = useState({
     qualificationNotes: "",
@@ -264,6 +269,28 @@ export default function LeadsPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center bg-muted/50 rounded-md p-1 gap-1 mr-2">
+            <Button
+              variant={viewMode === "list" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("list")}
+              className="h-8 px-3"
+              data-testid="button-view-list"
+            >
+              <LayoutList className="h-4 w-4 mr-2" />
+              List
+            </Button>
+            <Button
+              variant={viewMode === "kanban" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("kanban")}
+              className="h-8 px-3"
+              data-testid="button-view-kanban"
+            >
+              <LayoutGrid className="h-4 w-4 mr-2" />
+              Pipeline
+            </Button>
+          </div>
           <Button variant="outline" size="sm" onClick={() => setShowAddLeadModal(true)} data-testid="button-add-lead">
             <Plus className="h-4 w-4 mr-2" />
             Add Lead
@@ -276,6 +303,12 @@ export default function LeadsPage() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
+        {viewMode === "kanban" ? (
+          <div className="flex-1 overflow-hidden p-4">
+            <KanbanBoard leads={filteredLeads} onLeadClick={setSelectedLead} />
+          </div>
+        ) : (
+          <>
         <div className={`border-r flex flex-col bg-muted/30 transition-all duration-200 ${sidebarCollapsed ? "w-12" : "w-80"}`}>
           {sidebarCollapsed ? (
             <div className="flex flex-col items-center py-3">
@@ -442,6 +475,8 @@ export default function LeadsPage() {
             </div>
           )}
         </div>
+          </>
+        )}
       </div>
 
       <ImportModal open={showImportModal} onOpenChange={setShowImportModal} />
