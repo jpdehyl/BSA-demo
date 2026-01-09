@@ -23,6 +23,7 @@ This document provides comprehensive guidance for AI assistants working on the L
 11. [Testing & Debugging](#testing--debugging)
 12. [Deployment](#deployment)
 13. [Key Files Reference](#key-files-reference)
+14. [Multi-Agent System](#multi-agent-system)
 
 ---
 
@@ -1666,6 +1667,136 @@ All environment variables must be set in Replit Secrets:
 - **`LEAD_INTEL_TECHNICAL_DOCUMENTATION.md`** - Comprehensive technical documentation
 - **`design_guidelines.md`** - Design system documentation
 - **`replit.md`** - Replit setup guide
+- **`.claude/agents/README.md`** - Multi-agent system documentation
+
+---
+
+## Multi-Agent System
+
+### Overview
+
+Lead Intel uses a **multi-agent architecture** with specialized AI agents for different domains:
+
+1. **🎬 Director Agent** - Orchestrates and coordinates all sub-agents
+2. **🔍 Researcher Agent** - Deep intelligence gathering and lead research
+3. **📊 Business Analyst Agent** - Strategic insights and analytics
+4. **🎨 UX Agent** - User experience optimization
+
+### Architecture
+
+```
+                    DIRECTOR AGENT 🎬
+                    (Orchestration Layer)
+                            ↓
+         ┌──────────────────┼──────────────────┐
+         ↓                  ↓                  ↓
+    RESEARCHER 🔍    BUSINESS ANALYST 📊    UX AGENT 🎨
+    Intelligence     Strategic Insights   UX Optimization
+```
+
+### When to Use Each Agent
+
+**Director Agent** (Your entry point for complex tasks)
+```
+Use when: Task requires multiple agents or coordination
+Example: "Research lead X, analyze fit, and recommend approach"
+```
+
+**Researcher Agent**
+```
+Use when: Need deep lead intelligence or market research
+Example: "Research Acme Corp and identify pain points"
+Enhances: server/ai/leadResearch.ts
+```
+
+**Business Analyst Agent**
+```
+Use when: Need analytics, insights, or strategic recommendations
+Example: "Why is our qualification rate declining?"
+Creates: New server/analytics/ module
+```
+
+**UX Agent**
+```
+Use when: Need design improvements or workflow optimization
+Example: "Simplify the lead creation flow"
+Modifies: client/src/ frontend code
+```
+
+### Communication Patterns
+
+**Sequential Workflow:**
+```
+Researcher → Business Analyst → User
+(Research lead → Analyze fit → Present recommendation)
+```
+
+**Parallel Workflow:**
+```
+[Researcher + Business Analyst] → Aggregate → User
+(Simultaneous data gathering and analysis)
+```
+
+**Feedback Loop:**
+```
+UX Agent → User Approval → Implementation → Validation
+(Design → Approve → Build → Measure)
+```
+
+### Human Approval Gates
+
+The Director requires approval for:
+- ❌ Database schema changes
+- ❌ Deleting data
+- ❌ Significant UI changes
+- ❌ External API integrations
+- ❌ Production deployments
+
+### Agent Files
+
+All agent configurations are in `.claude/agents/`:
+- `director.md` - Director Agent prompt
+- `researcher.md` - Researcher Agent prompt
+- `business-analyst.md` - Business Analyst Agent prompt
+- `ux-agent.md` - UX Agent prompt
+- `README.md` - Complete multi-agent system guide
+
+### Philosophy
+
+> "The best process is no process. The best tool is no tool unless necessary."
+
+Each agent:
+- ✅ Focuses on ONE domain exceptionally well
+- ✅ Removes friction before adding features
+- ✅ Delivers actionable results, not just data
+- ✅ Makes users faster and smarter
+- ❌ Adds unnecessary complexity
+- ❌ Builds features nobody asked for
+
+### Quick Examples
+
+**Simple Task (Single Agent):**
+```
+@researcher Find recent news about Tesla relevant to our products
+```
+
+**Complex Task (Multi-Agent via Director):**
+```
+@director Why aren't SDRs using the coaching feature? Diagnose and fix it.
+
+Result: Business Analyst identifies usage issue → UX Agent proposes fixes →
+        Director presents integrated solution → User approves → Implementation
+```
+
+**Strategic Planning (Full Pipeline):**
+```
+@director Create a plan to 2x our qualified leads in 90 days
+
+Result: Business Analyst diagnoses bottlenecks → Researcher gathers market intel →
+        UX Agent designs improvements → Director presents comprehensive 90-day plan
+```
+
+For complete documentation, see `.claude/agents/README.md`
 
 ---
 
