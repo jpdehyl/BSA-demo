@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { CallQueue } from "@/components/call-queue";
 import { 
   Users, 
   Phone, 
@@ -279,10 +280,20 @@ function ActionItem({
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [, navigate] = useLocation();
 
   const { data: metrics, isLoading } = useQuery<DashboardMetrics>({
     queryKey: ["/api/dashboard/metrics"],
   });
+
+  const { data: leads = [] } = useQuery({
+    queryKey: ["/api/leads"],
+  });
+
+  const handleCall = (lead: any) => {
+    // Navigate to coaching page with phone number pre-filled
+    navigate(`/coaching?phone=${encodeURIComponent(lead.contactPhone || "")}&leadId=${lead.id}`);
+  };
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -313,6 +324,9 @@ export default function DashboardPage() {
             : "Your sales performance at a glance"}
         </p>
       </div>
+
+      {/* Call Queue - Priority #1 for SDRs */}
+      <CallQueue leads={leads} onCall={handleCall} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <HeroMetric
