@@ -104,7 +104,7 @@ export function AppSidebar() {
   const navKeyMap: Record<string, string> = {
     dashboard: "Dashboard",
     leads: "Leads",
-    coaching: "Live Coaching",
+    live_coaching: "Live Coaching",
     team: "Team",
     reports: "Reports",
     ae_pipeline: "AE Pipeline",
