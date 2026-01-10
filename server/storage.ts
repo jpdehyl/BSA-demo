@@ -11,9 +11,10 @@ import {
   type ManagerCallAnalysis, type InsertManagerCallAnalysis,
   type AccountExecutive, type InsertAccountExecutive,
   type Notification, type InsertNotification,
+  type NavigationSetting,
   users, managers, sdrs, leads, 
   liveCoachingSessions, liveCoachingTips, liveTranscripts, researchPackets,
-  callSessions, managerCallAnalyses, accountExecutives, notifications
+  callSessions, managerCallAnalyses, accountExecutives, notifications, navigationSettings
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, isNull, desc, inArray, sql } from "drizzle-orm";
@@ -101,6 +102,9 @@ export interface IStorage {
   markNotificationRead(id: string): Promise<Notification | undefined>;
   markAllNotificationsRead(userId: string): Promise<void>;
   deleteNotification(id: string): Promise<boolean>;
+  
+  getAllNavigationSettings(): Promise<NavigationSetting[]>;
+  updateNavigationSetting(id: string, updates: { isEnabled?: boolean; sortOrder?: number }): Promise<NavigationSetting | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -509,6 +513,18 @@ export class DatabaseStorage implements IStorage {
   async deleteNotification(id: string): Promise<boolean> {
     const result = await db.delete(notifications).where(eq(notifications.id, id)).returning();
     return result.length > 0;
+  }
+
+  async getAllNavigationSettings(): Promise<NavigationSetting[]> {
+    return db.select().from(navigationSettings).orderBy(navigationSettings.sortOrder);
+  }
+
+  async updateNavigationSetting(id: string, updates: { isEnabled?: boolean; sortOrder?: number }): Promise<NavigationSetting | undefined> {
+    const [result] = await db.update(navigationSettings)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(navigationSettings.id, id))
+      .returning();
+    return result;
   }
 }
 

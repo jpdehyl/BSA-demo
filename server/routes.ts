@@ -377,6 +377,40 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/navigation-settings", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const settings = await storage.getAllNavigationSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Get navigation settings error:", error);
+      res.status(500).json({ message: "Failed to fetch navigation settings" });
+    }
+  });
+
+  app.patch("/api/navigation-settings/:id", requireRole("admin"), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { isEnabled, sortOrder } = req.body;
+      
+      const updates: { isEnabled?: boolean; sortOrder?: number } = {};
+      if (typeof isEnabled === "boolean") updates.isEnabled = isEnabled;
+      if (typeof sortOrder === "number") updates.sortOrder = sortOrder;
+      
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "No valid updates provided" });
+      }
+      
+      const setting = await storage.updateNavigationSetting(id, updates);
+      if (!setting) {
+        return res.status(404).json({ message: "Navigation setting not found" });
+      }
+      res.json(setting);
+    } catch (error) {
+      console.error("Update navigation setting error:", error);
+      res.status(500).json({ message: "Failed to update navigation setting" });
+    }
+  });
+
   app.get("/api/learning/insights", requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = req.session.userId!;

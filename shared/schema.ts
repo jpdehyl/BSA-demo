@@ -96,6 +96,20 @@ export const insertAccountExecutiveSchema = createInsertSchema(accountExecutives
 export type InsertAccountExecutive = z.infer<typeof insertAccountExecutiveSchema>;
 export type AccountExecutive = typeof accountExecutives.$inferSelect;
 
+// Navigation Settings - Toggle and order navigation tabs
+export const navigationSettings = pgTable("navigation_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  navKey: text("nav_key").notNull().unique(),
+  label: text("label").notNull(),
+  isEnabled: boolean("is_enabled").default(true).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertNavigationSettingSchema = createInsertSchema(navigationSettings).omit({ id: true, updatedAt: true });
+export type InsertNavigationSetting = z.infer<typeof insertNavigationSettingSchema>;
+export type NavigationSetting = typeof navigationSettings.$inferSelect;
+
 // Lead Status enum for tracking pipeline progression
 export const leadStatusEnum = ["new", "researching", "contacted", "engaged", "qualified", "handed_off", "converted", "lost"] as const;
 export type LeadStatus = typeof leadStatusEnum[number];

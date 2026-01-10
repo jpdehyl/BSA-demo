@@ -47,6 +47,7 @@ Preferred communication style: Simple, everyday language.
 - `researchPackets` - AI-researched lead intelligence
 - `conversations/messages` - Gemini chat integration
 - `managerCallAnalyses` - Manager performance scorecards for calls
+- `navigation_settings` - Admin-configurable menu visibility and ordering (navKey, label, isEnabled, sortOrder)
 
 ### Session Configuration (Production)
 - **Trust Proxy**: `app.set("trust proxy", 1)` in server/index.ts - Required for secure cookies behind Replit's reverse proxy

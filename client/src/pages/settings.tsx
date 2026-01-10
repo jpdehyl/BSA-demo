@@ -14,8 +14,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertCircle, Briefcase, Check, KeyRound, Loader2, Mail, Phone, MapPin, Shield, Trash2, User, UserCog, Users, Plus, Edit2 } from "lucide-react";
-import type { User as UserType, AccountExecutive } from "@shared/schema";
+import { Switch } from "@/components/ui/switch";
+import { AlertCircle, Briefcase, Check, KeyRound, Loader2, Mail, Phone, MapPin, Shield, Trash2, User, UserCog, Users, Plus, Edit2, Menu, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
+import type { User as UserType, AccountExecutive, NavigationSetting } from "@shared/schema";
 
 type UserWithoutPassword = Omit<UserType, "password">;
 
@@ -66,6 +67,25 @@ export default function SettingsPage() {
   const { data: accountExecutives = [], isLoading: aesLoading } = useQuery<AccountExecutive[]>({
     queryKey: ["/api/account-executives"],
     enabled: canManageUsers
+  });
+
+  const { data: navigationSettings = [], isLoading: navSettingsLoading } = useQuery<NavigationSetting[]>({
+    queryKey: ["/api/navigation-settings"],
+    enabled: isAdmin
+  });
+
+  const updateNavSettingMutation = useMutation({
+    mutationFn: async ({ id, isEnabled, sortOrder }: { id: string; isEnabled?: boolean; sortOrder?: number }) => {
+      const res = await apiRequest("PATCH", `/api/navigation-settings/${id}`, { isEnabled, sortOrder });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/navigation-settings"] });
+      toast({ title: "Navigation updated", description: "Menu settings have been updated" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Update failed", description: error.message, variant: "destructive" });
+    }
   });
 
   const updateProfileMutation = useMutation({
@@ -237,7 +257,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className={`grid w-full ${canManageUsers ? 'grid-cols-4' : 'grid-cols-2'}`} data-testid="tabs-settings">
+        <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : canManageUsers ? 'grid-cols-3' : 'grid-cols-2'}`} data-testid="tabs-settings">
           <TabsTrigger value="profile" data-testid="tab-profile">
             <User className="h-4 w-4 mr-2" />
             Profile
@@ -252,10 +272,10 @@ export default function SettingsPage() {
               Users
             </TabsTrigger>
           )}
-          {canManageUsers && (
-            <TabsTrigger value="account-executives" data-testid="tab-account-executives">
-              <Briefcase className="h-4 w-4 mr-2" />
-              AEs
+          {isAdmin && (
+            <TabsTrigger value="navigation" data-testid="tab-navigation">
+              <Menu className="h-4 w-4 mr-2" />
+              Navigation
             </TabsTrigger>
           )}
         </TabsList>
@@ -525,114 +545,90 @@ export default function SettingsPage() {
           </TabsContent>
         )}
 
-        {canManageUsers && (
-          <TabsContent value="account-executives" className="space-y-6 mt-6">
+        {isAdmin && (
+          <TabsContent value="navigation" className="space-y-6 mt-6">
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Briefcase className="h-5 w-5" />
-                      Account Executives
-                    </CardTitle>
-                    <CardDescription>
-                      Manage account executives for lead handoffs
-                    </CardDescription>
-                  </div>
-                  {isAdmin && (
-                    <Button
-                      onClick={() => {
-                        setEditingAe(null);
-                        setAeForm({ name: "", email: "", phone: "", region: "", specialty: "" });
-                        setAeDialogOpen(true);
-                      }}
-                      data-testid="button-add-ae"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add AE
-                    </Button>
-                  )}
-                </div>
+                <CardTitle className="flex items-center gap-2">
+                  <Menu className="h-5 w-5" />
+                  Navigation Settings
+                </CardTitle>
+                <CardDescription>
+                  Toggle menu items on/off and change their display order
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                {aesLoading ? (
+                {navSettingsLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {accountExecutives.map((ae) => (
+                  <div className="space-y-3">
+                    {[...navigationSettings].sort((a, b) => a.sortOrder - b.sortOrder).map((setting, index) => (
                       <div
-                        key={ae.id}
+                        key={setting.id}
                         className="flex items-center justify-between gap-4 p-4 rounded-md border"
-                        data-testid={`ae-row-${ae.id}`}
+                        data-testid={`nav-setting-${setting.navKey}`}
                       >
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10">
-                            <AvatarFallback className="bg-primary/10 text-primary">
-                              {getInitials(ae.name)}
-                            </AvatarFallback>
-                          </Avatar>
+                          <GripVertical className="h-4 w-4 text-muted-foreground" />
                           <div>
-                            <p className="font-medium">{ae.name}</p>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Mail className="h-3 w-3" />
-                                {ae.email}
-                              </span>
-                              {ae.phone && (
-                                <span className="flex items-center gap-1">
-                                  <Phone className="h-3 w-3" />
-                                  {ae.phone}
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex gap-2 mt-1 flex-wrap">
-                              {ae.region && (
-                                <Badge variant="outline" className="text-xs">
-                                  <MapPin className="h-3 w-3 mr-1" />
-                                  {ae.region}
-                                </Badge>
-                              )}
-                              {ae.specialty && (
-                                <Badge variant="secondary" className="text-xs">
-                                  {ae.specialty}
-                                </Badge>
-                              )}
-                            </div>
+                            <p className="font-medium">{setting.label}</p>
+                            <p className="text-sm text-muted-foreground">{setting.navKey}</p>
                           </div>
                         </div>
-                        {isAdmin && (
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-1">
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => openEditAeDialog(ae)}
-                              data-testid={`button-edit-ae-${ae.id}`}
+                              disabled={index === 0 || updateNavSettingMutation.isPending}
+                              onClick={() => {
+                                const prevItem = navigationSettings.find((s) => s.sortOrder === setting.sortOrder - 1);
+                                if (prevItem) {
+                                  updateNavSettingMutation.mutate({ id: setting.id, sortOrder: setting.sortOrder - 1 });
+                                  updateNavSettingMutation.mutate({ id: prevItem.id, sortOrder: prevItem.sortOrder + 1 });
+                                }
+                              }}
+                              data-testid={`button-move-up-${setting.navKey}`}
                             >
-                              <Edit2 className="h-4 w-4" />
+                              <ArrowUp className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
+                              disabled={index === navigationSettings.length - 1 || updateNavSettingMutation.isPending}
                               onClick={() => {
-                                setAeToDelete(ae);
-                                setAeDeleteDialogOpen(true);
+                                const nextItem = navigationSettings.find((s) => s.sortOrder === setting.sortOrder + 1);
+                                if (nextItem) {
+                                  updateNavSettingMutation.mutate({ id: setting.id, sortOrder: setting.sortOrder + 1 });
+                                  updateNavSettingMutation.mutate({ id: nextItem.id, sortOrder: nextItem.sortOrder - 1 });
+                                }
                               }}
-                              data-testid={`button-delete-ae-${ae.id}`}
+                              data-testid={`button-move-down-${setting.navKey}`}
                             >
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                              <ArrowDown className="h-4 w-4" />
                             </Button>
                           </div>
-                        )}
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor={`nav-toggle-${setting.id}`} className="text-sm">
+                              {setting.isEnabled ? "Visible" : "Hidden"}
+                            </Label>
+                            <Switch
+                              id={`nav-toggle-${setting.id}`}
+                              checked={setting.isEnabled}
+                              onCheckedChange={(checked) => {
+                                updateNavSettingMutation.mutate({ id: setting.id, isEnabled: checked });
+                              }}
+                              disabled={updateNavSettingMutation.isPending}
+                              data-testid={`switch-toggle-${setting.navKey}`}
+                            />
+                          </div>
+                        </div>
                       </div>
                     ))}
-                    {accountExecutives.length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <Briefcase className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p>No account executives added yet</p>
-                        {isAdmin && <p className="text-sm mt-1">Click "Add AE" to add your first account executive</p>}
-                      </div>
+                    {navigationSettings.length === 0 && (
+                      <p className="text-center text-muted-foreground py-8">No navigation settings found</p>
                     )}
                   </div>
                 )}

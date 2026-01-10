@@ -262,6 +262,7 @@ export default function TeamPage() {
   const [editingSdr, setEditingSdr] = useState<Sdr | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingAe, setEditingAe] = useState<AccountExecutive | null>(null);
+  const [showAddAeDialog, setShowAddAeDialog] = useState(false);
   const [aeForm, setAeForm] = useState({ name: "", email: "", phone: "", region: "", specialty: "" });
 
   const { data: teamData, isLoading } = useQuery<TeamData>({
@@ -336,6 +337,22 @@ export default function TeamPage() {
     },
   });
 
+  const createAeMutation = useMutation({
+    mutationFn: async (data: { name: string; email: string; phone?: string; region?: string; specialty?: string }) => {
+      const res = await apiRequest("POST", "/api/account-executives", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Account Executive Added", description: "New AE added to team" });
+      queryClient.invalidateQueries({ queryKey: ["/api/account-executives"] });
+      setEditingAe(null);
+      setAeForm({ name: "", email: "", phone: "", region: "", specialty: "" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Creation Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const openEditAeDialog = (ae: AccountExecutive) => {
     setEditingAe(ae);
     setAeForm({
@@ -354,6 +371,9 @@ export default function TeamPage() {
     }
     if (editingAe) {
       updateAeMutation.mutate({ id: editingAe.id, ...aeForm });
+    } else {
+      createAeMutation.mutate(aeForm);
+      setShowAddAeDialog(false);
     }
   };
 
@@ -554,7 +574,7 @@ export default function TeamPage() {
         )}
       </div>
 
-      {accountExecutives.length > 0 && (
+      {(accountExecutives.length > 0 || user?.role === "admin") && (
         <Card>
           <Collapsible defaultOpen>
             <CollapsibleTrigger asChild>
@@ -572,6 +592,20 @@ export default function TeamPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {user?.role === "admin" && (
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAeForm({ name: "", email: "", phone: "", region: "", specialty: "" });
+                          setShowAddAeDialog(true);
+                        }}
+                        data-testid="button-add-ae"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add AE
+                      </Button>
+                    )}
                     <Badge variant="outline">{accountExecutives.length} AEs</Badge>
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   </div>
@@ -751,6 +785,76 @@ export default function TeamPage() {
             <Button onClick={handleAeSave} disabled={updateAeMutation.isPending} data-testid="button-save-ae">
               {updateAeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAddAeDialog} onOpenChange={setShowAddAeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Account Executive</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="new-ae-name">Name</Label>
+                <Input 
+                  id="new-ae-name" 
+                  value={aeForm.name} 
+                  onChange={(e) => setAeForm(prev => ({ ...prev, name: e.target.value }))} 
+                  data-testid="input-new-ae-name" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-ae-email">Email</Label>
+                <Input 
+                  id="new-ae-email" 
+                  type="email" 
+                  value={aeForm.email} 
+                  onChange={(e) => setAeForm(prev => ({ ...prev, email: e.target.value }))} 
+                  data-testid="input-new-ae-email" 
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="new-ae-phone">Phone</Label>
+                <Input 
+                  id="new-ae-phone" 
+                  value={aeForm.phone} 
+                  onChange={(e) => setAeForm(prev => ({ ...prev, phone: e.target.value }))} 
+                  placeholder="+1 (555) 123-4567"
+                  data-testid="input-new-ae-phone" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-ae-region">Region</Label>
+                <Input 
+                  id="new-ae-region" 
+                  value={aeForm.region} 
+                  onChange={(e) => setAeForm(prev => ({ ...prev, region: e.target.value }))} 
+                  placeholder="e.g., West Coast"
+                  data-testid="input-new-ae-region" 
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-ae-specialty">Specialty</Label>
+              <Input 
+                id="new-ae-specialty" 
+                value={aeForm.specialty} 
+                onChange={(e) => setAeForm(prev => ({ ...prev, specialty: e.target.value }))} 
+                placeholder="e.g., Enterprise, SolidWorks"
+                data-testid="input-new-ae-specialty" 
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddAeDialog(false)}>Cancel</Button>
+            <Button onClick={handleAeSave} disabled={createAeMutation.isPending} data-testid="button-create-ae">
+              {createAeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Add AE
             </Button>
           </DialogFooter>
         </DialogContent>
