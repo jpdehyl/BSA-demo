@@ -434,6 +434,47 @@ export default function CallPrepPage() {
                 </Card>
               )}
 
+              {/* BANT Qualification - Always Visible */}
+              {(lead.budget || lead.decisionMakers || lead.timeline) && (
+                <Card className="border-0 shadow-sm bg-amber-50/50 dark:bg-amber-950/20 border-l-4 border-l-amber-500">
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <DollarSign className="h-5 w-5 text-amber-600" />
+                      <h3 className="font-semibold text-lg">BANT Qualification</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {lead.budget && (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                            <DollarSign className="h-3.5 w-3.5" />
+                            <span className="uppercase tracking-wide">Budget</span>
+                          </div>
+                          <p className="text-sm font-medium">{lead.budget}</p>
+                        </div>
+                      )}
+                      {lead.timeline && (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                            <Clock className="h-3.5 w-3.5" />
+                            <span className="uppercase tracking-wide">Timeline</span>
+                          </div>
+                          <p className="text-sm font-medium">{lead.timeline}</p>
+                        </div>
+                      )}
+                      {lead.decisionMakers && (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                            <Users className="h-3.5 w-3.5" />
+                            <span className="uppercase tracking-wide">Decision Makers</span>
+                          </div>
+                          <p className="text-sm font-medium">{lead.decisionMakers}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Progressive Disclosure Accordion */}
               <Accordion type="multiple" defaultValue={["pain", "questions"]} className="space-y-3">
                 {/* Pain Points */}
@@ -493,51 +534,6 @@ export default function CallPrepPage() {
                     </AccordionTrigger>
                     <AccordionContent className="px-6 pb-6">
                       <CompactText content={researchPacket.fitAnalysis} />
-                    </AccordionContent>
-                  </AccordionItem>
-                )}
-
-                {/* Budget & Decision Makers */}
-                {(lead.budget || lead.decisionMakers || lead.timeline) && (
-                  <AccordionItem value="bant" className="border-0 shadow-sm rounded-lg bg-card">
-                    <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 rounded-lg transition-colors duration-200">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900/30">
-                          <DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <span className="font-semibold text-base">BANT Qualification</span>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-6 pb-6">
-                      <div className="space-y-4">
-                        {lead.budget && (
-                          <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <DollarSign className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Budget</span>
-                            </div>
-                            <p className="text-sm">{lead.budget}</p>
-                          </div>
-                        )}
-                        {lead.timeline && (
-                          <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Clock className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Timeline</span>
-                            </div>
-                            <p className="text-sm">{lead.timeline}</p>
-                          </div>
-                        )}
-                        {lead.decisionMakers && (
-                          <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Users className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Decision Makers</span>
-                            </div>
-                            <p className="text-sm">{lead.decisionMakers}</p>
-                          </div>
-                        )}
-                      </div>
                     </AccordionContent>
                   </AccordionItem>
                 )}
