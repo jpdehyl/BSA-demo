@@ -108,8 +108,8 @@ export async function registerRoutes(
       cookie: {
         secure: true, // Always use secure cookies
         httpOnly: true,
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days (not 30)
-        sameSite: "strict", // Strict for better CSRF protection
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        sameSite: "lax", // Lax for Replit iframe compatibility
       },
     })
   );
@@ -2259,7 +2259,8 @@ export async function registerRoutes(
         if (u.sdrId) sdrIdToUserId.set(u.sdrId, u.id);
       });
 
-      // Calculate metrics for each SDR
+      // Calculate metrics for each SDR using call dispositions (consistent with main dashboard)
+      const qualifyingDispositions = ['qualified', 'meeting-booked'];
       const sdrMetrics = await Promise.all(
         sdrs.map(async (sdr) => {
           const userId = sdrIdToUserId.get(sdr.id);
@@ -2268,21 +2269,25 @@ export async function registerRoutes(
 
           const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
           const weekCalls = calls.filter(c => new Date(c.startedAt || 0) > weekAgo);
-          const weekQualified = leads.filter(l =>
-            (l.status === 'qualified' || l.status === 'handed_off') &&
-            l.handedOffAt &&
-            new Date(l.handedOffAt) > weekAgo
+          
+          // Count qualified from call dispositions (same as main dashboard)
+          const weekQualifiedCalls = weekCalls.filter(c => 
+            qualifyingDispositions.includes(c.disposition || '')
           );
+          
+          // Count meetings booked specifically
+          const weekMeetings = weekCalls.filter(c => c.disposition === 'meeting-booked');
 
           return {
             sdrId: sdr.id,
             sdrName: sdr.name,
             email: sdr.email,
             callsThisWeek: weekCalls.length,
-            qualifiedThisWeek: weekQualified.length,
+            qualifiedThisWeek: weekQualifiedCalls.length,
+            meetingsThisWeek: weekMeetings.length,
             totalLeads: leads.length,
             conversionRate: weekCalls.length > 0
-              ? Math.round((weekQualified.length / weekCalls.length) * 100)
+              ? Math.round((weekQualifiedCalls.length / weekCalls.length) * 100)
               : 0,
             avgCallDuration: weekCalls.length > 0
               ? Math.round(weekCalls.reduce((sum, c) => sum + (c.duration || 0), 0) / weekCalls.length)
@@ -2295,6 +2300,7 @@ export async function registerRoutes(
       const teamTotals = {
         totalCalls: sdrMetrics.reduce((sum, m) => sum + m.callsThisWeek, 0),
         totalQualified: sdrMetrics.reduce((sum, m) => sum + m.qualifiedThisWeek, 0),
+        totalMeetings: sdrMetrics.reduce((sum, m) => sum + m.meetingsThisWeek, 0),
         avgConversionRate: sdrMetrics.length > 0
           ? Math.round(sdrMetrics.reduce((sum, m) => sum + m.conversionRate, 0) / sdrMetrics.length)
           : 0,

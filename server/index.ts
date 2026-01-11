@@ -7,9 +7,8 @@ import { createServer } from "http";
 const app = express();
 
 // Trust proxy for secure cookies behind Replit's reverse proxy
-if (process.env.NODE_ENV === "production") {
-  app.set("trust proxy", 1);
-}
+// Always enabled since Replit runs behind a proxy in both dev and prod
+app.set("trust proxy", 1);
 
 // Security headers with Helmet
 app.use(

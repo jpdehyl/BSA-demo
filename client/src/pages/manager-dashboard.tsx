@@ -59,6 +59,7 @@ interface SDRMetrics {
   email: string;
   callsThisWeek: number;
   qualifiedThisWeek: number;
+  meetingsThisWeek: number;
   totalLeads: number;
   conversionRate: number;
   avgCallDuration: number;
@@ -68,6 +69,7 @@ interface TeamPerformanceData {
   teamMetrics: {
     totalCalls: number;
     totalQualified: number;
+    totalMeetings: number;
     avgConversionRate: number;
     teamSize: number;
   };
@@ -169,6 +171,7 @@ export default function ManagerDashboard() {
   const teamMetrics = performanceData?.teamMetrics || {
     totalCalls: 0,
     totalQualified: 0,
+    totalMeetings: 0,
     avgConversionRate: 0,
     teamSize: 0,
   };
