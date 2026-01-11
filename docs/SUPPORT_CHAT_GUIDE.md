@@ -1,0 +1,455 @@
+# Support Chat Agent Guide
+
+> **Feature:** AI-Powered Support Chat Widget
+> **Version:** 1.0
+> **Last Updated:** January 11, 2026
+
+The Support Chat is an AI-powered assistant that helps you get answers to platform questions, troubleshoot issues, and learn best practices—all without leaving your current workflow.
+
+---
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Getting Started](#getting-started)
+3. [Use Cases by Role](#use-cases-by-role)
+4. [Example Conversations](#example-conversations)
+5. [Tips for Better Responses](#tips-for-better-responses)
+6. [Limitations](#limitations)
+
+---
+
+## Overview
+
+### What is the Support Chat?
+
+The Support Chat is a floating AI assistant available on every page of Lead Intel. It's designed to:
+
+- Answer questions about platform features
+- Guide you through common tasks
+- Help troubleshoot issues
+- Provide best practices for sales workflows
+
+### Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **Always Available** | Floating button in the bottom-right corner of every page |
+| **Context-Aware** | Knows which page you're on and your role |
+| **Conversation Memory** | Remembers your chat history within the session |
+| **Quick Topics** | Pre-built questions for common topics |
+| **Mobile Friendly** | Works seamlessly on phones and tablets |
+
+---
+
+## Getting Started
+
+### Opening the Chat
+
+1. Look for the **chat bubble** icon in the bottom-right corner of any page
+2. Click the bubble to open the chat window
+3. Type your question or click a suggested topic
+
+### Basic Interaction
+
+```
+You: How do I research a lead?
+
+Support: To research a lead in Lead Intel:
+
+1. Navigate to the **Leads** page
+2. Find the lead you want to research
+3. Click the **Research** button on the lead card
+4. Wait 30-60 seconds for the AI to gather intelligence
+5. View the research dossier with company intel, pain points, and talk tracks
+
+The research pulls data from the company website, LinkedIn, and other sources to give you a comprehensive pre-call brief.
+```
+
+### Closing the Chat
+
+- Click the **X** button in the chat window header
+- Click the chat bubble again
+- Your conversation history is saved automatically
+
+---
+
+## Use Cases by Role
+
+### For SDRs (Sales Development Representatives)
+
+The Support Chat is your personal assistant for day-to-day sales activities.
+
+#### 1. Learning Platform Features
+
+**When to use:** You're new to Lead Intel or exploring a feature you haven't used before.
+
+**Example questions:**
+- "How do I use the power dialer?"
+- "What does the live coaching feature do?"
+- "How do I add a new lead manually?"
+
+#### 2. Pre-Call Preparation
+
+**When to use:** You're about to make a call and want quick guidance.
+
+**Example questions:**
+- "What should I look for in a research dossier?"
+- "How do I use the talk track suggestions?"
+- "What are good discovery questions for a manufacturing company?"
+
+#### 3. Troubleshooting Call Issues
+
+**When to use:** Something isn't working during or after a call.
+
+**Example questions:**
+- "My transcription isn't showing up"
+- "The call didn't record, what do I do?"
+- "How do I reconnect if a call drops?"
+
+#### 4. Understanding Your Metrics
+
+**When to use:** You want to know how you're performing.
+
+**Example questions:**
+- "What metrics should I focus on as an SDR?"
+- "How is my fit score calculated?"
+- "What does the 7-dimensional call scoring mean?"
+
+#### 5. CRM Sync Questions
+
+**When to use:** You need to sync data with Salesforce.
+
+**Example questions:**
+- "How do I push a lead to Salesforce?"
+- "Why isn't my lead syncing?"
+- "How do I import leads from Salesforce?"
+
+---
+
+### For Managers
+
+The Support Chat helps you understand team performance and platform capabilities.
+
+#### 1. Team Oversight Features
+
+**When to use:** You want to monitor and coach your team.
+
+**Example questions:**
+- "How do I review my team's calls?"
+- "Where can I see team performance metrics?"
+- "How do I leave coaching notes on a call?"
+
+#### 2. Understanding Analytics
+
+**When to use:** You're reviewing reports or dashboards.
+
+**Example questions:**
+- "What does the conversion rate metric include?"
+- "How is the team leaderboard calculated?"
+- "What's a good benchmark for calls per day?"
+
+#### 3. Coaching Best Practices
+
+**When to use:** You want to improve how you coach your SDRs.
+
+**Example questions:**
+- "What should I look for when reviewing a call?"
+- "How can I use the AI analysis to coach better?"
+- "What are signs of a good discovery call?"
+
+#### 4. Configuration Questions
+
+**When to use:** You need to set up or adjust team settings.
+
+**Example questions:**
+- "How do I add a new SDR to my team?"
+- "Can I customize the call disposition options?"
+- "How do I set up Salesforce integration for my team?"
+
+#### 5. Handoff Process
+
+**When to use:** Managing lead handoffs to Account Executives.
+
+**Example questions:**
+- "How does the AE handoff process work?"
+- "What information gets sent to the AE?"
+- "How do I track handed-off leads?"
+
+---
+
+## Example Conversations
+
+### Example 1: SDR Learning Lead Research
+
+```
+SDR: How do I research a lead before a call?
+
+Support: Great question! Here's how to research a lead:
+
+1. Go to the **Leads** page
+2. Find your lead and click **Research**
+3. Wait 30-60 seconds for the AI analysis
+4. Review the dossier which includes:
+   - Company overview and recent news
+   - Contact's LinkedIn insights
+   - Pain points relevant to our products
+   - Suggested talk tracks
+   - Discovery questions
+
+**Pro tip:** Research at least 5 minutes before your call so you have time to review the insights.
+
+SDR: What if the research fails?
+
+Support: If research fails, try these steps:
+
+1. **Check the website URL** - Make sure it's valid and accessible
+2. **Verify the company name** - Ensure it's spelled correctly
+3. **Try again** - Sometimes external sources are temporarily unavailable
+4. **Use partial data** - Even if some sources fail, you may get useful info from others
+
+If issues persist, the lead may have limited online presence. You can still make the call using basic information.
+```
+
+### Example 2: SDR Troubleshooting Call Quality
+
+```
+SDR: My calls keep having audio issues, what should I do?
+
+Support: Audio issues are usually related to your connection or browser. Try these fixes:
+
+**Quick fixes:**
+- Refresh the page
+- Check your internet connection
+- Make sure your microphone is selected correctly in browser settings
+- Close other tabs using audio/video
+
+**Browser settings:**
+1. Click the lock icon in your browser's address bar
+2. Ensure microphone permission is "Allow"
+3. Check that the correct microphone is selected
+
+**If issues continue:**
+- Try a different browser (Chrome works best)
+- Use a headset instead of built-in speakers
+- Move closer to your WiFi router
+
+Still having problems? Contact support@hawkridge.com with details about when the issue occurs.
+```
+
+### Example 3: Manager Reviewing Team Performance
+
+```
+Manager: How do I see which SDRs are performing best this week?
+
+Support: You can view team performance in several ways:
+
+**Team Dashboard:**
+1. Go to **Team** in the sidebar
+2. View the leaderboard showing calls, conversions, and talk time
+3. Click any SDR to see their detailed metrics
+
+**Reports Page:**
+1. Go to **Reports** (Manager/Admin only)
+2. Select the date range (this week)
+3. Compare metrics across your team:
+   - Calls made
+   - Connection rate
+   - Average call duration
+   - Qualification rate
+
+**Quick insights:**
+- Green indicators = above team average
+- Red indicators = needs attention
+- Click any metric to drill down
+
+Would you like tips on coaching underperforming SDRs?
+
+Manager: Yes, how should I approach coaching?
+
+Support: Here's a coaching framework that works well:
+
+**1. Review calls together**
+- Pick 2-3 calls (one good, one to improve)
+- Use the AI analysis as a starting point
+- Ask the SDR what they think went well/poorly first
+
+**2. Focus on one thing at a time**
+- Don't overwhelm with feedback
+- Pick the highest-impact improvement
+- Set a specific goal for the next week
+
+**3. Use the platform tools**
+- Leave coaching notes on specific calls
+- Reference the AI-suggested improvements
+- Track progress in their metrics over time
+
+**4. Celebrate wins**
+- Acknowledge improvements publicly
+- Share successful call recordings as examples
+- Recognize effort, not just results
+```
+
+### Example 4: Manager Understanding Salesforce Sync
+
+```
+Manager: How does the Salesforce integration work?
+
+Support: Lead Intel integrates with Salesforce to keep your data in sync. Here's how it works:
+
+**What syncs:**
+- Lead information (name, company, contact details)
+- Call activities and notes
+- Lead status changes
+- Handoff information to AEs
+
+**Sync directions:**
+1. **Import from Salesforce** - Pull leads into Lead Intel
+2. **Push to Salesforce** - Update Salesforce with Lead Intel data
+3. **Handoff to AE** - Transfer qualified leads with full context
+
+**Setup:**
+1. Go to **Settings**
+2. Find **Integrations** section
+3. Click **Connect Salesforce**
+4. Authorize with your Salesforce credentials
+
+**Important:** You need Salesforce admin permissions to set up the initial connection.
+
+Want me to explain any specific sync scenario?
+```
+
+### Example 5: SDR Handling a Qualified Lead
+
+```
+SDR: I just had a great call and the lead is qualified. What do I do next?
+
+Support: Congratulations on qualifying a lead! Here's your checklist:
+
+**Immediately after the call:**
+1. Complete the **Post-Call Summary**
+   - Select disposition: "Qualified"
+   - Add key takeaways
+   - Note next steps discussed
+
+2. Review the **AI Analysis**
+   - Check the BANT extraction
+   - Verify the qualification criteria
+   - Add any missing context
+
+**Handoff to AE:**
+1. Go to the lead's detail page
+2. Click **Hand Off to AE**
+3. Select the Account Executive
+4. Review the handoff summary
+5. Add any personal notes for the AE
+6. Click **Send Handoff**
+
+**The AE will receive:**
+- Full call recording and transcript
+- AI-generated summary
+- Research dossier
+- Your personal notes
+- BANT qualification details
+
+**Pro tip:** The better your notes, the smoother the AE's follow-up will be!
+```
+
+---
+
+## Tips for Better Responses
+
+### Be Specific
+
+```
+❌ "Help with calls"
+✅ "How do I see the transcript during a live call?"
+```
+
+### Provide Context
+
+```
+❌ "It's not working"
+✅ "The research button is grayed out on the leads page"
+```
+
+### Ask Follow-Up Questions
+
+The chat remembers your conversation, so you can ask follow-ups:
+
+```
+You: How do I use the coaching panel?
+Support: [explains coaching panel]
+You: What if I don't see any suggestions appearing?
+Support: [troubleshoots based on previous context]
+```
+
+### Use Quick Topics
+
+When you open the chat, you'll see suggested topics like:
+- "Lead research"
+- "Call features"
+- "Salesforce sync"
+
+Click these for common starting points.
+
+---
+
+## Limitations
+
+The Support Chat is designed to help with platform-related questions. It **cannot**:
+
+| Cannot Do | Alternative |
+|-----------|-------------|
+| Access your specific account data (minutes balance, exact metrics) | Check Settings or Dashboard |
+| Make changes to your account | Use the appropriate page in the app |
+| Access external systems directly | Use the respective integrations |
+| Provide real-time call coaching | Use the Live Coaching feature during calls |
+| Handle billing or subscription changes | Contact support@hawkridge.com |
+
+### When to Contact Human Support
+
+Reach out to **support@hawkridge.com** for:
+- Billing and subscription questions
+- Account access issues
+- Bug reports that the chat can't resolve
+- Feature requests
+- Enterprise configuration needs
+
+---
+
+## Quick Reference Card
+
+### Common SDR Questions
+
+| Question | Quick Answer |
+|----------|--------------|
+| "How do I research a lead?" | Leads page → Click Research on lead card |
+| "Where are my call recordings?" | Lead detail page → Call History section |
+| "How do I add a lead?" | Leads page → Add Lead button |
+| "What's my call quota?" | Dashboard → Your Metrics panel |
+| "How do I hand off to AE?" | Lead detail → Hand Off to AE button |
+
+### Common Manager Questions
+
+| Question | Quick Answer |
+|----------|--------------|
+| "Where are team metrics?" | Team page or Reports page |
+| "How do I review calls?" | Team page → Click SDR → Call History |
+| "How do I add coaching notes?" | Open call recording → Add Coaching Note |
+| "Where's the Salesforce setup?" | Settings → Integrations |
+| "How do I see handoff status?" | AE Pipeline page |
+
+---
+
+## Feedback
+
+Found the Support Chat helpful? Have suggestions for improvement?
+
+- Use the chat to tell us what worked
+- Email feedback to support@hawkridge.com
+- Your usage helps us improve the AI responses
+
+---
+
+*The Support Chat uses Claude AI to provide helpful, accurate responses about the Lead Intel platform. Responses are generated based on platform documentation and best practices.*
