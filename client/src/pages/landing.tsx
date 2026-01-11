@@ -37,6 +37,16 @@ class WebGLErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryStat
   }
 }
 
+function isWebGLAvailable(): boolean {
+  try {
+    const canvas = document.createElement("canvas");
+    return !!(window.WebGLRenderingContext && 
+      (canvas.getContext("webgl") || canvas.getContext("experimental-webgl")));
+  } catch {
+    return false;
+  }
+}
+
 function AnimatedBackground() {
   return (
     <div className="absolute inset-0 overflow-hidden">
@@ -255,8 +265,10 @@ function CameraController() {
 export default function LandingPage() {
   const [, setLocation] = useLocation();
   const [showLogin, setShowLogin] = useState(false);
+  const [webglSupported, setWebglSupported] = useState(true);
 
   useEffect(() => {
+    setWebglSupported(isWebGLAvailable());
     const timer = setTimeout(() => setShowLogin(true), 1000);
     return () => clearTimeout(timer);
   }, []);
@@ -268,19 +280,23 @@ export default function LandingPage() {
   return (
     <div className="relative w-full h-screen overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-[#0a1628] via-[#132743] to-[#0d2137]">
-        <WebGLErrorBoundary fallback={<AnimatedBackground />}>
-          <Canvas
-            camera={{ position: [0, 2, 6], fov: 60 }}
-            dpr={[1, 2]}
-            gl={{ antialias: true, alpha: true }}
-          >
-            <color attach="background" args={['#0a1628']} />
-            <fog attach="fog" args={['#0a1628', 5, 15]} />
-            <ambientLight intensity={0.5} />
-            <GalaxyParticles particleCount={15000} />
-            <CameraController />
-          </Canvas>
-        </WebGLErrorBoundary>
+        {webglSupported ? (
+          <WebGLErrorBoundary fallback={<AnimatedBackground />}>
+            <Canvas
+              camera={{ position: [0, 2, 6], fov: 60 }}
+              dpr={[1, 2]}
+              gl={{ antialias: true, alpha: true }}
+            >
+              <color attach="background" args={['#0a1628']} />
+              <fog attach="fog" args={['#0a1628', 5, 15]} />
+              <ambientLight intensity={0.5} />
+              <GalaxyParticles particleCount={15000} />
+              <CameraController />
+            </Canvas>
+          </WebGLErrorBoundary>
+        ) : (
+          <AnimatedBackground />
+        )}
       </div>
 
       <div className="absolute top-0 left-0 right-0 p-6 flex items-center z-10">
