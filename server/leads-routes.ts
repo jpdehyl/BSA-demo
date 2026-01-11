@@ -171,19 +171,10 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
   
   app.get("/api/leads", requireAuth, async (req: Request, res: Response) => {
     try {
-      const leads = await storage.getAllLeads();
-      
-      const leadsWithResearch = await Promise.all(
-        leads.map(async (lead) => {
-          const researchPacket = await storage.getResearchPacketByLead(lead.id);
-          return {
-            ...lead,
-            hasResearch: !!researchPacket,
-            researchStatus: researchPacket?.verificationStatus || null,
-          };
-        })
-      );
-      
+      // Optimized: Single query with LEFT JOIN instead of N+1 queries
+      // Before: 101 queries for 100 leads | After: 1 query! 🚀
+      const leadsWithResearch = await storage.getAllLeadsWithResearch();
+
       res.json(leadsWithResearch);
     } catch (error) {
       console.error("Leads fetch error:", error);

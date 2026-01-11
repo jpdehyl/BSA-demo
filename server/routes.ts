@@ -836,17 +836,15 @@ export async function registerRoutes(
         s.status === "completed" && !s.coachingNotes && s.transcriptText
       ).slice(0, 10);
 
-      const hotLeads = allLeads.filter(l => 
+      const hotLeads = allLeads.filter(l =>
         l.status === "qualified" || l.status === "sent_to_ae"
       ).slice(0, 5);
 
-      const leadsWithResearchStatus = await Promise.all(
-        allLeads.slice(0, 50).map(async (lead) => {
-          const researchPacket = await storage.getResearchPacketByLead(lead.id);
-          return { ...lead, hasResearch: !!researchPacket };
-        })
-      );
-      const leadsWithoutResearch = leadsWithResearchStatus.filter(l => !l.hasResearch).slice(0, 5);
+      // Optimized: Use single query instead of N+1 pattern
+      const allLeadsWithResearch = await storage.getAllLeadsWithResearch();
+      const leadsWithoutResearch = allLeadsWithResearch
+        .filter(l => !l.hasResearch)
+        .slice(0, 5);
 
       const roiTracking = await (async () => {
         let callsWithPrep = 0;

@@ -51,6 +51,7 @@ export interface IStorage {
   getLead(id: string): Promise<Lead | undefined>;
   getLeadByEmail(email: string): Promise<Lead | undefined>;
   getAllLeads(): Promise<Lead[]>;
+  getAllLeadsWithResearch(): Promise<Array<Lead & { hasResearch: boolean; researchStatus: string | null }>>;
   getLeadsBySdr(sdrId: string): Promise<Lead[]>;
   createLead(lead: InsertLead): Promise<Lead>;
   createLeads(leadsData: InsertLead[]): Promise<Lead[]>;
@@ -234,6 +235,84 @@ export class DatabaseStorage implements IStorage {
 
   async getAllLeads(): Promise<Lead[]> {
     return db.select().from(leads).orderBy(desc(leads.createdAt));
+  }
+
+  /**
+   * Optimized method to fetch all leads with research status in a single query
+   * Eliminates N+1 query bottleneck (was 101 queries for 100 leads, now just 1!)
+   */
+  async getAllLeadsWithResearch(): Promise<Array<Lead & { hasResearch: boolean; researchStatus: string | null }>> {
+    const results = await db
+      .select({
+        // All lead fields
+        id: leads.id,
+        createdAt: leads.createdAt,
+        status: leads.status,
+        companyName: leads.companyName,
+        companyWebsite: leads.companyWebsite,
+        companyIndustry: leads.companyIndustry,
+        companySize: leads.companySize,
+        contactName: leads.contactName,
+        contactTitle: leads.contactTitle,
+        contactEmail: leads.contactEmail,
+        contactPhone: leads.contactPhone,
+        contactLinkedIn: leads.contactLinkedIn,
+        source: leads.source,
+        fitScore: leads.fitScore,
+        priority: leads.priority,
+        assignedSdrId: leads.assignedSdrId,
+        assignedAeId: leads.assignedAeId,
+        qualificationNotes: leads.qualificationNotes,
+        buySignals: leads.buySignals,
+        budget: leads.budget,
+        timeline: leads.timeline,
+        decisionMakers: leads.decisionMakers,
+        handedOffAt: leads.handedOffAt,
+        handedOffBy: leads.handedOffBy,
+        nextFollowUpAt: leads.nextFollowUpAt,
+        lastContactedAt: leads.lastContactedAt,
+        salesforceId: leads.salesforceId,
+        salesforceLastSync: leads.salesforceLastSync,
+        // Research status fields
+        researchPacketId: researchPackets.id,
+        verificationStatus: researchPackets.verificationStatus,
+      })
+      .from(leads)
+      .leftJoin(researchPackets, eq(leads.id, researchPackets.leadId))
+      .orderBy(desc(leads.createdAt));
+
+    return results.map((row) => ({
+      id: row.id,
+      createdAt: row.createdAt,
+      status: row.status,
+      companyName: row.companyName,
+      companyWebsite: row.companyWebsite,
+      companyIndustry: row.companyIndustry,
+      companySize: row.companySize,
+      contactName: row.contactName,
+      contactTitle: row.contactTitle,
+      contactEmail: row.contactEmail,
+      contactPhone: row.contactPhone,
+      contactLinkedIn: row.contactLinkedIn,
+      source: row.source,
+      fitScore: row.fitScore,
+      priority: row.priority,
+      assignedSdrId: row.assignedSdrId,
+      assignedAeId: row.assignedAeId,
+      qualificationNotes: row.qualificationNotes,
+      buySignals: row.buySignals,
+      budget: row.budget,
+      timeline: row.timeline,
+      decisionMakers: row.decisionMakers,
+      handedOffAt: row.handedOffAt,
+      handedOffBy: row.handedOffBy,
+      nextFollowUpAt: row.nextFollowUpAt,
+      lastContactedAt: row.lastContactedAt,
+      salesforceId: row.salesforceId,
+      salesforceLastSync: row.salesforceLastSync,
+      hasResearch: row.researchPacketId !== null,
+      researchStatus: row.verificationStatus,
+    }));
   }
 
   async getLeadsBySdr(sdrId: string): Promise<Lead[]> {
