@@ -471,6 +471,27 @@ export default function LeadsPage() {
           ) : (
           <>
           <div className="space-y-4 py-4">
+            {/* Quick Actions */}
+            <div className="flex items-center justify-between gap-2 p-3 rounded-lg bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 border border-purple-200 dark:border-purple-800">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-purple-600" />
+                <span className="text-sm font-medium">Smart Handoff Assistant</span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  refetchDraft();
+                  setQualifyDraftFetched(false);
+                }}
+                className="gap-1 text-xs"
+                data-testid="button-refresh-suggestions"
+              >
+                <RefreshCw className="h-3 w-3" />
+                Refresh AI Suggestions
+              </Button>
+            </div>
+
             {qualificationDraft?.source === "call_transcript" && qualificationDraft?.confidence !== "low" && (
               <div className="flex items-center gap-2 p-2 rounded-md bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
                 <Sparkles className="h-4 w-4 text-green-600 dark:text-green-400" />
@@ -500,7 +521,83 @@ export default function LeadsPage() {
                 data-testid="input-buy-signals"
               />
             </div>
-            
+
+            <Separator className="my-4" />
+
+            {/* BANT Auto-Fill Section */}
+            <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-blue-600" />
+                  <h4 className="text-sm font-semibold">Auto-Fill BANT from Call</h4>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    if (!selectedLead) return;
+
+                    // Find the most recent call with a transcript
+                    const callsQuery = await queryClient.fetchQuery({
+                      queryKey: ["/api/call-sessions"],
+                    });
+
+                    const recentCallWithTranscript = (callsQuery as any[])
+                      .filter((call: any) => call.leadId === selectedLead.id && call.transcriptText && call.transcriptText.trim().length >= 100)
+                      .sort((a: any, b: any) => new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime())[0];
+
+                    if (!recentCallWithTranscript) {
+                      toast({
+                        title: "No Call Found",
+                        description: "No recent call with transcript found for this lead",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+
+                    try {
+                      const res = await fetch(`/api/call-sessions/${recentCallWithTranscript.id}/extract-bant`, {
+                        method: 'POST',
+                        credentials: 'include',
+                      });
+
+                      if (!res.ok) throw new Error('Failed to extract BANT');
+
+                      const result = await res.json();
+                      const bant = result.data;
+
+                      // Auto-fill the BANT fields
+                      setQualifyData(prev => ({
+                        ...prev,
+                        budget: bant.budget || prev.budget,
+                        timeline: bant.timeline || prev.timeline,
+                        decisionMakers: bant.decisionMakers || prev.decisionMakers,
+                      }));
+
+                      toast({
+                        title: "BANT Extracted",
+                        description: bant.extractionSummary,
+                      });
+                    } catch (error) {
+                      toast({
+                        title: "Extraction Failed",
+                        description: "Could not extract BANT from call transcript",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                  className="gap-1"
+                  data-testid="button-extract-bant"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  Extract from Call
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Automatically extract Budget, Authority, Need, and Timeline from your most recent call transcript
+              </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="budget">Budget Range</Label>
@@ -593,6 +690,39 @@ function LeadListItem({
     return "text-red-600 dark:text-red-400";
   };
 
+  const getLastContactInfo = (lastContactedAt: Date | null) => {
+    if (!lastContactedAt) return null;
+
+    const now = new Date();
+    const lastContact = new Date(lastContactedAt);
+    const daysSince = Math.floor((now.getTime() - lastContact.getTime()) / (1000 * 60 * 60 * 24));
+
+    let color = "text-muted-foreground";
+    let icon = Clock;
+
+    if (daysSince === 0) {
+      return { text: "Today", color: "text-green-600 dark:text-green-400", icon };
+    } else if (daysSince === 1) {
+      return { text: "Yesterday", color: "text-green-600 dark:text-green-400", icon };
+    } else if (daysSince <= 3) {
+      color = "text-green-600 dark:text-green-400";
+    } else if (daysSince <= 7) {
+      color = "text-yellow-600 dark:text-yellow-400";
+    } else if (daysSince <= 14) {
+      color = "text-orange-600 dark:text-orange-400";
+    } else {
+      color = "text-red-600 dark:text-red-400";
+    }
+
+    return {
+      text: `${daysSince}d ago`,
+      color,
+      icon
+    };
+  };
+
+  const lastContactInfo = getLastContactInfo(lead.lastContactedAt);
+
   return (
     <button
       onClick={onClick}
@@ -612,6 +742,12 @@ function LeadListItem({
           <p className="text-xs text-muted-foreground truncate mt-0.5">
             {lead.companyName}
           </p>
+          {lastContactInfo && (
+            <div className={`flex items-center gap-1 mt-1 text-xs ${lastContactInfo.color}`}>
+              <lastContactInfo.icon className="h-3 w-3" />
+              <span>{lastContactInfo.text}</span>
+            </div>
+          )}
         </div>
         <div className="flex flex-col items-end gap-1">
           {lead.fitScore !== null && lead.fitScore !== undefined && (

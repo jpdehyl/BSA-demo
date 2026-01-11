@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import {
   Phone,
@@ -16,7 +17,8 @@ import {
   Calendar as CalendarIcon,
   Target,
   Save,
-  Loader2
+  Loader2,
+  Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -46,19 +48,60 @@ const DISPOSITIONS = [
   { value: 'meeting-booked', label: 'Meeting Booked', icon: CheckCircle, color: 'text-green-700' },
 ];
 
-export function PostCallSummaryForm({ 
-  callSessionId, 
-  onSubmit, 
+export function PostCallSummaryForm({
+  callSessionId,
+  onSubmit,
   onCancel,
-  isSubmitting = false 
+  isSubmitting = false
 }: PostCallSummaryFormProps) {
   const [disposition, setDisposition] = useState<string>('');
   const [keyTakeaways, setKeyTakeaways] = useState('');
   const [nextSteps, setNextSteps] = useState('');
   const [sdrNotes, setSdrNotes] = useState('');
   const [callbackDate, setCallbackDate] = useState<Date | undefined>();
+  const [suggestion, setSuggestion] = useState<{
+    suggestedDisposition: string;
+    confidence: 'high' | 'medium' | 'low';
+    reason: string;
+  } | null>(null);
+  const [loadingSuggestion, setLoadingSuggestion] = useState(true);
+  const [isSuggestionUsed, setIsSuggestionUsed] = useState(false);
+
+  // Fetch AI suggestion when form loads
+  useEffect(() => {
+    const fetchSuggestion = async () => {
+      try {
+        const res = await fetch(`/api/call-sessions/${callSessionId}/suggested-disposition`, {
+          credentials: 'include',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setSuggestion(data);
+          // Auto-select the suggested disposition
+          setDisposition(data.suggestedDisposition);
+          setIsSuggestionUsed(true);
+        }
+      } catch (error) {
+        console.error('Failed to fetch disposition suggestion:', error);
+      } finally {
+        setLoadingSuggestion(false);
+      }
+    };
+
+    fetchSuggestion();
+  }, [callSessionId]);
 
   const showCallbackPicker = disposition === 'callback-scheduled';
+
+  // Track if user manually changes the disposition
+  const handleDispositionChange = (value: string) => {
+    setDisposition(value);
+    if (value !== suggestion?.suggestedDisposition) {
+      setIsSuggestionUsed(false);
+    } else {
+      setIsSuggestionUsed(true);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,8 +130,22 @@ export function PostCallSummaryForm({
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="disposition">Call Outcome</Label>
-            <Select value={disposition} onValueChange={setDisposition}>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="disposition">Call Outcome</Label>
+              {loadingSuggestion && (
+                <Badge variant="outline" className="gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Analyzing...
+                </Badge>
+              )}
+              {!loadingSuggestion && suggestion && isSuggestionUsed && (
+                <Badge variant="secondary" className="gap-1 bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                  <Sparkles className="h-3 w-3" />
+                  AI Suggested
+                </Badge>
+              )}
+            </div>
+            <Select value={disposition} onValueChange={handleDispositionChange}>
               <SelectTrigger id="disposition" data-testid="select-disposition">
                 <SelectValue placeholder="Select outcome..." />
               </SelectTrigger>
@@ -98,11 +155,24 @@ export function PostCallSummaryForm({
                     <div className="flex items-center gap-2">
                       <d.icon className={`h-4 w-4 ${d.color}`} />
                       {d.label}
+                      {suggestion?.suggestedDisposition === d.value && !loadingSuggestion && (
+                        <Badge variant="outline" className="ml-2 text-xs">
+                          Recommended
+                        </Badge>
+                      )}
                     </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {suggestion && !loadingSuggestion && (
+              <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+                <Sparkles className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                <span>
+                  <strong className="capitalize">{suggestion.confidence}</strong> confidence: {suggestion.reason}
+                </span>
+              </p>
+            )}
           </div>
 
           {showCallbackPicker && (

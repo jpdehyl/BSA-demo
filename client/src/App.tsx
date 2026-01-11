@@ -20,6 +20,7 @@ import LeadsPage from "@/pages/leads";
 import CallPrepPage from "@/pages/call-prep";
 import TeamPage from "@/pages/team";
 import ReportsPage from "@/pages/reports";
+import ManagerDashboard from "@/pages/manager-dashboard";
 import AEPipelinePage from "@/pages/ae-pipeline";
 import BudgetingPage from "@/pages/budgeting";
 import SettingsPage from "@/pages/settings";
@@ -189,6 +190,14 @@ function Router() {
         <ProtectedRoute>
           <DashboardLayout>
             <TeamPage />
+          </DashboardLayout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/manager-dashboard">
+        <ProtectedRoute allowedRoles={["admin", "manager"]}>
+          <DashboardLayout>
+            <ManagerDashboard />
           </DashboardLayout>
         </ProtectedRoute>
       </Route>

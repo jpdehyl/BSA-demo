@@ -5,6 +5,7 @@ import session from "express-session";
 import MemoryStore from "memorystore";
 import connectPgSimple from "connect-pg-simple";
 import bcrypt from "bcrypt";
+import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { pool } from "./db";
 import { insertUserSchema } from "@shared/schema";
@@ -28,10 +29,52 @@ const PgSession = connectPgSimple(session);
 
 const SALT_ROUNDS = 12;
 
+// Rate limiter for auth endpoints: 5 attempts per 15 minutes
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 requests per windowMs
+  message: { message: "Too many authentication attempts, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
 });
+
+// Validation schemas for PATCH endpoints
+const updateUserProfileSchema = z.object({
+  name: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+}).strict();
+
+const updateUserRoleSchema = z.object({
+  role: z.enum(["admin", "manager", "sdr", "account_specialist", "account_executive"]),
+}).strict();
+
+const updateSdrSchema = z.object({
+  name: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
+  managerId: z.string().optional(),
+  gender: z.string().optional(),
+  timezone: z.string().optional(),
+}).strict();
+
+const updateCallOutcomeSchema = z.object({
+  disposition: z.enum(["connected", "voicemail", "no_answer", "busy", "invalid_number", "do_not_call"]).optional(),
+  nextSteps: z.string().optional(),
+  keyTakeaways: z.string().optional(),
+  sdrNotes: z.string().optional(),
+  callbackDate: z.string().datetime().or(z.date()).optional(),
+}).strict();
+
+const updateManagerNotesSchema = z.object({
+  managerSummary: z.string().optional(),
+  coachingNotes: z.string().optional(),
+  sentimentScore: z.number().min(0).max(10).optional(),
+}).strict();
 
 export async function registerRoutes(
   httpServer: Server,
@@ -50,17 +93,22 @@ export async function registerRoutes(
     },
   });
 
+  // Validate critical environment variables
+  if (!process.env.SESSION_SECRET) {
+    throw new Error("SESSION_SECRET environment variable is required. Set it in your .env file or Replit Secrets.");
+  }
+
   app.use(
     session({
       store: sessionStore,
-      secret: process.env.SESSION_SECRET || "lead-intel-secret-key-change-in-prod",
+      secret: process.env.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
       cookie: {
-        secure: process.env.NODE_ENV === "production",
+        secure: true, // Always use secure cookies
         httpOnly: true,
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-        sameSite: "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days (not 30)
+        sameSite: "strict", // Strict for better CSRF protection
       },
     })
   );
@@ -97,7 +145,7 @@ export async function registerRoutes(
     };
   };
 
-  app.post("/api/auth/register", async (req: Request, res: Response) => {
+  app.post("/api/auth/register", authLimiter, async (req: Request, res: Response) => {
     try {
       const validatedData = insertUserSchema.parse(req.body);
       
@@ -127,7 +175,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/auth/login", async (req: Request, res: Response) => {
+  app.post("/api/auth/login", authLimiter, async (req: Request, res: Response) => {
     try {
       const { email, password } = loginSchema.parse(req.body);
 
@@ -208,20 +256,21 @@ export async function registerRoutes(
 
   app.patch("/api/user/profile", requireAuth, async (req: Request, res: Response) => {
     try {
-      const { name, email } = req.body;
+      // Validate request body
+      const validatedData = updateUserProfileSchema.parse(req.body);
       const updates: { name?: string; email?: string } = {};
-      
-      if (name && typeof name === "string" && name.trim()) {
-        updates.name = name.trim();
+
+      if (validatedData.name) {
+        updates.name = validatedData.name.trim();
       }
-      if (email && typeof email === "string" && email.trim()) {
-        const existingUser = await storage.getUserByEmail(email.trim());
+      if (validatedData.email) {
+        const existingUser = await storage.getUserByEmail(validatedData.email.trim());
         if (existingUser && existingUser.id !== req.session.userId) {
           return res.status(400).json({ message: "Email already in use" });
         }
-        updates.email = email.trim();
+        updates.email = validatedData.email.trim();
       }
-      
+
       if (Object.keys(updates).length === 0) {
         return res.status(400).json({ message: "No valid updates provided" });
       }
@@ -234,6 +283,12 @@ export async function registerRoutes(
       const { password: _, ...userWithoutPassword } = user;
       res.json(userWithoutPassword);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.errors,
+        });
+      }
       console.error("Update profile error:", error);
       res.status(500).json({ message: "Failed to update profile" });
     }
@@ -261,7 +316,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Current password is incorrect" });
       }
       
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
       await storage.updateUserPassword(req.session.userId!, hashedPassword);
       
       res.json({ message: "Password updated successfully" });
@@ -285,13 +340,10 @@ export async function registerRoutes(
   app.patch("/api/users/:id/role", requireRole("admin"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { role } = req.body;
-      
-      const validRoles = ["admin", "manager", "sdr", "account_specialist", "account_executive"];
-      if (!role || !validRoles.includes(role)) {
-        return res.status(400).json({ message: "Invalid role" });
-      }
-      
+
+      // Validate request body
+      const { role } = updateUserRoleSchema.parse(req.body);
+
       if (id === req.session.userId && role !== "admin") {
         return res.status(400).json({ message: "Cannot demote yourself" });
       }
@@ -304,6 +356,12 @@ export async function registerRoutes(
       const { password: _, ...userWithoutPassword } = user;
       res.json(userWithoutPassword);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.errors,
+        });
+      }
       console.error("Update role error:", error);
       res.status(500).json({ message: "Failed to update role" });
     }
@@ -550,8 +608,10 @@ export async function registerRoutes(
   app.patch("/api/sdrs/:id", requireRole("admin", "manager"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const updates = req.body;
-      
+
+      // Validate request body
+      const updates = updateSdrSchema.parse(req.body);
+
       const sdr = await storage.updateSdr(id, updates);
       if (!sdr) {
         return res.status(404).json({ message: "SDR not found" });
@@ -559,6 +619,12 @@ export async function registerRoutes(
       
       res.json(sdr);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.errors,
+        });
+      }
       console.error("Update SDR error:", error);
       res.status(500).json({ message: "Failed to update SDR" });
     }
@@ -770,17 +836,15 @@ export async function registerRoutes(
         s.status === "completed" && !s.coachingNotes && s.transcriptText
       ).slice(0, 10);
 
-      const hotLeads = allLeads.filter(l => 
+      const hotLeads = allLeads.filter(l =>
         l.status === "qualified" || l.status === "sent_to_ae"
       ).slice(0, 5);
 
-      const leadsWithResearchStatus = await Promise.all(
-        allLeads.slice(0, 50).map(async (lead) => {
-          const researchPacket = await storage.getResearchPacketByLead(lead.id);
-          return { ...lead, hasResearch: !!researchPacket };
-        })
-      );
-      const leadsWithoutResearch = leadsWithResearchStatus.filter(l => !l.hasResearch).slice(0, 5);
+      // Optimized: Use single query instead of N+1 pattern
+      const allLeadsWithResearch = await storage.getAllLeadsWithResearch();
+      const leadsWithoutResearch = allLeadsWithResearch
+        .filter(l => !l.hasResearch)
+        .slice(0, 5);
 
       const roiTracking = await (async () => {
         let callsWithPrep = 0;
@@ -1036,7 +1100,9 @@ export async function registerRoutes(
   app.patch("/api/manager/call-review/:callId/notes", requireRole("admin", "manager"), async (req: Request, res: Response) => {
     try {
       const { callId } = req.params;
-      const { managerSummary, coachingNotes, sentimentScore } = req.body;
+
+      // Validate request body
+      const validatedData = updateManagerNotesSchema.parse(req.body);
 
       const callSession = await storage.getCallSession(callId);
       if (!callSession) {
@@ -1044,13 +1110,19 @@ export async function registerRoutes(
       }
 
       const updated = await storage.updateCallSession(callId, {
-        managerSummary: managerSummary || callSession.managerSummary,
-        coachingNotes: coachingNotes || callSession.coachingNotes,
-        sentimentScore: sentimentScore || callSession.sentimentScore,
+        managerSummary: validatedData.managerSummary || callSession.managerSummary,
+        coachingNotes: validatedData.coachingNotes || callSession.coachingNotes,
+        sentimentScore: validatedData.sentimentScore || callSession.sentimentScore,
       });
 
       res.json(updated);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.errors,
+        });
+      }
       console.error("Manager notes update error:", error);
       res.status(500).json({ message: "Failed to update manager notes" });
     }
@@ -1552,7 +1624,9 @@ export async function registerRoutes(
   app.patch("/api/call-sessions/:id/outcome", requireAuth, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { disposition, keyTakeaways, nextSteps, sdrNotes, callbackDate } = req.body;
+
+      // Validate request body
+      const validatedData = updateCallOutcomeSchema.parse(req.body);
 
       const session = await storage.getCallSession(id);
       if (!session) {
@@ -1560,17 +1634,84 @@ export async function registerRoutes(
       }
 
       const updated = await storage.updateCallSession(id, {
-        disposition,
-        keyTakeaways: keyTakeaways || null,
-        nextSteps: nextSteps || null,
-        sdrNotes: sdrNotes || null,
-        callbackDate: callbackDate ? new Date(callbackDate) : null,
+        disposition: validatedData.disposition,
+        keyTakeaways: validatedData.keyTakeaways || null,
+        nextSteps: validatedData.nextSteps || null,
+        sdrNotes: validatedData.sdrNotes || null,
+        callbackDate: validatedData.callbackDate ? new Date(validatedData.callbackDate) : null,
       });
 
       res.json(updated);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.errors,
+        });
+      }
       console.error("Call outcome update error:", error);
       res.status(500).json({ message: "Failed to update call outcome" });
+    }
+  });
+
+  // Get AI-suggested disposition for a call session
+  app.get("/api/call-sessions/:id/suggested-disposition", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      const callSession = await storage.getCallSession(id);
+      if (!callSession) {
+        return res.status(404).json({ message: "Call session not found" });
+      }
+
+      // Import the suggestion function
+      const { suggestCallDisposition } = await import("./ai/dispositionSuggestion.js");
+
+      const suggestion = await suggestCallDisposition({
+        duration: callSession.duration,
+        transcriptText: callSession.transcriptText,
+        status: callSession.status,
+      });
+
+      res.json(suggestion);
+    } catch (error) {
+      console.error("Disposition suggestion error:", error);
+      res.status(500).json({
+        message: "Failed to generate disposition suggestion",
+        // Fallback suggestion
+        suggestedDisposition: 'connected',
+        confidence: 'low',
+        reason: 'Error occurred during suggestion generation'
+      });
+    }
+  });
+
+  // Extract BANT (Budget, Authority, Need, Timeline) from call transcript
+  app.post("/api/call-sessions/:id/extract-bant", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      const callSession = await storage.getCallSession(id);
+      if (!callSession) {
+        return res.status(404).json({ message: "Call session not found" });
+      }
+
+      // Import the extraction function
+      const { extractBANTFromTranscript } = await import("./ai/bantExtraction.js");
+
+      const bantData = await extractBANTFromTranscript(id);
+
+      res.json({
+        success: true,
+        data: bantData,
+        message: bantData.extractionSummary
+      });
+    } catch (error) {
+      console.error("BANT extraction error:", error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to extract BANT data"
+      });
     }
   });
 
@@ -1990,6 +2131,332 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Send to AE error:", error);
       res.status(500).json({ message: "Failed to send handoff email" });
+    }
+  });
+
+  // ==================== MANAGER DASHBOARD ENDPOINTS ====================
+
+  /**
+   * GET /api/manager/activity-feed
+   * Real-time activity feed showing recent team actions
+   */
+  app.get("/api/manager/activity-feed", requireRole("manager", "admin"), async (req: Request, res: Response) => {
+    try {
+      const user = await storage.getUser(req.session!.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Get all SDRs under this manager
+      const sdrs = user.managerId
+        ? await storage.getSdrsByManager(user.managerId)
+        : await storage.getAllSdrs();
+      const sdrIds = sdrs.map(s => s.id);
+
+      // Get recent activities (last 24 hours)
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+      // Get recent call sessions
+      const recentCalls = await Promise.all(
+        sdrIds.map(sdrId => storage.getCallSessionsByUser(sdrId))
+      ).then(results => results.flat()
+        .filter(call => new Date(call.startedAt || 0) > oneDayAgo)
+        .sort((a, b) => new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime())
+        .slice(0, 50)
+      );
+
+      // Get recent lead qualifications
+      const allLeads = await storage.getAllLeads();
+      const recentQualifications = allLeads
+        .filter(lead =>
+          sdrIds.includes(lead.assignedSdrId || '') &&
+          (lead.status === 'qualified' || lead.status === 'handed_off') &&
+          lead.handedOffAt &&
+          new Date(lead.handedOffAt) > oneDayAgo
+        )
+        .slice(0, 20);
+
+      // Build activity feed
+      const activities = [
+        ...recentCalls.map(call => ({
+          type: 'call',
+          timestamp: call.startedAt,
+          sdrId: call.userId,
+          sdrName: sdrs.find(s => s.id === (user.sdrId || call.userId))?.name || 'Unknown',
+          data: {
+            toNumber: call.toNumber,
+            duration: call.duration,
+            disposition: call.disposition,
+            callId: call.id,
+          }
+        })),
+        ...recentQualifications.map(lead => ({
+          type: 'qualification',
+          timestamp: lead.handedOffAt || lead.createdAt,
+          sdrId: lead.assignedSdrId,
+          sdrName: sdrs.find(s => s.id === lead.assignedSdrId)?.name || 'Unknown',
+          data: {
+            companyName: lead.companyName,
+            contactName: lead.contactName,
+            leadId: lead.id,
+          }
+        }))
+      ]
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 50);
+
+      res.json({
+        activities,
+        stats: {
+          callsLast24h: recentCalls.length,
+          qualificationsLast24h: recentQualifications.length,
+          activeSDRs: new Set(activities.map(a => a.sdrId)).size,
+        }
+      });
+    } catch (error) {
+      console.error("Activity feed error:", error);
+      res.status(500).json({ message: "Failed to fetch activity feed" });
+    }
+  });
+
+  /**
+   * GET /api/manager/team-performance
+   * Team-wide performance metrics for manager dashboard
+   */
+  app.get("/api/manager/team-performance", requireRole("manager", "admin"), async (req: Request, res: Response) => {
+    try {
+      const user = await storage.getUser(req.session!.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Get all SDRs under this manager
+      const sdrs = user.managerId
+        ? await storage.getSdrsByManager(user.managerId)
+        : await storage.getAllSdrs();
+
+      // Calculate metrics for each SDR
+      const sdrMetrics = await Promise.all(
+        sdrs.map(async (sdr) => {
+          const calls = await storage.getCallSessionsByUser(sdr.id);
+          const leads = await storage.getLeadsBySdr(sdr.id);
+
+          const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          const weekCalls = calls.filter(c => new Date(c.startedAt || 0) > weekAgo);
+          const weekQualified = leads.filter(l =>
+            (l.status === 'qualified' || l.status === 'handed_off') &&
+            l.handedOffAt &&
+            new Date(l.handedOffAt) > weekAgo
+          );
+
+          return {
+            sdrId: sdr.id,
+            sdrName: sdr.name,
+            email: sdr.email,
+            callsThisWeek: weekCalls.length,
+            qualifiedThisWeek: weekQualified.length,
+            totalLeads: leads.length,
+            conversionRate: weekCalls.length > 0
+              ? Math.round((weekQualified.length / weekCalls.length) * 100)
+              : 0,
+            avgCallDuration: weekCalls.length > 0
+              ? Math.round(weekCalls.reduce((sum, c) => sum + (c.duration || 0), 0) / weekCalls.length)
+              : 0,
+          };
+        })
+      );
+
+      // Calculate team totals
+      const teamTotals = {
+        totalCalls: sdrMetrics.reduce((sum, m) => sum + m.callsThisWeek, 0),
+        totalQualified: sdrMetrics.reduce((sum, m) => sum + m.qualifiedThisWeek, 0),
+        avgConversionRate: sdrMetrics.length > 0
+          ? Math.round(sdrMetrics.reduce((sum, m) => sum + m.conversionRate, 0) / sdrMetrics.length)
+          : 0,
+        teamSize: sdrs.length,
+      };
+
+      res.json({
+        teamMetrics: teamTotals,
+        sdrPerformance: sdrMetrics.sort((a, b) => b.qualifiedThisWeek - a.qualifiedThisWeek),
+        topPerformers: sdrMetrics
+          .sort((a, b) => b.conversionRate - a.conversionRate)
+          .slice(0, 3),
+      });
+    } catch (error) {
+      console.error("Team performance error:", error);
+      res.status(500).json({ message: "Failed to fetch team performance" });
+    }
+  });
+
+  /**
+   * GET /api/manager/coaching-queue
+   * Calls that need manager review or have coaching opportunities
+   */
+  app.get("/api/manager/coaching-queue", requireRole("manager", "admin"), async (req: Request, res: Response) => {
+    try {
+      const user = await storage.getUser(req.session!.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Get all SDRs under this manager
+      const sdrs = user.managerId
+        ? await storage.getSdrsByManager(user.managerId)
+        : await storage.getAllSdrs();
+      const sdrIds = sdrs.map(s => s.id);
+
+      // Get all call sessions for team
+      const allCalls = await Promise.all(
+        sdrIds.map(sdrId => storage.getCallSessionsByUser(sdrId))
+      ).then(results => results.flat());
+
+      // Filter for coaching opportunities
+      const coachingQueue = allCalls
+        .filter(call =>
+          call.status === 'completed' &&
+          call.transcriptText && // Has transcript
+          call.duration && call.duration > 60 && // Meaningful duration
+          !call.managerSummary // Not yet reviewed by manager
+        )
+        .sort((a, b) => new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime())
+        .slice(0, 20);
+
+      // Enrich with SDR names
+      const enrichedQueue = coachingQueue.map(call => ({
+        ...call,
+        sdrName: sdrs.find(s => s.id === call.userId)?.name || 'Unknown',
+      }));
+
+      res.json({
+        queue: enrichedQueue,
+        stats: {
+          totalPending: enrichedQueue.length,
+          averageCallDuration: enrichedQueue.length > 0
+            ? Math.round(enrichedQueue.reduce((sum, c) => sum + (c.duration || 0), 0) / enrichedQueue.length)
+            : 0,
+        }
+      });
+    } catch (error) {
+      console.error("Coaching queue error:", error);
+      res.status(500).json({ message: "Failed to fetch coaching queue" });
+    }
+  });
+
+  /**
+   * GET /api/manager/automation-roi
+   * Tracks adoption and time savings from automation features
+   */
+  app.get("/api/manager/automation-roi", requireRole("manager", "admin"), async (req: Request, res: Response) => {
+    try {
+      const user = await storage.getUser(req.session!.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Get all SDRs under this manager
+      const sdrs = user.managerId
+        ? await storage.getSdrsByManager(user.managerId)
+        : await storage.getAllSdrs();
+      const sdrIds = sdrs.map(s => s.id);
+
+      // Get all data for the last 7 days
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+      // Get all call sessions for team
+      const allCalls = await Promise.all(
+        sdrIds.map(sdrId => storage.getCallSessionsByUser(sdrId))
+      ).then(results => results.flat());
+
+      const recentCalls = allCalls.filter(c => new Date(c.startedAt || 0) > weekAgo);
+
+      // Get all leads for team
+      const allLeads = await storage.getAllLeads();
+      const teamLeads = allLeads.filter(lead => sdrIds.includes(lead.assignedSdrId || ''));
+      const recentLeads = teamLeads.filter(l => new Date(l.createdAt) > weekAgo);
+
+      // Metric 1: Auto-disposition usage
+      // Calls with disposition set (indicating form was used)
+      const callsWithDisposition = recentCalls.filter(c => c.disposition);
+      const autoDispositionUsageRate = recentCalls.length > 0
+        ? Math.round((callsWithDisposition.length / recentCalls.length) * 100)
+        : 0;
+
+      // Assume 30 seconds saved per auto-suggested disposition
+      const autoDispositionTimeSaved = callsWithDisposition.length * 0.5; // minutes
+
+      // Metric 2: BANT extraction usage
+      // Count leads with BANT data populated (budget, timeline, or decisionMakers)
+      const leadsWithBANT = recentLeads.filter(l =>
+        l.budget || l.timeline || l.decisionMakers
+      );
+      const bantExtractionUsageRate = recentLeads.length > 0
+        ? Math.round((leadsWithBANT.length / recentLeads.length) * 100)
+        : 0;
+
+      // Assume 2 minutes saved per BANT auto-extraction
+      const bantExtractionTimeSaved = leadsWithBANT.length * 2; // minutes
+
+      // Metric 3: Smart handoff usage
+      // Count qualified/handed_off leads from this week
+      const qualifiedLeads = teamLeads.filter(l =>
+        (l.status === 'qualified' || l.status === 'handed_off') &&
+        l.handedOffAt &&
+        new Date(l.handedOffAt) > weekAgo
+      );
+
+      // Assume 4 minutes saved per smart handoff
+      const smartHandoffTimeSaved = qualifiedLeads.length * 4; // minutes
+
+      // Metric 4: Last contact tracking (passive benefit - engagement improvement)
+      // Track how many leads were contacted this week
+      const contactedLeads = teamLeads.filter(l =>
+        l.lastContactedAt && new Date(l.lastContactedAt) > weekAgo
+      );
+
+      // Total time saved
+      const totalTimeSaved = autoDispositionTimeSaved + bantExtractionTimeSaved + smartHandoffTimeSaved;
+      const timeSavedPerSDR = sdrs.length > 0 ? totalTimeSaved / sdrs.length : 0;
+
+      // ROI calculation
+      // Assume SDR hourly rate of $25/hour
+      const sdrHourlyRate = 25;
+      const moneySaved = (totalTimeSaved / 60) * sdrHourlyRate;
+
+      res.json({
+        metrics: {
+          autoDisposition: {
+            usage: callsWithDisposition.length,
+            totalCalls: recentCalls.length,
+            usageRate: autoDispositionUsageRate,
+            timeSaved: Math.round(autoDispositionTimeSaved),
+          },
+          bantExtraction: {
+            usage: leadsWithBANT.length,
+            totalLeads: recentLeads.length,
+            usageRate: bantExtractionUsageRate,
+            timeSaved: Math.round(bantExtractionTimeSaved),
+          },
+          smartHandoff: {
+            usage: qualifiedLeads.length,
+            timeSaved: Math.round(smartHandoffTimeSaved),
+          },
+          lastContactTracking: {
+            contactedLeads: contactedLeads.length,
+            totalLeads: teamLeads.length,
+          },
+        },
+        summary: {
+          totalTimeSaved: Math.round(totalTimeSaved),
+          timeSavedPerSDR: Math.round(timeSavedPerSDR),
+          moneySaved: Math.round(moneySaved * 100) / 100,
+          teamSize: sdrs.length,
+          period: '7 days',
+        },
+      });
+    } catch (error) {
+      console.error("Automation ROI error:", error);
+      res.status(500).json({ message: "Failed to fetch automation ROI" });
     }
   });
 

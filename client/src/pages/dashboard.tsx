@@ -347,6 +347,82 @@ export default function DashboardPage() {
         />
       )}
 
+      {/* Performance Summary - Key metrics */}
+      {metrics && (
+        <Card className="border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-transparent">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">This Week's Performance</CardTitle>
+              </div>
+              <Badge variant="secondary" className="gap-1">
+                <Zap className="h-3 w-3" />
+                Live
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-primary mb-1">
+                  {metrics.hero.callsThisWeek}
+                </div>
+                <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                  Total Calls
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-green-600 mb-1">
+                  {metrics.hero.qualifiedLeads}
+                </div>
+                <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                  Qualified
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-600 mb-1">
+                  {metrics.hero.meetingsBooked}
+                </div>
+                <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                  Meetings
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-amber-600 mb-1">
+                  {metrics.hero.conversionRate.toFixed(1)}%
+                </div>
+                <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                  Conv. Rate
+                </div>
+              </div>
+            </div>
+
+            {/* Quick insights */}
+            <div className="mt-4 pt-4 border-t grid grid-cols-1 md:grid-cols-2 gap-2">
+              {metrics.hero.conversionTrend > 0 && (
+                <div className="flex items-center gap-2 text-sm text-green-600">
+                  <TrendingUp className="h-4 w-4" />
+                  <span>Conversion up {Math.abs(metrics.hero.conversionTrend).toFixed(1)}% from last week</span>
+                </div>
+              )}
+              {metrics.hero.conversionTrend < 0 && (
+                <div className="flex items-center gap-2 text-sm text-amber-600">
+                  <TrendingDown className="h-4 w-4" />
+                  <span>Conversion down {Math.abs(metrics.hero.conversionTrend).toFixed(1)}% from last week</span>
+                </div>
+              )}
+              {metrics.actionItems.hotLeads.length > 0 && (
+                <div className="flex items-center gap-2 text-sm text-red-600">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>{metrics.actionItems.hotLeads.length} hot leads need attention</span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <HeroMetric
           label="Pipeline Value"
