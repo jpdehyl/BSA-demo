@@ -10,6 +10,24 @@ if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
 }
 
+// Set Content-Security-Policy to allow Zoom Phone iframe and other necessary resources
+app.use((req, res, next) => {
+  res.setHeader(
+    'Content-Security-Policy',
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://applications.zoom.us https://*.zoom.us",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com",
+      "img-src 'self' data: blob: https:",
+      "connect-src 'self' https: wss:",
+      "frame-src https://applications.zoom.us https://*.zoom.us",
+      "media-src 'self' blob: https:",
+    ].join('; ')
+  );
+  next();
+});
+
 const httpServer = createServer(app);
 
 declare module "http" {
