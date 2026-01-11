@@ -1254,6 +1254,115 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/call-sessions/zoom", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const zoomSessionSchema = z.object({
+        zoomCallId: z.string().min(1, "Zoom call ID required"),
+        direction: z.enum(["inbound", "outbound"]),
+        toNumber: z.string().optional(),
+        fromNumber: z.string().optional(),
+        leadId: z.string().uuid().optional().nullable(),
+      });
+
+      const parsed = zoomSessionSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parsed.error.flatten() });
+      }
+
+      const { zoomCallId, direction, toNumber, fromNumber, leadId } = parsed.data;
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const session = await storage.createCallSession({
+        callSid: `zoom_${zoomCallId}`,
+        userId: req.session.userId!,
+        leadId: leadId || null,
+        direction,
+        fromNumber: fromNumber || user.email || "unknown",
+        toNumber: toNumber || "unknown",
+        status: "initiated",
+      });
+
+      console.log(`[ZoomPhone] Created call session ${session.id} for Zoom call ${zoomCallId}`);
+      res.json({ sessionId: session.id, zoomCallId });
+    } catch (error) {
+      console.error("Zoom call session creation error:", error);
+      res.status(500).json({ message: "Failed to create call session" });
+    }
+  });
+
+  app.get("/api/call-sessions/by-zoom-id/:zoomCallId", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { zoomCallId } = req.params;
+      const callSid = `zoom_${zoomCallId}`;
+      const session = await storage.getCallSessionByCallSid(callSid);
+      if (!session) {
+        return res.status(404).json({ message: "Zoom call session not found" });
+      }
+      res.json(session);
+    } catch (error) {
+      console.error("Zoom call session lookup error:", error);
+      res.status(500).json({ message: "Failed to find call session" });
+    }
+  });
+
+  app.patch("/api/call-sessions/zoom/:zoomCallId", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { zoomCallId } = req.params;
+      const updateSchema = z.object({
+        status: z.string().optional(),
+        duration: z.number().optional(),
+        recordingUrl: z.string().optional(),
+        transcriptText: z.string().optional(),
+        zoomAiSummary: z.string().optional(),
+        direction: z.string().optional(),
+        toNumber: z.string().optional(),
+        fromNumber: z.string().optional(),
+        leadId: z.string().uuid().optional().nullable(),
+      });
+
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", errors: parsed.error.flatten() });
+      }
+
+      const callSid = `zoom_${zoomCallId}`;
+      let session = await storage.getCallSessionByCallSid(callSid);
+      
+      if (!session) {
+        const user = await storage.getUser(req.session.userId!);
+        session = await storage.createCallSession({
+          callSid,
+          userId: req.session.userId!,
+          leadId: parsed.data.leadId || null,
+          direction: parsed.data.direction || "outbound",
+          fromNumber: parsed.data.fromNumber || user?.email || "unknown",
+          toNumber: parsed.data.toNumber || "unknown",
+          status: parsed.data.status || "initiated",
+        });
+        console.log(`[ZoomPhone] Created session ${session.id} via PATCH for Zoom call ${zoomCallId}`);
+      }
+
+      const updates: Record<string, unknown> = {};
+      if (parsed.data.status) updates.status = parsed.data.status;
+      if (parsed.data.duration) updates.duration = parsed.data.duration;
+      if (parsed.data.recordingUrl) updates.recordingUrl = parsed.data.recordingUrl;
+      if (parsed.data.transcriptText) updates.transcriptText = parsed.data.transcriptText;
+      if (parsed.data.zoomAiSummary) updates.coachingNotes = parsed.data.zoomAiSummary;
+
+      if (Object.keys(updates).length > 0) {
+        session = await storage.updateCallSession(session.id, updates) || session;
+      }
+      console.log(`[ZoomPhone] Updated call session ${session.id} for Zoom call ${zoomCallId}`);
+      res.json(session);
+    } catch (error) {
+      console.error("Zoom call session update error:", error);
+      res.status(500).json({ message: "Failed to update call session" });
+    }
+  });
+
   app.get("/api/call-sessions", requireAuth, async (req: Request, res: Response) => {
     try {
       const user = await storage.getUser(req.session.userId!);

@@ -61,7 +61,15 @@ Preferred communication style: Simple, everyday language.
 
 ## External Dependencies
 
-### Twilio Voice Integration
+### Zoom Phone Integration (Primary)
+- Browser-based softphone via Zoom Phone Smart Embed (iframe-based)
+- Component: `client/src/components/zoom-phone-embed.tsx`
+- Click-to-dial via postMessage API (`zp-make-call` event)
+- Events: `zp-call-ringing-event`, `zp-call-connected-event`, `zp-call-ended-event`, `zp-call-recording-completed-event`, `zp-ai-call-summary-event`
+- Admin setup required: Enable Smart Embed in Zoom Marketplace, add approved domains, enable "Automatically Call From Third Party Apps"
+- Approved domains: dev domain and production domain must be whitelisted in Zoom Marketplace
+
+### Twilio Voice Integration (Legacy/Archived)
 - Browser-based softphone with real-time transcription via `<Transcription>` element
 - Recording with `record: "record-from-answer-dual"`
 - Required secrets: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_API_KEY_SID`, `TWILIO_API_KEY_SECRET`, `TWILIO_TWIML_APP_SID`, `TWILIO_PHONE_NUMBER`

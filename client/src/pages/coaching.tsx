@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Softphone } from "@/components/softphone";
+import { ZoomPhoneEmbed, type ZoomCallEvent, type ZoomRecordingEvent, type ZoomAISummaryEvent } from "@/components/zoom-phone-embed";
 import { CallBrief } from "@/components/call-brief";
 import { PostCallSummaryForm, type CallOutcomeData } from "@/components/post-call-summary-form";
 import { BudgetingPanel } from "@/components/budgeting-panel";
@@ -124,19 +124,126 @@ export default function CoachingPage() {
     };
   }, [callStartTime]);
 
-  const handleCallStart = (phoneNumber: string) => {
-    setCurrentPhoneNumber(phoneNumber);
+  const [internalSessionId, setInternalSessionId] = useState<string | null>(null);
+
+  const [zoomCallMetadata, setZoomCallMetadata] = useState<{ direction: string; toNumber?: string; fromNumber?: string } | null>(null);
+
+  const handleZoomCallStart = async (event: ZoomCallEvent) => {
+    const phoneNumber = event.data.direction === "outbound" 
+      ? event.data.callee.phoneNumber 
+      : event.data.caller.phoneNumber;
+    setCurrentPhoneNumber(phoneNumber || null);
+    setCurrentCallSid(event.data.callId);
     setCallStartTime(new Date());
     clearTranscripts();
+
+    setZoomCallMetadata({
+      direction: event.data.direction,
+      toNumber: event.data.callee.phoneNumber,
+      fromNumber: event.data.caller.phoneNumber,
+    });
+
+    try {
+      const response = await apiRequest("POST", "/api/call-sessions/zoom", {
+        zoomCallId: event.data.callId,
+        direction: event.data.direction,
+        toNumber: event.data.callee.phoneNumber,
+        fromNumber: event.data.caller.phoneNumber,
+        leadId: leadIdParam || null,
+      });
+      const data = await response.json();
+      setInternalSessionId(data.sessionId);
+      console.log("[Coaching] Created session:", data.sessionId, "for Zoom call:", event.data.callId);
+    } catch (error) {
+      console.error("[Coaching] Failed to create call session (will retry on end):", error);
+    }
   };
 
-  const handleCallEnd = (callSessionId?: string) => {
-    if (callSessionId) {
-      setPendingOutcomeCallId(callSessionId);
+  const handleZoomCallConnected = async (event: ZoomCallEvent) => {
+    console.log("[Coaching] Call connected:", event.data.callId);
+    try {
+      await apiRequest("PATCH", `/api/call-sessions/zoom/${event.data.callId}`, {
+        status: "in-progress",
+      });
+    } catch (error) {
+      console.error("[Coaching] Failed to update call status:", error);
     }
+  };
+
+  const handleZoomCallEnd = async (event: ZoomCallEvent) => {
+    let sessionId = internalSessionId;
+    const zoomCallId = event.data.callId;
+    const savedStartTime = callStartTime;
+    
     setCurrentPhoneNumber(null);
     setCurrentCallSid(null);
     setCallStartTime(null);
+
+    try {
+      const duration = event.data.duration || Math.floor((Date.now() - (savedStartTime?.getTime() || Date.now())) / 1000);
+      const response = await apiRequest("PATCH", `/api/call-sessions/zoom/${zoomCallId}`, {
+        status: "completed",
+        duration,
+        direction: zoomCallMetadata?.direction,
+        toNumber: zoomCallMetadata?.toNumber,
+        fromNumber: zoomCallMetadata?.fromNumber,
+        leadId: leadIdParam || null,
+      });
+      if (response.ok) {
+        const session = await response.json();
+        sessionId = session.id;
+        console.log("[Coaching] Call ended, session:", sessionId);
+      }
+    } catch (error) {
+      console.error("[Coaching] Failed to update call end:", error);
+    }
+
+    if (!sessionId && zoomCallId) {
+      try {
+        const response = await apiRequest("GET", `/api/call-sessions/by-zoom-id/${zoomCallId}`);
+        if (response.ok) {
+          const session = await response.json();
+          sessionId = session.id;
+          console.log("[Coaching] Recovered session ID:", sessionId);
+        }
+      } catch (error) {
+        console.error("[Coaching] Failed to recover session:", error);
+      }
+    }
+
+    if (sessionId) {
+      setPendingOutcomeCallId(sessionId);
+    } else {
+      toast({
+        title: "Call Logged",
+        description: "Call completed but session could not be saved. Please try again.",
+        variant: "destructive",
+      });
+    }
+    setInternalSessionId(null);
+    setZoomCallMetadata(null);
+  };
+
+  const handleZoomRecordingComplete = async (event: ZoomRecordingEvent) => {
+    console.log("[Coaching] Recording completed:", event.data.recordingId);
+    try {
+      await apiRequest("PATCH", `/api/call-sessions/zoom/${event.data.callId}`, {
+        recordingUrl: event.data.downloadUrl,
+      });
+    } catch (error) {
+      console.error("[Coaching] Failed to save recording URL:", error);
+    }
+  };
+
+  const handleZoomAISummary = async (event: ZoomAISummaryEvent) => {
+    console.log("[Coaching] Zoom AI Summary:", event.data.summary);
+    try {
+      await apiRequest("PATCH", `/api/call-sessions/zoom/${event.data.callId}`, {
+        zoomAiSummary: event.data.summary,
+      });
+    } catch (error) {
+      console.error("[Coaching] Failed to save AI summary:", error);
+    }
   };
 
   const { toast } = useToast();
@@ -283,7 +390,15 @@ export default function CoachingPage() {
         <TabsContent value="live" className="mt-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-4">
-          <Softphone onCallStart={handleCallStart} onCallEnd={handleCallEnd} isAuthenticated={!!user} initialPhoneNumber={phoneParam || undefined} />
+          <ZoomPhoneEmbed 
+            onCallStart={handleZoomCallStart}
+            onCallConnected={handleZoomCallConnected}
+            onCallEnd={handleZoomCallEnd}
+            onRecordingComplete={handleZoomRecordingComplete}
+            onAISummary={handleZoomAISummary}
+            initialPhoneNumber={phoneParam || undefined}
+            leadId={leadIdParam || undefined}
+          />
           
           <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
             <CollapsibleTrigger asChild>
