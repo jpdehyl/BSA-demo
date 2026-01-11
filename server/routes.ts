@@ -1656,6 +1656,38 @@ export async function registerRoutes(
     }
   });
 
+  // Get AI-suggested disposition for a call session
+  app.get("/api/call-sessions/:id/suggested-disposition", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      const callSession = await storage.getCallSession(id);
+      if (!callSession) {
+        return res.status(404).json({ message: "Call session not found" });
+      }
+
+      // Import the suggestion function
+      const { suggestCallDisposition } = await import("./ai/dispositionSuggestion.js");
+
+      const suggestion = await suggestCallDisposition({
+        duration: callSession.duration,
+        transcriptText: callSession.transcriptText,
+        status: callSession.status,
+      });
+
+      res.json(suggestion);
+    } catch (error) {
+      console.error("Disposition suggestion error:", error);
+      res.status(500).json({
+        message: "Failed to generate disposition suggestion",
+        // Fallback suggestion
+        suggestedDisposition: 'connected',
+        confidence: 'low',
+        reason: 'Error occurred during suggestion generation'
+      });
+    }
+  });
+
   app.post("/api/call-sessions/:id/analyze-recording", requireAuth, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
