@@ -8,8 +8,8 @@ import { extractQualificationFromTranscript, QualificationDraft } from "./ai/qua
 import { notifyLeadStatusChange, notifyLeadQualified, notifyManagersOfQualifiedLead, notifyAEHandoff, notifyResearchReady } from "./notificationService";
 import pLimit from "p-limit";
 
-// Limit concurrent research to 3 to avoid rate limits
-const researchLimit = pLimit(3);
+// Limit concurrent research to 2 to avoid rate limits with Claude API
+const researchLimit = pLimit(2);
 
 // Track research in progress to prevent duplicate work
 const researchInProgress = new Set<string>();
