@@ -1408,6 +1408,118 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/call-sessions/:id/analyze-recording", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      
+      const callSession = await storage.getCallSession(id);
+      if (!callSession) {
+        return res.status(404).json({ message: "Call session not found" });
+      }
+
+      if (callSession.coachingNotes && callSession.transcriptText) {
+        return res.json({
+          transcript: callSession.transcriptText,
+          analysis: JSON.parse(callSession.coachingNotes),
+          cached: true,
+        });
+      }
+
+      let transcript = callSession.transcriptText;
+      
+      let zoomRecordingId: string | null = null;
+      
+      if (!transcript && callSession.callSid?.startsWith("zoom_")) {
+        const zoomCallId = callSession.callSid.replace("zoom_", "");
+        console.log(`[Recording] Fetching Zoom transcript for call ${zoomCallId}`);
+        
+        try {
+          const { downloadTranscript, findRecordingByCallId, downloadRecording } = await import("./ai/zoomClient");
+          const user = await storage.getUser(callSession.userId);
+          if (user?.email) {
+            const recording = await findRecordingByCallId(user.email, zoomCallId);
+            if (recording?.id) {
+              zoomRecordingId = recording.id;
+              transcript = await downloadTranscript(recording.id);
+              if (transcript) {
+                await storage.updateCallSession(id, { transcriptText: transcript });
+                console.log(`[Recording] Saved Zoom transcript for session ${id}`);
+              } else {
+                console.log(`[Recording] No Zoom transcript, will try audio transcription`);
+                const audioBuffer = await downloadRecording(recording.id);
+                if (audioBuffer && audioBuffer.length > 0) {
+                  const { transcribeAudio } = await import("./ai/transcribe");
+                  transcript = await transcribeAudio(audioBuffer, "audio/mp3");
+                  if (transcript) {
+                    await storage.updateCallSession(id, { transcriptText: transcript });
+                    console.log(`[Recording] Transcribed Zoom audio for session ${id}`);
+                  }
+                }
+              }
+            } else {
+              console.log(`[Recording] No Zoom recording found for call ${zoomCallId}`);
+            }
+          }
+        } catch (zoomError) {
+          console.error("[Recording] Zoom API error (credentials may not be configured):", zoomError);
+        }
+      }
+
+      if (!transcript && callSession.recordingUrl) {
+        console.log(`[Recording] Transcribing audio from ${callSession.recordingUrl}`);
+        
+        try {
+          const { transcribeAudio } = await import("./ai/transcribe");
+          
+          const audioResponse = await fetch(callSession.recordingUrl);
+          if (audioResponse.ok) {
+            const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
+            transcript = await transcribeAudio(audioBuffer, "audio/mp3");
+            
+            if (transcript) {
+              await storage.updateCallSession(id, { transcriptText: transcript });
+              console.log(`[Recording] Saved transcription for session ${id}`);
+            }
+          }
+        } catch (transcribeError) {
+          console.error("[Recording] Transcription error:", transcribeError);
+        }
+      }
+
+      if (!transcript) {
+        return res.status(400).json({ message: "No transcript available. Recording may still be processing." });
+      }
+
+      let leadContext = undefined;
+      if (callSession.leadId) {
+        const lead = await storage.getLead(callSession.leadId);
+        if (lead) {
+          leadContext = {
+            companyName: lead.companyName,
+            contactName: lead.contactName,
+            industry: lead.companyIndustry || undefined,
+          };
+        }
+      }
+
+      const { analyzeCallTranscript } = await import("./ai/callCoachingAnalysis");
+      const analysis = await analyzeCallTranscript(transcript, leadContext);
+
+      await storage.updateCallSession(id, {
+        coachingNotes: JSON.stringify(analysis),
+      });
+
+      res.json({
+        transcript,
+        analysis,
+        cached: false,
+      });
+    } catch (error) {
+      console.error("Recording analysis error:", error);
+      res.status(500).json({ message: "Failed to analyze recording" });
+    }
+  });
+
   app.post("/api/call-sessions/:id/manager-analysis", requireRole("admin", "manager"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;

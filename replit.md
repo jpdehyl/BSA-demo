@@ -69,6 +69,19 @@ Preferred communication style: Simple, everyday language.
 - Admin setup required: Enable Smart Embed in Zoom Marketplace, add approved domains, enable "Automatically Call From Third Party Apps"
 - Approved domains: dev domain and production domain must be whitelisted in Zoom Marketplace
 
+### Zoom Phone API (Optional - for recording/transcript access)
+- Server-to-Server OAuth app required for API access to recordings and transcripts
+- Required secrets: `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET`
+- Client: `server/ai/zoomClient.ts` - handles token caching, recording listing, transcript download
+- Scopes needed: `phone:read:admin`, `phone:read:recording:admin`, `phone_recording:read:admin`
+
+### Claude Opus 4.5 (Call Coaching Analysis)
+- Model: `claude-opus-4-20250514` via Anthropic API
+- Used for deep coaching analysis of call transcripts
+- Client: `server/ai/claudeClient.ts` and `server/ai/callCoachingAnalysis.ts`
+- Required secret: `ANTHROPIC_API_KEY`
+- Provides: overall score, strengths, areas for improvement, question quality, objection handling analysis
+
 ### Twilio Voice Integration (Legacy/Archived)
 - Browser-based softphone with real-time transcription via `<Transcription>` element
 - Recording with `record: "record-from-answer-dual"`
