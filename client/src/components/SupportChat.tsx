@@ -549,7 +549,7 @@ export function SupportChat() {
       {state.isOpen && (
         <Card
           className={cn(
-            "fixed z-50 shadow-lg flex flex-col",
+            "fixed z-[9998] shadow-lg flex flex-col",
             // Desktop: bottom-right corner, fixed size
             "bottom-20 right-4 w-[420px] h-[550px]",
             // Mobile: full width, taller
@@ -827,8 +827,8 @@ export function SupportChat() {
       <Button
         onClick={toggleChat}
         className={cn(
-          "fixed z-50 h-14 w-14 rounded-full shadow-lg",
-          "bottom-4 right-4",
+          "fixed z-[9999] h-14 w-14 rounded-full shadow-lg",
+          "bottom-6 right-6",
           "max-sm:bottom-4 max-sm:right-4",
           state.isOpen && "max-sm:hidden"
         )}
