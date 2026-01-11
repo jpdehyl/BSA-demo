@@ -379,7 +379,7 @@ function UserDataDisplay({ data, onNavigateToLead, userRole }: {
 }
 
 export function SupportChat() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [location, setLocation] = useLocation();
   const [state, setState] = useState<SupportChatState>({
     isOpen: false,
@@ -392,6 +392,11 @@ export function SupportChat() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const isManager = user?.role === "manager" || user?.role === "admin";
+
+  // Debug logging for support chat visibility
+  useEffect(() => {
+    console.log("[SupportChat] Auth state:", { user: user?.email, authLoading, hasUser: !!user });
+  }, [user, authLoading]);
 
   // Load messages from localStorage on mount
   useEffect(() => {
@@ -528,8 +533,10 @@ export function SupportChat() {
 
   // Don't render if user is not authenticated
   if (!user) {
+    console.log("[SupportChat] Not rendering - user is null, authLoading:", authLoading);
     return null;
   }
+  console.log("[SupportChat] Rendering chat bubble for user:", user.email);
 
   // Role-specific quick action topics
   const quickTopics = isManager
