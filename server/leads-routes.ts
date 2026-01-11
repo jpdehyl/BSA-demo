@@ -380,12 +380,16 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
       
       const createdLeads = await storage.createLeads(newLeads);
       
-      // Auto-trigger research for all imported leads in background (non-blocking)
-      if (createdLeads.length > 0) {
+      const AUTO_RESEARCH_THRESHOLD = 10;
+      const requiresApproval = createdLeads.length > AUTO_RESEARCH_THRESHOLD;
+      
+      if (createdLeads.length > 0 && !requiresApproval) {
         console.log(`[AutoResearch] Queueing ${createdLeads.length} leads for background research`);
         processResearchQueue(createdLeads).catch(err => {
           console.error("[AutoResearch] Batch processing error:", err.message);
         });
+      } else if (requiresApproval) {
+        console.log(`[AutoResearch] Skipping auto-research for ${createdLeads.length} leads (exceeds threshold of ${AUTO_RESEARCH_THRESHOLD})`);
       }
       
       res.json({
@@ -395,7 +399,9 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
         duplicateEmails: duplicates.slice(0, 10),
         errors: errors.slice(0, 10),
         leads: createdLeads,
-        researchQueued: createdLeads.length,
+        researchQueued: requiresApproval ? 0 : createdLeads.length,
+        requiresResearchApproval: requiresApproval,
+        approvalThreshold: AUTO_RESEARCH_THRESHOLD,
       });
     } catch (error) {
       console.error("Leads import error:", error);
@@ -471,6 +477,41 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
       });
       
       res.json({ message: "Research deleted successfully" });
+    } catch (error) {
+      console.error("Research deletion error:", error);
+      res.status(500).json({ message: "Failed to delete research" });
+    }
+  });
+
+  app.post("/api/leads/batch-research", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { leadIds } = req.body;
+      
+      if (!leadIds || !Array.isArray(leadIds) || leadIds.length === 0) {
+        return res.status(400).json({ message: "leadIds array is required" });
+      }
+      
+      const leads: Lead[] = [];
+      for (const id of leadIds) {
+        const lead = await storage.getLead(id);
+        if (lead && (lead.companyName || lead.companyWebsite)) {
+          leads.push(lead);
+        }
+      }
+      
+      if (leads.length === 0) {
+        return res.status(400).json({ message: "No valid leads found for research" });
+      }
+      
+      console.log(`[BatchResearch] User approved research for ${leads.length} leads`);
+      processResearchQueue(leads).catch(err => {
+        console.error("[BatchResearch] Batch processing error:", err.message);
+      });
+      
+      res.json({
+        message: `Research queued for ${leads.length} leads`,
+        queued: leads.length,
+      });
     } catch (error) {
       console.error("Research delete error:", error);
       res.status(500).json({ message: "Failed to delete research" });

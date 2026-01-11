@@ -325,7 +325,7 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-6 p-6">
       <div className="flex flex-col gap-2 mb-2">
         <h1 className="text-4xl font-bold tracking-tight" data-testid="text-greeting">
-          {getGreeting()}, {user?.name?.split(" ")[0]} 👋
+          {getGreeting()}, {user?.name?.split(" ")[0]}
         </h1>
         <p className="text-muted-foreground text-lg">
           {metrics?.isPrivileged
