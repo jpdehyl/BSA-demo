@@ -13,6 +13,10 @@ import {
   Send,
   Loader2,
   Bot,
+  Sparkles,
+  AlertCircle,
+  Search,
+  Mic,
   User,
   Minimize2,
   Building2,
@@ -378,6 +382,10 @@ function UserDataDisplay({ data, onNavigateToLead, userRole }: {
   );
 }
 
+// Check if Web Speech API is available
+const isSpeechRecognitionSupported = typeof window !== 'undefined' &&
+  ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+
 export function SupportChat() {
   const { user, isLoading: authLoading } = useAuth();
   const [location, setLocation] = useLocation();
@@ -388,10 +396,66 @@ export function SupportChat() {
     error: null,
   });
   const [inputValue, setInputValue] = useState("");
+  const [isListening, setIsListening] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const isManager = user?.role === "manager" || user?.role === "admin";
+
+  // Initialize Speech Recognition
+  useEffect(() => {
+    if (!isSpeechRecognitionSupported) return;
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results)
+        .map((result: any) => result[0].transcript)
+        .join('');
+
+      setInputValue(transcript);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('[SupportChat] Speech recognition error:', event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+    };
+  }, []);
+
+  // Toggle voice input
+  const toggleVoiceInput = useCallback(() => {
+    if (!recognitionRef.current) return;
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (error) {
+        console.error('[SupportChat] Failed to start speech recognition:', error);
+      }
+    }
+  }, [isListening]);
 
   // Debug logging for support chat visibility
   useEffect(() => {
@@ -425,6 +489,24 @@ export function SupportChat() {
     if (state.isOpen && inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
+  }, [state.isOpen]);
+
+  // Keyboard shortcut: Cmd/Ctrl + J to toggle chat
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for Cmd+J (Mac) or Ctrl+J (Windows/Linux)
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'j') {
+        e.preventDefault();
+        setState((prev) => ({ ...prev, isOpen: !prev.isOpen, error: null }));
+      }
+      // Also support Escape to close
+      if (e.key === 'Escape' && state.isOpen) {
+        setState((prev) => ({ ...prev, isOpen: false }));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [state.isOpen]);
 
   const toggleChat = useCallback(() => {
@@ -549,7 +631,7 @@ export function SupportChat() {
       {state.isOpen && (
         <Card
           className={cn(
-            "fixed z-50 shadow-lg flex flex-col",
+            "fixed z-[9998] shadow-lg flex flex-col",
             // Desktop: bottom-right corner, fixed size
             "bottom-20 right-4 w-[420px] h-[550px]",
             // Mobile: full width, taller
@@ -560,10 +642,13 @@ export function SupportChat() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 py-3 px-4 border-b shrink-0">
             <div className="flex items-center gap-2">
               <Bot className="h-5 w-5 text-primary" />
-              <CardTitle className="text-base font-semibold">Support</CardTitle>
+              <CardTitle className="text-base font-semibold">Copilot</CardTitle>
+              <Badge variant="secondary" className="text-[10px] px-1.5 font-mono">
+                ⌘J
+              </Badge>
               {isManager && (
                 <Badge variant="outline" className="text-[10px] px-1.5">
-                  Manager View
+                  Manager
                 </Badge>
               )}
             </div>
@@ -596,39 +681,73 @@ export function SupportChat() {
                 {/* Welcome message if no messages */}
                 {state.messages.length === 0 && !state.isLoading && (
                   <div className="text-center py-6 px-4">
-                    <Bot className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                    <div className="relative inline-block mb-3">
+                      <Bot className="h-10 w-10 mx-auto text-primary" />
+                      <Sparkles className="h-4 w-4 absolute -top-1 -right-1 text-yellow-500" />
+                    </div>
                     <p className="text-sm text-muted-foreground mb-4">
                       {isManager
-                        ? "Hi! I can help you with team performance, coaching tips, and platform features."
-                        : "Hi! I'm your Lead Intel assistant. How can I help you today?"}
+                        ? "Hey! I'm your AI copilot. Ask me about team performance, coaching insights, or search your call transcripts."
+                        : "Hey! I'm your AI copilot. Ask me about your leads, search past calls, or get coaching tips."}
                     </p>
 
-                    {/* Quick Action Buttons */}
+                    {/* Copilot Quick Actions */}
                     <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground font-medium">Quick Actions:</p>
+                      <p className="text-xs text-muted-foreground font-medium">Try asking:</p>
                       <div className="flex flex-wrap gap-2 justify-center">
                         <Button
                           variant="outline"
                           size="sm"
                           className="text-xs h-8"
+                          onClick={() => handleQuickAction("What objections came up in my calls this week?")}
+                        >
+                          <Search className="h-3 w-3 mr-1.5" />
+                          Search Calls
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-8"
+                          onClick={() => handleQuickAction("Show me my alerts - any leads going cold?")}
+                        >
+                          <AlertCircle className="h-3 w-3 mr-1.5" />
+                          My Alerts
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-8"
+                          onClick={() => handleQuickAction("What patterns do you see in my calls? What's working?")}
+                        >
+                          <TrendingUp className="h-3 w-3 mr-1.5" />
+                          Call Patterns
+                        </Button>
+                      </div>
+
+                      {/* Standard quick actions */}
+                      <div className="flex flex-wrap gap-2 justify-center mt-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7"
                           onClick={() => handleQuickAction("Show my leads")}
                         >
                           <Users className="h-3 w-3 mr-1.5" />
                           My Leads
                         </Button>
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          className="text-xs h-8"
+                          className="text-xs h-7"
                           onClick={() => handleQuickAction("Show my recent calls")}
                         >
                           <Phone className="h-3 w-3 mr-1.5" />
                           My Calls
                         </Button>
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          className="text-xs h-8"
+                          className="text-xs h-7"
                           onClick={() => handleQuickAction("How am I doing? Show my performance")}
                         >
                           <BarChart3 className="h-3 w-3 mr-1.5" />
@@ -638,7 +757,7 @@ export function SupportChat() {
 
                       {/* Manager-specific quick actions */}
                       {isManager && (
-                        <div className="flex flex-wrap gap-2 justify-center mt-2">
+                        <div className="flex flex-wrap gap-2 justify-center mt-2 pt-2 border-t">
                           <Button
                             variant="outline"
                             size="sm"
@@ -803,10 +922,23 @@ export function SupportChat() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={isManager ? "Ask about team metrics, coaching..." : "Ask about leads, calls, products..."}
-                disabled={state.isLoading}
-                className="flex-1"
+                placeholder={isListening ? "Listening..." : (isManager ? "Ask about team metrics, coaching..." : "Ask about leads, calls, products...")}
+                disabled={state.isLoading || isListening}
+                className={cn("flex-1", isListening && "border-red-500 animate-pulse")}
               />
+              {/* Voice Input Button */}
+              {isSpeechRecognitionSupported && (
+                <Button
+                  onClick={toggleVoiceInput}
+                  disabled={state.isLoading}
+                  size="icon"
+                  variant={isListening ? "destructive" : "outline"}
+                  title={isListening ? "Stop listening" : "Voice input"}
+                >
+                  <Mic className={cn("h-4 w-4", isListening && "animate-pulse")} />
+                </Button>
+              )}
+              {/* Send Button */}
               <Button
                 onClick={() => sendMessage()}
                 disabled={!inputValue.trim() || state.isLoading}
@@ -819,6 +951,11 @@ export function SupportChat() {
                 )}
               </Button>
             </div>
+            {isListening && (
+              <p className="text-xs text-red-500 mt-1 text-center animate-pulse">
+                🎙️ Listening... speak now
+              </p>
+            )}
           </div>
         </Card>
       )}
@@ -827,8 +964,8 @@ export function SupportChat() {
       <Button
         onClick={toggleChat}
         className={cn(
-          "fixed z-50 h-14 w-14 rounded-full shadow-lg",
-          "bottom-4 right-4",
+          "fixed z-[9999] h-14 w-14 rounded-full shadow-lg",
+          "bottom-6 right-6",
           "max-sm:bottom-4 max-sm:right-4",
           state.isOpen && "max-sm:hidden"
         )}
