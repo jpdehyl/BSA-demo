@@ -1,16 +1,17 @@
 import { useLocation, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { 
-  LayoutDashboard, 
-  Users, 
-  Phone, 
-  FileSearch, 
-  BarChart3, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Users,
+  Phone,
+  FileSearch,
+  BarChart3,
+  Settings,
   LogOut,
   ChevronDown,
   Target,
-  Calculator
+  Calculator,
+  Activity
 } from "lucide-react";
 import {
   Sidebar,
@@ -62,6 +63,12 @@ const mainNavItems = [
     title: "Team",
     url: "/team",
     icon: Users,
+    allowedRoles: ["admin", "manager"],
+  },
+  {
+    title: "Manager Dashboard",
+    url: "/manager-dashboard",
+    icon: Activity,
     allowedRoles: ["admin", "manager"],
   },
   {

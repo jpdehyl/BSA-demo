@@ -2142,7 +2142,7 @@ export async function registerRoutes(
    */
   app.get("/api/manager/activity-feed", requireRole("manager", "admin"), async (req: Request, res: Response) => {
     try {
-      const user = await storage.getUserById(req.session!.userId);
+      const user = await storage.getUser(req.session!.userId);
       if (!user) {
         return res.status(401).json({ message: "User not found" });
       }
@@ -2180,7 +2180,7 @@ export async function registerRoutes(
       const activities = [
         ...recentCalls.map(call => ({
           type: 'call',
-          timestamp: call.startedAt || call.createdAt,
+          timestamp: call.startedAt,
           sdrId: call.userId,
           sdrName: sdrs.find(s => s.id === (user.sdrId || call.userId))?.name || 'Unknown',
           data: {
@@ -2225,7 +2225,7 @@ export async function registerRoutes(
    */
   app.get("/api/manager/team-performance", requireRole("manager", "admin"), async (req: Request, res: Response) => {
     try {
-      const user = await storage.getUserById(req.session!.userId);
+      const user = await storage.getUser(req.session!.userId);
       if (!user) {
         return res.status(401).json({ message: "User not found" });
       }
@@ -2295,7 +2295,7 @@ export async function registerRoutes(
    */
   app.get("/api/manager/coaching-queue", requireRole("manager", "admin"), async (req: Request, res: Response) => {
     try {
-      const user = await storage.getUserById(req.session!.userId);
+      const user = await storage.getUser(req.session!.userId);
       if (!user) {
         return res.status(401).json({ message: "User not found" });
       }
