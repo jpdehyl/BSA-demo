@@ -1364,6 +1364,171 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/call-sessions/zoom/:zoomCallId/auto-analyze", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { zoomCallId } = req.params;
+      const callSid = `zoom_${zoomCallId}`;
+      
+      const session = await storage.getCallSessionByCallSid(callSid);
+      if (!session) {
+        return res.status(404).json({ message: "Call session not found" });
+      }
+
+      if (session.userId !== req.session.userId) {
+        const requestingUser = await storage.getUser(req.session.userId!);
+        if (!requestingUser || (requestingUser.role !== "admin" && requestingUser.role !== "manager")) {
+          return res.status(403).json({ message: "You can only analyze your own calls" });
+        }
+      }
+
+      if (session.coachingNotes && session.transcriptText) {
+        console.log(`[AutoAnalysis] Session ${session.id} already analyzed, skipping`);
+        return res.json({ status: "already_analyzed", sessionId: session.id });
+      }
+
+      console.log(`[AutoAnalysis] Starting automatic analysis for session ${session.id}`);
+      
+      let transcript = session.transcriptText;
+      
+      if (!transcript) {
+        try {
+          const { downloadTranscript, findRecordingByCallId, downloadRecording } = await import("./ai/zoomClient");
+          const user = await storage.getUser(session.userId);
+          
+          if (user?.email) {
+            const recording = await findRecordingByCallId(user.email, zoomCallId);
+            if (recording?.id) {
+              console.log(`[AutoAnalysis] Found Zoom recording ${recording.id}`);
+              
+              transcript = await downloadTranscript(recording.id);
+              if (transcript) {
+                await storage.updateCallSession(session.id, { transcriptText: transcript });
+                console.log(`[AutoAnalysis] Got transcript from Zoom API`);
+              } else {
+                console.log(`[AutoAnalysis] No Zoom transcript, trying audio transcription`);
+                const audioBuffer = await downloadRecording(recording.id);
+                if (audioBuffer && audioBuffer.length > 0) {
+                  const { transcribeAudio } = await import("./ai/transcribe");
+                  transcript = await transcribeAudio(audioBuffer, "audio/mp3");
+                  if (transcript) {
+                    await storage.updateCallSession(session.id, { transcriptText: transcript });
+                    console.log(`[AutoAnalysis] Transcribed audio with Gemini`);
+                  }
+                }
+              }
+            }
+          }
+        } catch (zoomError) {
+          console.error("[AutoAnalysis] Zoom API error:", zoomError);
+        }
+      }
+
+      if (!transcript && session.recordingUrl) {
+        console.log(`[AutoAnalysis] Trying to transcribe from recording URL`);
+        try {
+          const { transcribeAudio } = await import("./ai/transcribe");
+          const audioResponse = await fetch(session.recordingUrl);
+          if (audioResponse.ok) {
+            const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
+            transcript = await transcribeAudio(audioBuffer, "audio/mp3");
+            if (transcript) {
+              await storage.updateCallSession(session.id, { transcriptText: transcript });
+              console.log(`[AutoAnalysis] Transcribed from recording URL`);
+            }
+          }
+        } catch (transcribeError) {
+          console.error("[AutoAnalysis] Recording transcription error:", transcribeError);
+        }
+      }
+
+      if (!transcript || transcript.trim().length < 50) {
+        console.log(`[AutoAnalysis] No sufficient transcript for session ${session.id}`);
+        return res.json({ 
+          status: "pending", 
+          message: "Transcript not yet available. Recording may still be processing.",
+          sessionId: session.id 
+        });
+      }
+
+      let leadContext = undefined;
+      if (session.leadId) {
+        const lead = await storage.getLead(session.leadId);
+        if (lead) {
+          leadContext = {
+            companyName: lead.companyName,
+            contactName: lead.contactName,
+            industry: lead.companyIndustry || undefined,
+          };
+        }
+      }
+
+      console.log(`[AutoAnalysis] Running Claude coaching analysis...`);
+      const { analyzeCallTranscript } = await import("./ai/callCoachingAnalysis");
+      const claudeAnalysis = await analyzeCallTranscript(transcript, leadContext);
+      
+      await storage.updateCallSession(session.id, {
+        coachingNotes: JSON.stringify(claudeAnalysis),
+      });
+      console.log(`[AutoAnalysis] Claude analysis complete, score: ${claudeAnalysis.overallScore}`);
+
+      const user = await storage.getUser(session.userId);
+      let sdr = null;
+      if (user?.sdrId) {
+        sdr = await storage.getSdr(user.sdrId);
+      }
+      
+      const sdrInfo = sdr || {
+        id: user?.id || session.userId,
+        name: user?.name || "Unknown",
+        email: user?.email || "unknown@example.com",
+        phone: null,
+        managerId: null,
+        region: "Unknown",
+        createdAt: new Date(),
+        managerEmail: "",
+        gender: "neutral" as const,
+        timezone: null,
+        isActive: true,
+      };
+
+      console.log(`[AutoAnalysis] Running manager analysis...`);
+      const updatedSession = await storage.getCallSession(session.id);
+      if (updatedSession) {
+        try {
+          const { analyzeCallForManager, saveManagerAnalysis } = await import("./ai/managerAnalysis");
+          const managerAnalysis = await analyzeCallForManager(updatedSession, sdrInfo);
+          await saveManagerAnalysis(updatedSession, sdrInfo, managerAnalysis);
+          console.log(`[AutoAnalysis] Manager analysis complete, score: ${managerAnalysis.overallScore}`);
+        } catch (managerError) {
+          console.error("[AutoAnalysis] Manager analysis error:", managerError);
+        }
+      }
+
+      try {
+        const { processPostCallCoaching } = await import("./ai/coachingAnalysis");
+        const sessionWithTranscript = await storage.getCallSession(session.id);
+        if (sessionWithTranscript) {
+          await processPostCallCoaching(sessionWithTranscript);
+          console.log(`[AutoAnalysis] Coaching email processed`);
+        }
+      } catch (emailError) {
+        console.error("[AutoAnalysis] Coaching email error:", emailError);
+      }
+
+      res.json({
+        status: "completed",
+        sessionId: session.id,
+        analysis: {
+          score: claudeAnalysis.overallScore,
+          summary: claudeAnalysis.callSummary,
+        },
+      });
+    } catch (error) {
+      console.error("Auto-analysis error:", error);
+      res.status(500).json({ message: "Failed to run automatic analysis" });
+    }
+  });
+
   app.get("/api/call-sessions", requireAuth, async (req: Request, res: Response) => {
     try {
       const user = await storage.getUser(req.session.userId!);

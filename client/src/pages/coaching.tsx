@@ -230,8 +230,38 @@ export default function CoachingPage() {
       await apiRequest("PATCH", `/api/call-sessions/zoom/${event.data.callId}`, {
         recordingUrl: event.data.downloadUrl,
       });
+      
+      console.log("[Coaching] Triggering automatic analysis...");
+      toast({
+        title: "Analyzing Call",
+        description: "Running AI coaching analysis on your recording...",
+      });
+      
+      const analysisResponse = await apiRequest("POST", `/api/call-sessions/zoom/${event.data.callId}/auto-analyze`, {});
+      if (analysisResponse.ok) {
+        const result = await analysisResponse.json();
+        if (result.status === "completed") {
+          toast({
+            title: "Analysis Complete",
+            description: `Call scored ${result.analysis?.score || "N/A"}/100. Check your performance tab!`,
+          });
+          queryClient.invalidateQueries({ queryKey: ["/api/call-sessions"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/coach/performance-summary"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/manager/oversight"] });
+        } else if (result.status === "pending") {
+          toast({
+            title: "Analysis Pending",
+            description: "Recording is still processing. Analysis will run shortly.",
+          });
+        }
+      }
     } catch (error) {
-      console.error("[Coaching] Failed to save recording URL:", error);
+      console.error("[Coaching] Failed to save recording URL or analyze:", error);
+      toast({
+        title: "Analysis Issue",
+        description: "Recording saved but analysis may be delayed.",
+        variant: "destructive",
+      });
     }
   };
 
