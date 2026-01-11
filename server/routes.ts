@@ -600,6 +600,27 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/managers", requireRole("admin"), async (req: Request, res: Response) => {
+    try {
+      const { name, email } = req.body;
+      
+      if (!name || !email) {
+        return res.status(400).json({ message: "Name and email are required" });
+      }
+      
+      const manager = await storage.createManager({
+        name,
+        email,
+        isActive: true
+      });
+      
+      res.json(manager);
+    } catch (error) {
+      console.error("Create Manager error:", error);
+      res.status(500).json({ message: "Failed to create manager" });
+    }
+  });
+
   app.get("/api/team", requireAuth, async (req: Request, res: Response) => {
     try {
       const allManagers = await storage.getAllManagers();

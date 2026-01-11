@@ -154,22 +154,32 @@ function EditSdrDialog({ sdr, isOpen, onClose, managers }: EditSdrDialogProps) {
   );
 }
 
-interface AddSdrDialogProps {
+interface AddTeamMemberDialogProps {
   isOpen: boolean;
   onClose: () => void;
   managers: Manager[];
 }
 
-function AddSdrDialog({ isOpen, onClose, managers }: AddSdrDialogProps) {
+function AddTeamMemberDialog({ isOpen, onClose, managers }: AddTeamMemberDialogProps) {
   const { toast } = useToast();
+  const [memberType, setMemberType] = useState<"sdr" | "manager" | "ae">("sdr");
   const [id, setId] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [managerEmail, setManagerEmail] = useState("");
   const [managerId, setManagerId] = useState("");
   const [gender, setGender] = useState("neutral");
+  const [phone, setPhone] = useState("");
+  const [region, setRegion] = useState("");
+  const [specialty, setSpecialty] = useState("");
 
-  const createMutation = useMutation({
+  const resetForm = () => {
+    setMemberType("sdr");
+    setId(""); setName(""); setEmail(""); setManagerEmail(""); setManagerId(""); setGender("neutral");
+    setPhone(""); setRegion(""); setSpecialty("");
+  };
+
+  const createSdrMutation = useMutation({
     mutationFn: async (sdrData: any) => {
       const res = await apiRequest("POST", "/api/sdrs", sdrData);
       return res.json();
@@ -177,7 +187,39 @@ function AddSdrDialog({ isOpen, onClose, managers }: AddSdrDialogProps) {
     onSuccess: () => {
       toast({ title: "SDR Created", description: "New team member added successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/team"] });
-      setId(""); setName(""); setEmail(""); setManagerEmail(""); setManagerId(""); setGender("neutral");
+      resetForm();
+      onClose();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Create Failed", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const createManagerMutation = useMutation({
+    mutationFn: async (managerData: any) => {
+      const res = await apiRequest("POST", "/api/managers", managerData);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Manager Created", description: "New manager added successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/team"] });
+      resetForm();
+      onClose();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Create Failed", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const createAeMutation = useMutation({
+    mutationFn: async (aeData: any) => {
+      const res = await apiRequest("POST", "/api/account-executives", aeData);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Account Executive Created", description: "New AE added successfully" });
+      queryClient.invalidateQueries({ queryKey: ["/api/account-executives"] });
+      resetForm();
       onClose();
     },
     onError: (error: Error) => {
@@ -186,69 +228,122 @@ function AddSdrDialog({ isOpen, onClose, managers }: AddSdrDialogProps) {
   });
 
   const handleCreate = () => {
-    if (!id || !name || !email || !managerEmail) {
-      toast({ title: "Missing Fields", description: "ID, name, email, and manager email are required", variant: "destructive" });
+    if (!name || !email) {
+      toast({ title: "Missing Fields", description: "Name and email are required", variant: "destructive" });
       return;
     }
-    createMutation.mutate({ id, name, email, managerEmail, managerId: managerId || null, gender });
+
+    if (memberType === "sdr") {
+      if (!id || !managerEmail) {
+        toast({ title: "Missing Fields", description: "ID and manager email are required for SDRs", variant: "destructive" });
+        return;
+      }
+      createSdrMutation.mutate({ id, name, email, managerEmail, managerId: managerId || null, gender });
+    } else if (memberType === "manager") {
+      createManagerMutation.mutate({ name, email });
+    } else if (memberType === "ae") {
+      createAeMutation.mutate({ name, email, phone: phone || undefined, region: region || undefined, specialty: specialty || undefined });
+    }
   };
 
+  const isPending = createSdrMutation.isPending || createManagerMutation.isPending || createAeMutation.isPending;
+
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { resetForm(); onClose(); } }}>
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add New SDR</DialogTitle>
+          <DialogTitle>Add Team Member</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="new-id">SDR ID (unique identifier)</Label>
-            <Input id="new-id" value={id} onChange={(e) => setId(e.target.value)} placeholder="e.g., JOHN_DOE" data-testid="input-new-sdr-id" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="new-name">Name</Label>
-            <Input id="new-name" value={name} onChange={(e) => setName(e.target.value)} data-testid="input-new-sdr-name" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="new-email">Email</Label>
-            <Input id="new-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} data-testid="input-new-sdr-email" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="new-managerEmail">Manager Email</Label>
-            <Input id="new-managerEmail" type="email" value={managerEmail} onChange={(e) => setManagerEmail(e.target.value)} data-testid="input-new-sdr-manager-email" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="new-manager">Assigned Manager</Label>
-            <Select value={managerId || "none"} onValueChange={(v) => setManagerId(v === "none" ? "" : v)}>
-              <SelectTrigger data-testid="select-new-sdr-manager">
-                <SelectValue placeholder="Select a manager" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No Manager</SelectItem>
-                {managers.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="new-gender">Gender (for coaching tone)</Label>
-            <Select value={gender} onValueChange={setGender}>
-              <SelectTrigger data-testid="select-new-sdr-gender">
+            <Label>Member Type</Label>
+            <Select value={memberType} onValueChange={(v) => setMemberType(v as "sdr" | "manager" | "ae")}>
+              <SelectTrigger data-testid="select-member-type">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="male">Male</SelectItem>
-                <SelectItem value="female">Female</SelectItem>
-                <SelectItem value="neutral">Neutral</SelectItem>
+                <SelectItem value="sdr">SDR (Sales Development Rep)</SelectItem>
+                <SelectItem value="manager">Manager</SelectItem>
+                <SelectItem value="ae">Account Executive</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {memberType === "sdr" && (
+            <div className="space-y-2">
+              <Label htmlFor="new-id">ID (unique identifier)</Label>
+              <Input id="new-id" value={id} onChange={(e) => setId(e.target.value)} placeholder="e.g., JOHN_DOE" data-testid="input-new-member-id" />
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="new-name">Name</Label>
+            <Input id="new-name" value={name} onChange={(e) => setName(e.target.value)} data-testid="input-new-member-name" />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="new-email">Email</Label>
+            <Input id="new-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} data-testid="input-new-member-email" />
+          </div>
+
+          {memberType === "sdr" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="new-managerEmail">Manager Email</Label>
+                <Input id="new-managerEmail" type="email" value={managerEmail} onChange={(e) => setManagerEmail(e.target.value)} data-testid="input-new-member-manager-email" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-manager">Assigned Manager</Label>
+                <Select value={managerId || "none"} onValueChange={(v) => setManagerId(v === "none" ? "" : v)}>
+                  <SelectTrigger data-testid="select-new-member-manager">
+                    <SelectValue placeholder="Select a manager" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Manager</SelectItem>
+                    {managers.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-gender">Gender (for coaching tone)</Label>
+                <Select value={gender} onValueChange={setGender}>
+                  <SelectTrigger data-testid="select-new-member-gender">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                    <SelectItem value="neutral">Neutral</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+
+          {memberType === "ae" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="new-phone">Phone</Label>
+                <Input id="new-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (555) 123-4567" data-testid="input-new-member-phone" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-region">Region</Label>
+                <Input id="new-region" value={region} onChange={(e) => setRegion(e.target.value)} placeholder="e.g., West Coast" data-testid="input-new-member-region" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-specialty">Specialty</Label>
+                <Input id="new-specialty" value={specialty} onChange={(e) => setSpecialty(e.target.value)} placeholder="e.g., Enterprise, SolidWorks" data-testid="input-new-member-specialty" />
+              </div>
+            </>
+          )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleCreate} disabled={createMutation.isPending} data-testid="button-create-sdr">
-            {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            Add SDR
+          <Button variant="outline" onClick={() => { resetForm(); onClose(); }}>Cancel</Button>
+          <Button onClick={handleCreate} disabled={isPending} data-testid="button-create-member">
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            Add {memberType === "sdr" ? "SDR" : memberType === "manager" ? "Manager" : "AE"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -262,7 +357,6 @@ export default function TeamPage() {
   const [editingSdr, setEditingSdr] = useState<Sdr | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingAe, setEditingAe] = useState<AccountExecutive | null>(null);
-  const [showAddAeDialog, setShowAddAeDialog] = useState(false);
   const [aeForm, setAeForm] = useState({ name: "", email: "", phone: "", region: "", specialty: "" });
 
   const { data: teamData, isLoading } = useQuery<TeamData>({
@@ -337,22 +431,6 @@ export default function TeamPage() {
     },
   });
 
-  const createAeMutation = useMutation({
-    mutationFn: async (data: { name: string; email: string; phone?: string; region?: string; specialty?: string }) => {
-      const res = await apiRequest("POST", "/api/account-executives", data);
-      return res.json();
-    },
-    onSuccess: () => {
-      toast({ title: "Account Executive Added", description: "New AE added to team" });
-      queryClient.invalidateQueries({ queryKey: ["/api/account-executives"] });
-      setEditingAe(null);
-      setAeForm({ name: "", email: "", phone: "", region: "", specialty: "" });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Creation Failed", description: error.message, variant: "destructive" });
-    },
-  });
-
   const openEditAeDialog = (ae: AccountExecutive) => {
     setEditingAe(ae);
     setAeForm({
@@ -371,9 +449,6 @@ export default function TeamPage() {
     }
     if (editingAe) {
       updateAeMutation.mutate({ id: editingAe.id, ...aeForm });
-    } else {
-      createAeMutation.mutate(aeForm);
-      setShowAddAeDialog(false);
     }
   };
 
@@ -451,10 +526,10 @@ export default function TeamPage() {
                 variant="default"
                 size="sm"
                 onClick={() => setShowAddDialog(true)}
-                data-testid="button-add-sdr"
+                data-testid="button-add-team-member"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add SDR
+                Add Team Member
               </Button>
               <Button
                 variant="outline"
@@ -592,20 +667,6 @@ export default function TeamPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {user?.role === "admin" && (
-                      <Button
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setAeForm({ name: "", email: "", phone: "", region: "", specialty: "" });
-                          setShowAddAeDialog(true);
-                        }}
-                        data-testid="button-add-ae"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add AE
-                      </Button>
-                    )}
                     <Badge variant="outline">{accountExecutives.length} AEs</Badge>
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   </div>
@@ -698,9 +759,9 @@ export default function TeamPage() {
               Team members will appear here once they're added to the system.
             </p>
             {user?.role === "admin" && (
-              <Button onClick={() => setShowAddDialog(true)} data-testid="button-add-first-sdr">
+              <Button onClick={() => setShowAddDialog(true)} data-testid="button-add-first-team-member">
                 <Plus className="h-4 w-4 mr-2" />
-                Add Your First SDR
+                Add Your First Team Member
               </Button>
             )}
           </CardContent>
@@ -714,7 +775,7 @@ export default function TeamPage() {
         managers={allManagers}
       />
 
-      <AddSdrDialog
+      <AddTeamMemberDialog
         isOpen={showAddDialog}
         onClose={() => setShowAddDialog(false)}
         managers={allManagers}
@@ -785,76 +846,6 @@ export default function TeamPage() {
             <Button onClick={handleAeSave} disabled={updateAeMutation.isPending} data-testid="button-save-ae">
               {updateAeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showAddAeDialog} onOpenChange={setShowAddAeDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Account Executive</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="new-ae-name">Name</Label>
-                <Input 
-                  id="new-ae-name" 
-                  value={aeForm.name} 
-                  onChange={(e) => setAeForm(prev => ({ ...prev, name: e.target.value }))} 
-                  data-testid="input-new-ae-name" 
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="new-ae-email">Email</Label>
-                <Input 
-                  id="new-ae-email" 
-                  type="email" 
-                  value={aeForm.email} 
-                  onChange={(e) => setAeForm(prev => ({ ...prev, email: e.target.value }))} 
-                  data-testid="input-new-ae-email" 
-                />
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="new-ae-phone">Phone</Label>
-                <Input 
-                  id="new-ae-phone" 
-                  value={aeForm.phone} 
-                  onChange={(e) => setAeForm(prev => ({ ...prev, phone: e.target.value }))} 
-                  placeholder="+1 (555) 123-4567"
-                  data-testid="input-new-ae-phone" 
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="new-ae-region">Region</Label>
-                <Input 
-                  id="new-ae-region" 
-                  value={aeForm.region} 
-                  onChange={(e) => setAeForm(prev => ({ ...prev, region: e.target.value }))} 
-                  placeholder="e.g., West Coast"
-                  data-testid="input-new-ae-region" 
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-ae-specialty">Specialty</Label>
-              <Input 
-                id="new-ae-specialty" 
-                value={aeForm.specialty} 
-                onChange={(e) => setAeForm(prev => ({ ...prev, specialty: e.target.value }))} 
-                placeholder="e.g., Enterprise, SolidWorks"
-                data-testid="input-new-ae-specialty" 
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddAeDialog(false)}>Cancel</Button>
-            <Button onClick={handleAeSave} disabled={createAeMutation.isPending} data-testid="button-create-ae">
-              {createAeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Add AE
             </Button>
           </DialogFooter>
         </DialogContent>
