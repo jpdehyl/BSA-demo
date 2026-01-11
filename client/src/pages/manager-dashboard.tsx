@@ -20,7 +20,11 @@ import {
   UserCheck,
   ArrowUpRight,
   ArrowDownRight,
-  Trophy
+  Trophy,
+  Zap,
+  DollarSign,
+  Sparkles,
+  BarChart2
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -90,6 +94,38 @@ interface CoachingQueueData {
   };
 }
 
+interface AutomationROIData {
+  metrics: {
+    autoDisposition: {
+      usage: number;
+      totalCalls: number;
+      usageRate: number;
+      timeSaved: number;
+    };
+    bantExtraction: {
+      usage: number;
+      totalLeads: number;
+      usageRate: number;
+      timeSaved: number;
+    };
+    smartHandoff: {
+      usage: number;
+      timeSaved: number;
+    };
+    lastContactTracking: {
+      contactedLeads: number;
+      totalLeads: number;
+    };
+  };
+  summary: {
+    totalTimeSaved: number;
+    timeSavedPerSDR: number;
+    moneySaved: number;
+    teamSize: number;
+    period: string;
+  };
+}
+
 function getInitials(name: string): string {
   return name
     .split(" ")
@@ -117,7 +153,12 @@ export default function ManagerDashboard() {
     refetchInterval: 60000,
   });
 
-  if (activityLoading && performanceLoading && coachingLoading) {
+  const { data: roiData, isLoading: roiLoading } = useQuery<AutomationROIData>({
+    queryKey: ["/api/manager/automation-roi"],
+    refetchInterval: 300000, // Refresh every 5 minutes
+  });
+
+  if (activityLoading && performanceLoading && coachingLoading && roiLoading) {
     return (
       <div className="p-6 flex items-center justify-center h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -198,7 +239,7 @@ export default function ManagerDashboard() {
 
       {/* Main Content Tabs */}
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">
             <Activity className="h-4 w-4 mr-2" />
             Activity Feed
@@ -206,6 +247,10 @@ export default function ManagerDashboard() {
           <TabsTrigger value="performance">
             <TrendingUp className="h-4 w-4 mr-2" />
             Performance
+          </TabsTrigger>
+          <TabsTrigger value="roi">
+            <Zap className="h-4 w-4 mr-2" />
+            Automation ROI
           </TabsTrigger>
           <TabsTrigger value="coaching">
             <AlertCircle className="h-4 w-4 mr-2" />
@@ -409,6 +454,210 @@ export default function ManagerDashboard() {
               </ScrollArea>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Automation ROI Tab */}
+        <TabsContent value="roi" className="space-y-4">
+          {/* ROI Summary Card */}
+          <Card className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-2xl">
+                <DollarSign className="h-6 w-6 text-green-600" />
+                Automation ROI Summary
+              </CardTitle>
+              <CardDescription>
+                Time and cost savings from automation features • Last {roiData?.summary.period || '7 days'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-6 md:grid-cols-3">
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Total Time Saved</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-bold text-blue-600">
+                      {roiData?.summary.totalTimeSaved || 0}
+                    </span>
+                    <span className="text-lg text-muted-foreground">minutes</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    ~{Math.round((roiData?.summary.totalTimeSaved || 0) / 60 * 10) / 10} hours
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Per SDR Average</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-bold text-purple-600">
+                      {roiData?.summary.timeSavedPerSDR || 0}
+                    </span>
+                    <span className="text-lg text-muted-foreground">min/SDR</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Across {roiData?.summary.teamSize || 0} team members
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Cost Savings</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-bold text-green-600">
+                      ${roiData?.summary.moneySaved || 0}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Based on $25/hr SDR rate
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Automation Features Breakdown */}
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Auto-Disposition */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-blue-600" />
+                  Auto-Suggested Disposition
+                </CardTitle>
+                <CardDescription>
+                  AI suggests call outcomes automatically
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Usage Rate</span>
+                  <Badge variant="secondary" className="text-lg">
+                    {roiData?.metrics.autoDisposition.usageRate || 0}%
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Calls with disposition:</span>
+                    <span className="font-semibold">{roiData?.metrics.autoDisposition.usage || 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Total calls:</span>
+                    <span>{roiData?.metrics.autoDisposition.totalCalls || 0}</span>
+                  </div>
+                </div>
+                <div className="pt-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Time Saved</span>
+                    <span className="text-2xl font-bold text-blue-600">
+                      {roiData?.metrics.autoDisposition.timeSaved || 0} min
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    ~30 seconds saved per call
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* BANT Extraction */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart2 className="h-5 w-5 text-purple-600" />
+                  BANT Auto-Extraction
+                </CardTitle>
+                <CardDescription>
+                  Extracts qualification data from call transcripts
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Usage Rate</span>
+                  <Badge variant="secondary" className="text-lg">
+                    {roiData?.metrics.bantExtraction.usageRate || 0}%
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Leads with BANT data:</span>
+                    <span className="font-semibold">{roiData?.metrics.bantExtraction.usage || 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Total leads:</span>
+                    <span>{roiData?.metrics.bantExtraction.totalLeads || 0}</span>
+                  </div>
+                </div>
+                <div className="pt-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Time Saved</span>
+                    <span className="text-2xl font-bold text-purple-600">
+                      {roiData?.metrics.bantExtraction.timeSaved || 0} min
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    ~2 minutes saved per extraction
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Smart Handoff */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UserCheck className="h-5 w-5 text-green-600" />
+                  Smart Handoff Assistant
+                </CardTitle>
+                <CardDescription>
+                  Auto-populates qualification fields from call data
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Leads qualified this week:</span>
+                    <span className="font-semibold">{roiData?.metrics.smartHandoff.usage || 0}</span>
+                  </div>
+                </div>
+                <div className="pt-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Time Saved</span>
+                    <span className="text-2xl font-bold text-green-600">
+                      {roiData?.metrics.smartHandoff.timeSaved || 0} min
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    ~4 minutes saved per handoff
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Last Contact Tracking */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-orange-600" />
+                  Last Contact Indicator
+                </CardTitle>
+                <CardDescription>
+                  Visual prioritization for follow-up timing
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Leads contacted this week:</span>
+                    <span className="font-semibold">{roiData?.metrics.lastContactTracking.contactedLeads || 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Total leads:</span>
+                    <span>{roiData?.metrics.lastContactTracking.totalLeads || 0}</span>
+                  </div>
+                </div>
+                <div className="pt-4 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    Passive feature that improves follow-up timing and lead engagement
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Coaching Queue Tab */}

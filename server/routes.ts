@@ -2343,6 +2343,123 @@ export async function registerRoutes(
     }
   });
 
+  /**
+   * GET /api/manager/automation-roi
+   * Tracks adoption and time savings from automation features
+   */
+  app.get("/api/manager/automation-roi", requireRole("manager", "admin"), async (req: Request, res: Response) => {
+    try {
+      const user = await storage.getUser(req.session!.userId);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Get all SDRs under this manager
+      const sdrs = user.managerId
+        ? await storage.getSdrsByManager(user.managerId)
+        : await storage.getAllSdrs();
+      const sdrIds = sdrs.map(s => s.id);
+
+      // Get all data for the last 7 days
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+      // Get all call sessions for team
+      const allCalls = await Promise.all(
+        sdrIds.map(sdrId => storage.getCallSessionsByUser(sdrId))
+      ).then(results => results.flat());
+
+      const recentCalls = allCalls.filter(c => new Date(c.startedAt || 0) > weekAgo);
+
+      // Get all leads for team
+      const allLeads = await storage.getAllLeads();
+      const teamLeads = allLeads.filter(lead => sdrIds.includes(lead.assignedSdrId || ''));
+      const recentLeads = teamLeads.filter(l => new Date(l.createdAt) > weekAgo);
+
+      // Metric 1: Auto-disposition usage
+      // Calls with disposition set (indicating form was used)
+      const callsWithDisposition = recentCalls.filter(c => c.disposition);
+      const autoDispositionUsageRate = recentCalls.length > 0
+        ? Math.round((callsWithDisposition.length / recentCalls.length) * 100)
+        : 0;
+
+      // Assume 30 seconds saved per auto-suggested disposition
+      const autoDispositionTimeSaved = callsWithDisposition.length * 0.5; // minutes
+
+      // Metric 2: BANT extraction usage
+      // Count leads with BANT data populated (budget, timeline, or decisionMakers)
+      const leadsWithBANT = recentLeads.filter(l =>
+        l.budget || l.timeline || l.decisionMakers
+      );
+      const bantExtractionUsageRate = recentLeads.length > 0
+        ? Math.round((leadsWithBANT.length / recentLeads.length) * 100)
+        : 0;
+
+      // Assume 2 minutes saved per BANT auto-extraction
+      const bantExtractionTimeSaved = leadsWithBANT.length * 2; // minutes
+
+      // Metric 3: Smart handoff usage
+      // Count qualified/handed_off leads from this week
+      const qualifiedLeads = teamLeads.filter(l =>
+        (l.status === 'qualified' || l.status === 'handed_off') &&
+        l.handedOffAt &&
+        new Date(l.handedOffAt) > weekAgo
+      );
+
+      // Assume 4 minutes saved per smart handoff
+      const smartHandoffTimeSaved = qualifiedLeads.length * 4; // minutes
+
+      // Metric 4: Last contact tracking (passive benefit - engagement improvement)
+      // Track how many leads were contacted this week
+      const contactedLeads = teamLeads.filter(l =>
+        l.lastContactedAt && new Date(l.lastContactedAt) > weekAgo
+      );
+
+      // Total time saved
+      const totalTimeSaved = autoDispositionTimeSaved + bantExtractionTimeSaved + smartHandoffTimeSaved;
+      const timeSavedPerSDR = sdrs.length > 0 ? totalTimeSaved / sdrs.length : 0;
+
+      // ROI calculation
+      // Assume SDR hourly rate of $25/hour
+      const sdrHourlyRate = 25;
+      const moneySaved = (totalTimeSaved / 60) * sdrHourlyRate;
+
+      res.json({
+        metrics: {
+          autoDisposition: {
+            usage: callsWithDisposition.length,
+            totalCalls: recentCalls.length,
+            usageRate: autoDispositionUsageRate,
+            timeSaved: Math.round(autoDispositionTimeSaved),
+          },
+          bantExtraction: {
+            usage: leadsWithBANT.length,
+            totalLeads: recentLeads.length,
+            usageRate: bantExtractionUsageRate,
+            timeSaved: Math.round(bantExtractionTimeSaved),
+          },
+          smartHandoff: {
+            usage: qualifiedLeads.length,
+            timeSaved: Math.round(smartHandoffTimeSaved),
+          },
+          lastContactTracking: {
+            contactedLeads: contactedLeads.length,
+            totalLeads: teamLeads.length,
+          },
+        },
+        summary: {
+          totalTimeSaved: Math.round(totalTimeSaved),
+          timeSavedPerSDR: Math.round(timeSavedPerSDR),
+          moneySaved: Math.round(moneySaved * 100) / 100,
+          teamSize: sdrs.length,
+          period: '7 days',
+        },
+      });
+    } catch (error) {
+      console.error("Automation ROI error:", error);
+      res.status(500).json({ message: "Failed to fetch automation ROI" });
+    }
+  });
+
   registerLeadsRoutes(app, requireAuth);
   registerCoachRoutes(app, requireAuth);
   registerSalesforceRoutes(app, requireAuth);
