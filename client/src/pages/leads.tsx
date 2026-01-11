@@ -471,6 +471,27 @@ export default function LeadsPage() {
           ) : (
           <>
           <div className="space-y-4 py-4">
+            {/* Quick Actions */}
+            <div className="flex items-center justify-between gap-2 p-3 rounded-lg bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 border border-purple-200 dark:border-purple-800">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-purple-600" />
+                <span className="text-sm font-medium">Smart Handoff Assistant</span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  refetchDraft();
+                  setQualifyDraftFetched(false);
+                }}
+                className="gap-1 text-xs"
+                data-testid="button-refresh-suggestions"
+              >
+                <RefreshCw className="h-3 w-3" />
+                Refresh AI Suggestions
+              </Button>
+            </div>
+
             {qualificationDraft?.source === "call_transcript" && qualificationDraft?.confidence !== "low" && (
               <div className="flex items-center gap-2 p-2 rounded-md bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
                 <Sparkles className="h-4 w-4 text-green-600 dark:text-green-400" />
