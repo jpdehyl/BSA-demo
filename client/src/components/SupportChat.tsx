@@ -382,6 +382,10 @@ function UserDataDisplay({ data, onNavigateToLead, userRole }: {
   );
 }
 
+// Check if Web Speech API is available
+const isSpeechRecognitionSupported = typeof window !== 'undefined' &&
+  ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+
 export function SupportChat() {
   const { user, isLoading: authLoading } = useAuth();
   const [location, setLocation] = useLocation();
@@ -392,10 +396,66 @@ export function SupportChat() {
     error: null,
   });
   const [inputValue, setInputValue] = useState("");
+  const [isListening, setIsListening] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const isManager = user?.role === "manager" || user?.role === "admin";
+
+  // Initialize Speech Recognition
+  useEffect(() => {
+    if (!isSpeechRecognitionSupported) return;
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results)
+        .map((result: any) => result[0].transcript)
+        .join('');
+
+      setInputValue(transcript);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('[SupportChat] Speech recognition error:', event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+    };
+  }, []);
+
+  // Toggle voice input
+  const toggleVoiceInput = useCallback(() => {
+    if (!recognitionRef.current) return;
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (error) {
+        console.error('[SupportChat] Failed to start speech recognition:', error);
+      }
+    }
+  }, [isListening]);
 
   // Debug logging for support chat visibility
   useEffect(() => {
@@ -862,10 +922,23 @@ export function SupportChat() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={isManager ? "Ask about team metrics, coaching..." : "Ask about leads, calls, products..."}
-                disabled={state.isLoading}
-                className="flex-1"
+                placeholder={isListening ? "Listening..." : (isManager ? "Ask about team metrics, coaching..." : "Ask about leads, calls, products...")}
+                disabled={state.isLoading || isListening}
+                className={cn("flex-1", isListening && "border-red-500 animate-pulse")}
               />
+              {/* Voice Input Button */}
+              {isSpeechRecognitionSupported && (
+                <Button
+                  onClick={toggleVoiceInput}
+                  disabled={state.isLoading}
+                  size="icon"
+                  variant={isListening ? "destructive" : "outline"}
+                  title={isListening ? "Stop listening" : "Voice input"}
+                >
+                  <Mic className={cn("h-4 w-4", isListening && "animate-pulse")} />
+                </Button>
+              )}
+              {/* Send Button */}
               <Button
                 onClick={() => sendMessage()}
                 disabled={!inputValue.trim() || state.isLoading}
@@ -878,6 +951,11 @@ export function SupportChat() {
                 )}
               </Button>
             </div>
+            {isListening && (
+              <p className="text-xs text-red-500 mt-1 text-center animate-pulse">
+                🎙️ Listening... speak now
+              </p>
+            )}
           </div>
         </Card>
       )}
