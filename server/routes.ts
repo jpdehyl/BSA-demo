@@ -2154,17 +2154,28 @@ export async function registerRoutes(
         : await storage.getAllSdrs();
       const sdrIds = sdrs.map(s => s.id);
 
+      // Get users for these SDRs to look up calls by userId
+      const sdrUsers = await storage.getUsersBySdrIds(sdrIds);
+      const sdrUserIds = sdrUsers.map(u => u.id);
+      
+      // Create mapping from userId to SDR name and SDR ID
+      const userIdToSdrInfo = new Map<string, { sdrId: string; sdrName: string }>();
+      sdrUsers.forEach(u => {
+        const sdr = sdrs.find(s => s.id === u.sdrId);
+        if (sdr && u.sdrId) {
+          userIdToSdrInfo.set(u.id, { sdrId: u.sdrId, sdrName: sdr.name });
+        }
+      });
+
       // Get recent activities (last 24 hours)
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-      // Get recent call sessions
-      const recentCalls = await Promise.all(
-        sdrIds.map(sdrId => storage.getCallSessionsByUser(sdrId))
-      ).then(results => results.flat()
+      // Get recent call sessions using user IDs
+      const allCalls = await storage.getCallSessionsByUserIds(sdrUserIds);
+      const recentCalls = allCalls
         .filter(call => new Date(call.startedAt || 0) > oneDayAgo)
         .sort((a, b) => new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime())
-        .slice(0, 50)
-      );
+        .slice(0, 50);
 
       // Get recent lead qualifications
       const allLeads = await storage.getAllLeads();
@@ -2178,12 +2189,14 @@ export async function registerRoutes(
         .slice(0, 20);
 
       // Build activity feed
+      const sdrInfo = (userId: string) => userIdToSdrInfo.get(userId) || { sdrId: userId, sdrName: 'Unknown' };
       const activities = [
         ...recentCalls.map(call => ({
           type: 'call',
           timestamp: call.startedAt,
-          sdrId: call.userId,
-          sdrName: sdrs.find(s => s.id === (user.sdrId || call.userId))?.name || 'Unknown',
+          sdrId: sdrInfo(call.userId).sdrId,
+          sdrName: sdrInfo(call.userId).sdrName,
+          userId: call.userId,
           data: {
             toNumber: call.toNumber,
             duration: call.duration,
@@ -2235,11 +2248,22 @@ export async function registerRoutes(
       const sdrs = user.managerId
         ? await storage.getSdrsByManager(user.managerId)
         : await storage.getAllSdrs();
+      const sdrIds = sdrs.map(s => s.id);
+
+      // Get users for these SDRs to look up calls by userId
+      const sdrUsers = await storage.getUsersBySdrIds(sdrIds);
+      
+      // Create mapping from sdrId to userId
+      const sdrIdToUserId = new Map<string, string>();
+      sdrUsers.forEach(u => {
+        if (u.sdrId) sdrIdToUserId.set(u.sdrId, u.id);
+      });
 
       // Calculate metrics for each SDR
       const sdrMetrics = await Promise.all(
         sdrs.map(async (sdr) => {
-          const calls = await storage.getCallSessionsByUser(sdr.id);
+          const userId = sdrIdToUserId.get(sdr.id);
+          const calls = userId ? await storage.getCallSessionsByUser(userId) : [];
           const leads = await storage.getLeadsBySdr(sdr.id);
 
           const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -2307,10 +2331,19 @@ export async function registerRoutes(
         : await storage.getAllSdrs();
       const sdrIds = sdrs.map(s => s.id);
 
-      // Get all call sessions for team
-      const allCalls = await Promise.all(
-        sdrIds.map(sdrId => storage.getCallSessionsByUser(sdrId))
-      ).then(results => results.flat());
+      // Get users for these SDRs to look up calls by userId
+      const sdrUsers = await storage.getUsersBySdrIds(sdrIds);
+      const sdrUserIds = sdrUsers.map(u => u.id);
+      
+      // Create mapping from userId to SDR name
+      const userIdToSdrName = new Map<string, string>();
+      sdrUsers.forEach(u => {
+        const sdr = sdrs.find(s => s.id === u.sdrId);
+        if (sdr) userIdToSdrName.set(u.id, sdr.name);
+      });
+
+      // Get all call sessions for team using user IDs
+      const allCalls = await storage.getCallSessionsByUserIds(sdrUserIds);
 
       // Filter for coaching opportunities
       const coachingQueue = allCalls
@@ -2326,7 +2359,7 @@ export async function registerRoutes(
       // Enrich with SDR names
       const enrichedQueue = coachingQueue.map(call => ({
         ...call,
-        sdrName: sdrs.find(s => s.id === call.userId)?.name || 'Unknown',
+        sdrName: userIdToSdrName.get(call.userId) || 'Unknown',
       }));
 
       res.json({
@@ -2361,13 +2394,15 @@ export async function registerRoutes(
         : await storage.getAllSdrs();
       const sdrIds = sdrs.map(s => s.id);
 
+      // Get users for these SDRs to look up calls by userId
+      const sdrUsers = await storage.getUsersBySdrIds(sdrIds);
+      const sdrUserIds = sdrUsers.map(u => u.id);
+
       // Get all data for the last 7 days
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-      // Get all call sessions for team
-      const allCalls = await Promise.all(
-        sdrIds.map(sdrId => storage.getCallSessionsByUser(sdrId))
-      ).then(results => results.flat());
+      // Get all call sessions for team using user IDs
+      const allCalls = await storage.getCallSessionsByUserIds(sdrUserIds);
 
       const recentCalls = allCalls.filter(c => new Date(c.startedAt || 0) > weekAgo);
 

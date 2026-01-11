@@ -122,10 +122,13 @@ Preferred communication style: Simple, everyday language.
 ### Demo Data
 - Run `npm run seed:demo` to populate database with realistic sales demo data
 - Script: `scripts/seedDemoData.ts`
-- Creates: 3 managers, 20 SDRs, 5 AEs, 50 leads with research, 125 call sessions with coaching analysis
+- Creates: 3 managers, 20 SDRs, 5 AEs, 200+ leads with research, 600+ call sessions with coaching analysis
+- Each SDR has 20-35 calls with realistic SOLIDWORKS/CAD sales conversations
+- Recent call focus: 8+ calls per SDR in last 7 days for manager dashboard activity
+- 160+ real company names with industry-specific pain points (Boeing, Tesla, Medtronic, etc.)
 - All demo accounts use password: `demo2024`
 - Demo emails follow pattern: `firstname.lastname@hawkridge.com`
-- Example logins: `carlos.martinez@hawkridge.com`, `roberto.hernandez@hawkridge.com` (manager)
+- Example logins: `carlos.martinez@hawkridge.com` (SDR), `roberto.hernandez@hawkridge.com` (Manager)
 
 ### Additional Services
 - **SerpAPI**: LinkedIn profile searches for lead research (optional, via `SERP_API`)
