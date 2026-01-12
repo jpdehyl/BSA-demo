@@ -20,6 +20,7 @@ import CoachingPage from "@/pages/coaching";
 import LeadsPage from "@/pages/leads";
 import CallPrepPage from "@/pages/call-prep";
 import TeamPage from "@/pages/team";
+import SdrProfilePage from "@/pages/sdr-profile";
 import ReportsPage from "@/pages/reports";
 import ManagerDashboard from "@/pages/manager-dashboard";
 import AEPipelinePage from "@/pages/ae-pipeline";
@@ -191,6 +192,14 @@ function Router() {
         <ProtectedRoute>
           <DashboardLayout>
             <TeamPage />
+          </DashboardLayout>
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/team/:sdrId">
+        <ProtectedRoute>
+          <DashboardLayout>
+            <SdrProfilePage />
           </DashboardLayout>
         </ProtectedRoute>
       </Route>

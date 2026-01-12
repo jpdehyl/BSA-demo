@@ -712,6 +712,402 @@ export async function registerRoutes(
     }
   });
 
+  // Comprehensive SDR profile for manager view - full performance dashboard
+  app.get("/api/sdrs/:id/profile", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const sdr = await storage.getSdr(req.params.id);
+      if (!sdr) {
+        return res.status(404).json({ message: "SDR not found" });
+      }
+
+      // Get user associated with this SDR
+      const user = await storage.getUserBySdrId(sdr.id);
+      const userId = user?.id;
+
+      // Get manager info
+      let manager = null;
+      if (sdr.managerId) {
+        manager = await storage.getManager(sdr.managerId);
+      }
+
+      // Initialize comprehensive stats
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+      let allCalls: any[] = [];
+      let weeklyActivity: { date: string; calls: number; qualified: number; meetings: number }[] = [];
+      let callsByHour: Record<number, { calls: number; connected: number }> = {};
+
+      // Performance metrics
+      let performance = {
+        totalCalls: 0,
+        totalConnected: 0,
+        totalQualified: 0,
+        totalMeetings: 0,
+        totalTalkTimeSeconds: 0,
+        avgCallDuration: 0,
+        connectRate: 0,
+        conversionRate: 0,
+        meetingRate: 0,
+        // Weekly metrics
+        weekCalls: 0,
+        weekConnected: 0,
+        weekQualified: 0,
+        weekMeetings: 0,
+        // Monthly metrics
+        monthCalls: 0,
+        monthConnected: 0,
+        monthQualified: 0,
+        monthMeetings: 0,
+        // Last month (for comparison)
+        lastMonthCalls: 0,
+        lastMonthQualified: 0,
+        lastMonthMeetings: 0,
+      };
+
+      let dispositionBreakdown: Record<string, number> = {};
+      let recentCalls: any[] = [];
+      let achievements: { title: string; description: string; date?: string; icon: string }[] = [];
+
+      if (userId) {
+        allCalls = await storage.getCallSessionsByUser(userId);
+
+        // Sort by date descending
+        allCalls.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+
+        // Calculate all metrics
+        for (const call of allCalls) {
+          const callDate = new Date(call.startedAt);
+          const isThisWeek = callDate >= startOfWeek;
+          const isThisMonth = callDate >= startOfMonth;
+          const isLastMonth = callDate >= startOfLastMonth && callDate <= endOfLastMonth;
+
+          performance.totalCalls++;
+          if (isThisWeek) performance.weekCalls++;
+          if (isThisMonth) performance.monthCalls++;
+          if (isLastMonth) performance.lastMonthCalls++;
+
+          if (call.duration) {
+            performance.totalTalkTimeSeconds += call.duration;
+          }
+
+          // Track calls by hour for best time analysis
+          const hour = callDate.getHours();
+          if (!callsByHour[hour]) callsByHour[hour] = { calls: 0, connected: 0 };
+          callsByHour[hour].calls++;
+
+          if (call.disposition) {
+            dispositionBreakdown[call.disposition] = (dispositionBreakdown[call.disposition] || 0) + 1;
+
+            const isConnected = ['connected', 'qualified', 'meeting-booked', 'callback-scheduled', 'not-interested'].includes(call.disposition);
+
+            if (isConnected) {
+              performance.totalConnected++;
+              if (isThisWeek) performance.weekConnected++;
+              if (isThisMonth) performance.monthConnected++;
+              callsByHour[hour].connected++;
+            }
+
+            if (call.disposition === 'qualified') {
+              performance.totalQualified++;
+              if (isThisWeek) performance.weekQualified++;
+              if (isThisMonth) performance.monthQualified++;
+              if (isLastMonth) performance.lastMonthQualified++;
+            }
+
+            if (call.disposition === 'meeting-booked') {
+              performance.totalMeetings++;
+              if (isThisWeek) performance.weekMeetings++;
+              if (isThisMonth) performance.monthMeetings++;
+              if (isLastMonth) performance.lastMonthMeetings++;
+            }
+          }
+        }
+
+        // Calculate rates
+        performance.avgCallDuration = performance.totalCalls > 0
+          ? Math.round(performance.totalTalkTimeSeconds / performance.totalCalls)
+          : 0;
+        performance.connectRate = performance.totalCalls > 0
+          ? Math.round((performance.totalConnected / performance.totalCalls) * 100)
+          : 0;
+        performance.conversionRate = performance.totalCalls > 0
+          ? Math.round((performance.totalQualified / performance.totalCalls) * 100)
+          : 0;
+        performance.meetingRate = performance.totalCalls > 0
+          ? Math.round((performance.totalMeetings / performance.totalCalls) * 100)
+          : 0;
+
+        // Build weekly activity (last 7 days)
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date();
+          date.setDate(date.getDate() - i);
+          date.setHours(0, 0, 0, 0);
+          const nextDate = new Date(date);
+          nextDate.setDate(nextDate.getDate() + 1);
+
+          const dayCalls = allCalls.filter(c => {
+            const callDate = new Date(c.startedAt);
+            return callDate >= date && callDate < nextDate;
+          });
+
+          weeklyActivity.push({
+            date: days[date.getDay()],
+            calls: dayCalls.length,
+            qualified: dayCalls.filter(c => c.disposition === 'qualified').length,
+            meetings: dayCalls.filter(c => c.disposition === 'meeting-booked').length,
+          });
+        }
+
+        // Get recent calls with lead info
+        for (const call of allCalls.slice(0, 15)) {
+          let leadName = "Unknown";
+          let companyName = "Unknown";
+          let leadId = null;
+          if (call.leadId) {
+            const lead = await storage.getLead(call.leadId);
+            if (lead) {
+              leadName = lead.contactName;
+              companyName = lead.companyName;
+              leadId = lead.id;
+            }
+          }
+          recentCalls.push({
+            id: call.id,
+            leadId,
+            leadName,
+            companyName,
+            disposition: call.disposition || 'unknown',
+            duration: call.duration,
+            startedAt: call.startedAt,
+            keyTakeaways: call.keyTakeaways,
+            sentimentScore: call.sentimentScore,
+          });
+        }
+
+        // Generate achievements
+        if (performance.totalMeetings >= 10) {
+          achievements.push({
+            title: "Meeting Machine",
+            description: `Booked ${performance.totalMeetings} meetings total`,
+            icon: "calendar",
+          });
+        }
+        if (performance.totalQualified >= 25) {
+          achievements.push({
+            title: "Lead Qualifier",
+            description: `Qualified ${performance.totalQualified} leads total`,
+            icon: "target",
+          });
+        }
+        if (performance.connectRate >= 50) {
+          achievements.push({
+            title: "Connection Master",
+            description: `${performance.connectRate}% connect rate`,
+            icon: "phone",
+          });
+        }
+        if (performance.totalCalls >= 100) {
+          achievements.push({
+            title: "Century Club",
+            description: `Made ${performance.totalCalls} calls`,
+            icon: "trophy",
+          });
+        }
+        if (performance.weekQualified >= 5) {
+          achievements.push({
+            title: "Hot Week",
+            description: `${performance.weekQualified} qualified leads this week`,
+            icon: "flame",
+          });
+        }
+      }
+
+      // Get assigned leads with full details
+      const allLeads = await storage.getAllLeads();
+      const assignedLeads = allLeads.filter(lead => lead.assignedSdrId === sdr.id);
+
+      // Lead portfolio analysis
+      const leadPortfolio = {
+        total: assignedLeads.length,
+        byStatus: {} as Record<string, number>,
+        byPriority: { hot: 0, warm: 0, cold: 0, unset: 0 },
+        avgFitScore: 0,
+        needsFollowUp: 0,
+        recentlyContacted: 0,
+      };
+
+      let totalFitScore = 0;
+      let fitScoreCount = 0;
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+      for (const lead of assignedLeads) {
+        // By status
+        leadPortfolio.byStatus[lead.status] = (leadPortfolio.byStatus[lead.status] || 0) + 1;
+
+        // By priority
+        if (lead.priority === 'hot') leadPortfolio.byPriority.hot++;
+        else if (lead.priority === 'warm') leadPortfolio.byPriority.warm++;
+        else if (lead.priority === 'cold') leadPortfolio.byPriority.cold++;
+        else leadPortfolio.byPriority.unset++;
+
+        // Fit score
+        if (lead.fitScore !== null) {
+          totalFitScore += lead.fitScore;
+          fitScoreCount++;
+        }
+
+        // Follow-up needed
+        if (lead.nextFollowUpAt && new Date(lead.nextFollowUpAt) <= now) {
+          leadPortfolio.needsFollowUp++;
+        }
+
+        // Recently contacted
+        if (lead.lastContactedAt && new Date(lead.lastContactedAt) >= oneWeekAgo) {
+          leadPortfolio.recentlyContacted++;
+        }
+      }
+
+      leadPortfolio.avgFitScore = fitScoreCount > 0 ? Math.round(totalFitScore / fitScoreCount) : 0;
+
+      // Get top leads (hot priority or high fit score)
+      const topLeads = assignedLeads
+        .filter(l => l.priority === 'hot' || (l.fitScore && l.fitScore >= 70))
+        .slice(0, 10)
+        .map(lead => ({
+          id: lead.id,
+          companyName: lead.companyName,
+          contactName: lead.contactName,
+          status: lead.status,
+          fitScore: lead.fitScore,
+          priority: lead.priority,
+          nextFollowUpAt: lead.nextFollowUpAt,
+        }));
+
+      // Calculate best calling hours
+      const bestHours = Object.entries(callsByHour)
+        .map(([hour, data]) => ({
+          hour: parseInt(hour),
+          calls: data.calls,
+          connected: data.connected,
+          connectRate: data.calls > 0 ? Math.round((data.connected / data.calls) * 100) : 0,
+        }))
+        .filter(h => h.calls >= 3) // Only hours with enough data
+        .sort((a, b) => b.connectRate - a.connectRate)
+        .slice(0, 3);
+
+      // Get coaching insights from manager analyses if available
+      let coachingInsights = {
+        avgOverallScore: null as number | null,
+        avgOpeningScore: null as number | null,
+        avgDiscoveryScore: null as number | null,
+        avgListeningScore: null as number | null,
+        avgClosingScore: null as number | null,
+        recentFeedback: [] as { date: string; score: number; summary: string }[],
+        strengths: [] as string[],
+        areasForImprovement: [] as string[],
+      };
+
+      try {
+        const analyses = await storage.getManagerCallAnalysesBySdr(sdr.id);
+        if (analyses && analyses.length > 0) {
+          let totalOverall = 0, totalOpening = 0, totalDiscovery = 0, totalListening = 0, totalClosing = 0;
+          let count = 0;
+
+          for (const analysis of analyses.slice(0, 20)) {
+            if (analysis.overallScore) {
+              totalOverall += analysis.overallScore;
+              count++;
+            }
+            if (analysis.openingScore) totalOpening += analysis.openingScore;
+            if (analysis.discoveryScore) totalDiscovery += analysis.discoveryScore;
+            if (analysis.listeningScore) totalListening += analysis.listeningScore;
+            if (analysis.closingScore) totalClosing += analysis.closingScore;
+          }
+
+          if (count > 0) {
+            coachingInsights.avgOverallScore = Math.round(totalOverall / count);
+            coachingInsights.avgOpeningScore = Math.round(totalOpening / count);
+            coachingInsights.avgDiscoveryScore = Math.round(totalDiscovery / count);
+            coachingInsights.avgListeningScore = Math.round(totalListening / count);
+            coachingInsights.avgClosingScore = Math.round(totalClosing / count);
+
+            // Identify strengths and weaknesses
+            const scores = [
+              { name: 'Opening', score: coachingInsights.avgOpeningScore },
+              { name: 'Discovery', score: coachingInsights.avgDiscoveryScore },
+              { name: 'Listening', score: coachingInsights.avgListeningScore },
+              { name: 'Closing', score: coachingInsights.avgClosingScore },
+            ].filter(s => s.score !== null);
+
+            scores.sort((a, b) => (b.score || 0) - (a.score || 0));
+            coachingInsights.strengths = scores.slice(0, 2).filter(s => (s.score || 0) >= 70).map(s => s.name);
+            coachingInsights.areasForImprovement = scores.slice(-2).filter(s => (s.score || 0) < 70).map(s => s.name);
+          }
+
+          // Recent feedback
+          for (const analysis of analyses.slice(0, 5)) {
+            if (analysis.overallScore && analysis.managerSummary) {
+              coachingInsights.recentFeedback.push({
+                date: analysis.createdAt.toISOString(),
+                score: analysis.overallScore,
+                summary: analysis.managerSummary.slice(0, 200),
+              });
+            }
+          }
+        }
+      } catch (e) {
+        // Coaching insights not critical, continue without them
+      }
+
+      // Calculate month-over-month trends
+      const trends = {
+        callsTrend: performance.lastMonthCalls > 0
+          ? Math.round(((performance.monthCalls - performance.lastMonthCalls) / performance.lastMonthCalls) * 100)
+          : 0,
+        qualifiedTrend: performance.lastMonthQualified > 0
+          ? Math.round(((performance.monthQualified - performance.lastMonthQualified) / performance.lastMonthQualified) * 100)
+          : 0,
+        meetingsTrend: performance.lastMonthMeetings > 0
+          ? Math.round(((performance.monthMeetings - performance.lastMonthMeetings) / performance.lastMonthMeetings) * 100)
+          : 0,
+      };
+
+      res.json({
+        sdr: {
+          id: sdr.id,
+          name: sdr.name,
+          email: sdr.email,
+          timezone: sdr.timezone,
+          isActive: sdr.isActive,
+          createdAt: sdr.createdAt,
+        },
+        manager: manager ? { id: manager.id, name: manager.name, email: manager.email } : null,
+        performance,
+        trends,
+        dispositionBreakdown,
+        weeklyActivity,
+        bestHours,
+        recentCalls,
+        leadPortfolio,
+        topLeads,
+        achievements,
+        coachingInsights,
+      });
+    } catch (error) {
+      console.error("Get SDR profile error:", error);
+      res.status(500).json({ message: "Failed to fetch SDR profile" });
+    }
+  });
+
   app.patch("/api/sdrs/:id", requireRole("admin", "manager"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -723,7 +1119,7 @@ export async function registerRoutes(
       if (!sdr) {
         return res.status(404).json({ message: "SDR not found" });
       }
-      
+
       res.json(sdr);
     } catch (error) {
       if (error instanceof z.ZodError) {
