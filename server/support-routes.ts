@@ -37,7 +37,15 @@ interface SdrPerformance {
   callsToday: number;
   callsThisWeek: number;
   qualifiedLeads: number;
+  qualifiedThisWeek: number;
+  meetingsThisWeek: number;
   connectionRate: number;
+  // Historical data for week-over-week comparison
+  lastWeekCalls: number;
+  lastWeekQualified: number;
+  lastWeekMeetings: number;
+  callsChange: number; // percentage change from last week
+  qualifiedChange: number; // percentage change from last week
 }
 
 interface LeadTranscriptData {
@@ -93,6 +101,7 @@ interface UserContextData {
     teamTotalLeads: number;
     teamQualifiedLeads: number;
     topPerformer?: string;
+    mostImproved?: string;
   };
   // Lead transcript data (for manager queries about specific leads)
   leadTranscripts?: LeadTranscriptData;
@@ -374,6 +383,11 @@ async function fetchTeamData(
     // Get all calls for team
     const teamCalls = await storage.getCallSessionsByUserIds(userIds);
 
+    // Calculate last week's date range for historical comparison
+    const startOfLastWeek = new Date(startOfWeek);
+    startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+    const endOfLastWeek = new Date(startOfWeek);
+
     // Get all leads for team SDRs
     const allTeamLeads: any[] = [];
     for (const sdr of teamSdrs) {
@@ -388,39 +402,105 @@ async function fetchTeamData(
       lead.status === "qualified" || lead.status === "handed_off" || lead.status === "converted"
     ).length;
 
-    // Calculate per-SDR performance
+    // Calculate per-SDR performance with historical data
+    // Using EXACT same logic as dashboard in routes.ts lines 816-834
     const sdrPerformance: SdrPerformance[] = teamSdrs.map(sdr => {
       const sdrUser = sdrUsers.find(u => u.sdrId === sdr.id);
-      const sdrCalls = sdrUser ? teamCalls.filter(c => c.userId === sdrUser.id) : [];
+      const allSdrCalls = sdrUser ? teamCalls.filter(c => c.userId === sdrUser.id) : [];
       const sdrLeads = allTeamLeads.filter(l => l.sdrId === sdr.id);
 
-      const callsToday = sdrCalls.filter(call => new Date(call.startedAt) >= startOfDay).length;
-      const callsThisWeek = sdrCalls.filter(call => new Date(call.startedAt) >= startOfWeek).length;
+      // This week's sessions (same filter as dashboard: weekSessions)
+      const thisWeekSessions = allSdrCalls.filter(call => new Date(call.startedAt) >= startOfWeek);
+      
+      // Connected calls for connection rate (matching dashboard logic exactly)
+      const connectedThisWeek = thisWeekSessions.filter(call =>
+        call.disposition === "connected" || call.disposition === "qualified" || 
+        call.disposition === "meeting-booked" || call.disposition === "callback-scheduled"
+      );
+      
+      // Qualified = disposition is "qualified" OR "meeting-booked" (matching dashboard line 829)
+      const qualifiedThisWeek = thisWeekSessions.filter(call => 
+        call.disposition === "qualified" || call.disposition === "meeting-booked"
+      ).length;
+      
+      // Meetings = disposition is "meeting-booked" (matching dashboard line 830)
+      const meetingsThisWeek = thisWeekSessions.filter(call => 
+        call.disposition === "meeting-booked"
+      ).length;
+      
+      // Connection rate (matching dashboard line 831)
+      const connectionRate = thisWeekSessions.length > 0 
+        ? Math.round((connectedThisWeek.length / thisWeekSessions.length) * 100) 
+        : 0;
+
+      // Today's calls
+      const callsToday = allSdrCalls.filter(call => new Date(call.startedAt) >= startOfDay).length;
+
+      // Total qualified leads (all time) for reference
       const qualifiedLeads = sdrLeads.filter(lead =>
         lead.status === "qualified" || lead.status === "handed_off" || lead.status === "converted"
       ).length;
-      const connectedCalls = sdrCalls.filter(call =>
-        call.disposition && call.disposition !== "no_answer" && call.disposition !== "busy"
+
+      // Last week's sessions for historical comparison
+      const lastWeekSessions = allSdrCalls.filter(call => {
+        const callDate = new Date(call.startedAt);
+        return callDate >= startOfLastWeek && callDate < endOfLastWeek;
+      });
+      const lastWeekCallCount = lastWeekSessions.length;
+      const lastWeekQualified = lastWeekSessions.filter(call => 
+        call.disposition === "qualified" || call.disposition === "meeting-booked"
       ).length;
-      const connectionRate = sdrCalls.length > 0 ? Math.round((connectedCalls / sdrCalls.length) * 100) : 0;
+      const lastWeekMeetings = lastWeekSessions.filter(call => 
+        call.disposition === "meeting-booked"
+      ).length;
+
+      // Calculate week-over-week changes (0% if no prior data, not 100%)
+      const callsChange = lastWeekCallCount > 0 
+        ? Math.round(((thisWeekSessions.length - lastWeekCallCount) / lastWeekCallCount) * 100)
+        : 0;
+      const qualifiedChange = lastWeekQualified > 0 
+        ? Math.round(((qualifiedThisWeek - lastWeekQualified) / lastWeekQualified) * 100)
+        : 0;
 
       return {
         id: sdr.id,
         name: sdr.name,
         totalLeads: sdrLeads.length,
-        totalCalls: sdrCalls.length,
+        totalCalls: allSdrCalls.length,
         callsToday,
-        callsThisWeek,
+        callsThisWeek: thisWeekSessions.length,
         qualifiedLeads,
+        qualifiedThisWeek,
+        meetingsThisWeek,
         connectionRate,
+        lastWeekCalls: lastWeekCallCount,
+        lastWeekQualified,
+        lastWeekMeetings,
+        callsChange,
+        qualifiedChange,
       };
     });
 
-    // Find top performer by calls this week
-    const topPerformer = sdrPerformance.reduce((top, sdr) =>
-      sdr.callsThisWeek > (top?.callsThisWeek || 0) ? sdr : top,
-      sdrPerformance[0]
+    // Sort by performance using SAME logic as dashboard (line 834):
+    // Primary: qualified (desc), Secondary: meetings (desc)
+    const sortedByPerformance = [...sdrPerformance].sort((a, b) => 
+      b.qualifiedThisWeek - a.qualifiedThisWeek || b.meetingsThisWeek - a.meetingsThisWeek
     );
+    const topPerformer = sortedByPerformance[0];
+
+    // Find most improved SDR (positive qualified change, with tie-breaker on meetings change)
+    // Only consider SDRs who have both this week AND last week data for fair comparison
+    const sdrsWithHistory = sdrPerformance.filter(sdr => sdr.lastWeekCalls > 0 && sdr.callsThisWeek > 0);
+    const mostImproved = sdrsWithHistory.length > 0
+      ? [...sdrsWithHistory].sort((a, b) => {
+          // Primary: qualified improvement
+          if (b.qualifiedChange !== a.qualifiedChange) return b.qualifiedChange - a.qualifiedChange;
+          // Tie-breaker: absolute qualified increase
+          const aQualIncrease = a.qualifiedThisWeek - a.lastWeekQualified;
+          const bQualIncrease = b.qualifiedThisWeek - b.lastWeekQualified;
+          return bQualIncrease - aQualIncrease;
+        })[0]
+      : null;
 
     return {
       sdrs: sdrPerformance,
@@ -428,6 +508,7 @@ async function fetchTeamData(
       teamTotalLeads,
       teamQualifiedLeads,
       topPerformer: topPerformer?.name,
+      mostImproved: mostImproved?.name,
     };
   } catch (error) {
     console.error("[SupportChat] Error fetching team data:", error);
@@ -490,16 +571,30 @@ function formatUserDataForPrompt(data: UserContextData, intent: DataIntent, user
     formatted += `- Total team calls: ${data.teamData.teamTotalCalls}\n`;
     formatted += `- Team qualified leads: ${data.teamData.teamQualifiedLeads}\n`;
     if (data.teamData.topPerformer) {
-      formatted += `- Top performer this week: ${data.teamData.topPerformer}\n`;
+      formatted += `- Top performer this week (by qualified leads + meetings): ${data.teamData.topPerformer}\n`;
+    }
+    if (data.teamData.mostImproved) {
+      formatted += `- Most improved SDR (week-over-week): ${data.teamData.mostImproved}\n`;
     }
     formatted += `\n`;
 
     if (data.teamData.sdrs.length > 0) {
-      formatted += `**SDR Performance:**\n`;
-      data.teamData.sdrs.forEach((sdr, i) => {
+      // Sort SDRs by performance (same as dashboard: qualified, then meetings)
+      const sortedSdrs = [...data.teamData.sdrs].sort((a, b) => 
+        b.qualifiedThisWeek - a.qualifiedThisWeek || b.meetingsThisWeek - a.meetingsThisWeek
+      );
+      
+      formatted += `**SDR Performance (ranked by qualified leads + meetings this week):**\n`;
+      sortedSdrs.forEach((sdr, i) => {
         formatted += `${i + 1}. **${sdr.name}**\n`;
-        formatted += `   Leads: ${sdr.totalLeads} | Calls this week: ${sdr.callsThisWeek}\n`;
-        formatted += `   Qualified: ${sdr.qualifiedLeads} | Connection Rate: ${sdr.connectionRate}%\n`;
+        formatted += `   This week: ${sdr.callsThisWeek} calls | ${sdr.qualifiedThisWeek} qualified | ${sdr.meetingsThisWeek} meetings | ${sdr.connectionRate}% connect rate\n`;
+        if (sdr.lastWeekCalls > 0) {
+          const callsTrend = sdr.callsChange >= 0 ? `+${sdr.callsChange}%` : `${sdr.callsChange}%`;
+          const qualifiedTrend = sdr.qualifiedChange >= 0 ? `+${sdr.qualifiedChange}%` : `${sdr.qualifiedChange}%`;
+          formatted += `   Last week: ${sdr.lastWeekCalls} calls | ${sdr.lastWeekQualified} qualified | Week-over-week: ${callsTrend} calls, ${qualifiedTrend} qualified\n`;
+        } else {
+          formatted += `   (No data from previous week for comparison)\n`;
+        }
       });
     }
   }
