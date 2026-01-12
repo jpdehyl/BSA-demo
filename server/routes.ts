@@ -19,6 +19,21 @@ import { registerSupportRoutes } from "./support-routes";
 import { registerZoomRoutes } from "./zoom-routes";
 import reportRoutes from "./report-routes";
 import { listFilesInProcessed } from "./google/driveClient";
+import {
+  getDateRanges,
+  initializeWeeklyActivity,
+  calculateTrend,
+  processSdrCalls,
+  calculateConnectRate,
+  getTopPerformers,
+  formatCoachingSession,
+  calculateCoachingMetrics,
+  generateAchievements,
+  createEmptyTeamMetrics,
+  type TeamMember,
+  type TeamMetrics,
+  type WeeklyActivityDay,
+} from "./helpers/managerProfileHelpers";
 
 declare module "express-session" {
   interface SessionData {
@@ -594,6 +609,7 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Manager not found" });
       }
 
+      // Fetch base data
       const allSdrs = await storage.getSdrsByManager(manager.id);
       const allUsers = await storage.getAllUsers();
       const sdrUserMap = new Map<string, string>();
@@ -601,90 +617,45 @@ export async function registerRoutes(
         if (u.sdrId) sdrUserMap.set(u.sdrId, u.id);
       }
 
-      const now = new Date();
-      const startOfWeek = new Date(now);
-      startOfWeek.setDate(now.getDate() - now.getDay());
-      startOfWeek.setHours(0, 0, 0, 0);
-      const startOfLastWeek = new Date(startOfWeek);
-      startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
-      const endOfLastWeek = new Date(startOfWeek);
+      // Initialize date ranges and metrics
+      const dateRanges = getDateRanges();
+      const weeklyActivity = initializeWeeklyActivity();
+      const teamMetrics = createEmptyTeamMetrics(allSdrs.length);
 
-      let teamMetrics = {
-        totalSdrs: allSdrs.length,
-        totalCalls: 0,
-        totalQualified: 0,
-        totalMeetings: 0,
-        avgConnectRate: 0,
-        avgCoachingScore: 0,
-        coachingSessionsGiven: 0,
-        weekCalls: 0,
-        weekQualified: 0,
-        weekMeetings: 0,
-        lastWeekCalls: 0,
-        lastWeekQualified: 0,
-        lastWeekMeetings: 0,
-      };
-
-      const team: any[] = [];
-      const weeklyActivity: { date: string; calls: number; qualified: number; meetings: number }[] = [];
-      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        weeklyActivity.push({ date: days[d.getDay()], calls: 0, qualified: 0, meetings: 0 });
-      }
-
+      // Aggregate SDR performance data
+      const team: TeamMember[] = [];
       let totalConnectRates = 0;
-      let sdrWithCalls = 0;
+      let sdrsWithCalls = 0;
 
       for (const sdr of allSdrs) {
         const userId = sdrUserMap.get(sdr.id);
-        let weekCalls = 0, weekQualified = 0, weekMeetings = 0, connectRate = 0, trend = 0;
-        let lastWeekCalls = 0;
+        let sdrMetrics = { weekCalls: 0, weekQualified: 0, weekMeetings: 0, connectRate: 0, trend: 0 };
 
         if (userId) {
           const calls = await storage.getCallSessionsByUser(userId);
-          const thisWeekCalls = calls.filter((c: any) => new Date(c.startedAt) >= startOfWeek);
-          const lastWeekCallsArr = calls.filter((c: any) => {
-            const d = new Date(c.startedAt);
-            return d >= startOfLastWeek && d < endOfLastWeek;
-          });
+          const callMetrics = processSdrCalls(calls, dateRanges, weeklyActivity);
 
-          weekCalls = thisWeekCalls.length;
-          lastWeekCalls = lastWeekCallsArr.length;
-          teamMetrics.weekCalls += weekCalls;
-          teamMetrics.lastWeekCalls += lastWeekCalls;
+          // Update team metrics
+          teamMetrics.weekCalls += callMetrics.weekCalls;
+          teamMetrics.lastWeekCalls += callMetrics.lastWeekCalls;
           teamMetrics.totalCalls += calls.length;
+          teamMetrics.weekQualified += callMetrics.weekQualified;
+          teamMetrics.weekMeetings += callMetrics.weekMeetings;
+          teamMetrics.lastWeekQualified += callMetrics.lastWeekQualified;
+          teamMetrics.lastWeekMeetings += callMetrics.lastWeekMeetings;
 
-          let connected = 0;
-          for (const call of thisWeekCalls) {
-            if (['connected', 'qualified', 'meeting-booked', 'callback-scheduled', 'not-interested'].includes(call.disposition || '')) connected++;
-            if (call.disposition === 'qualified') { weekQualified++; teamMetrics.weekQualified++; }
-            if (call.disposition === 'meeting-booked') { weekMeetings++; teamMetrics.weekMeetings++; }
+          // Calculate SDR performance
+          sdrMetrics = {
+            weekCalls: callMetrics.weekCalls,
+            weekQualified: callMetrics.weekQualified,
+            weekMeetings: callMetrics.weekMeetings,
+            connectRate: calculateConnectRate(callMetrics.connected, callMetrics.weekCalls),
+            trend: calculateTrend(callMetrics.weekCalls, callMetrics.lastWeekCalls),
+          };
 
-            const callDate = new Date(call.startedAt);
-            const daysAgo = Math.floor((now.getTime() - callDate.getTime()) / (1000 * 60 * 60 * 24));
-            if (daysAgo >= 0 && daysAgo < 7) {
-              const idx = 6 - daysAgo;
-              if (idx >= 0 && idx < weeklyActivity.length) {
-                weeklyActivity[idx].calls++;
-                if (call.disposition === 'qualified') weeklyActivity[idx].qualified++;
-                if (call.disposition === 'meeting-booked') weeklyActivity[idx].meetings++;
-              }
-            }
-          }
-
-          for (const call of lastWeekCallsArr) {
-            if (call.disposition === 'qualified') teamMetrics.lastWeekQualified++;
-            if (call.disposition === 'meeting-booked') teamMetrics.lastWeekMeetings++;
-          }
-
-          connectRate = weekCalls > 0 ? Math.round((connected / weekCalls) * 100) : 0;
-          trend = lastWeekCalls > 0 ? Math.round(((weekCalls - lastWeekCalls) / lastWeekCalls) * 100) : 0;
-
-          if (weekCalls > 0) {
-            totalConnectRates += connectRate;
-            sdrWithCalls++;
+          if (callMetrics.weekCalls > 0) {
+            totalConnectRates += sdrMetrics.connectRate;
+            sdrsWithCalls++;
           }
         }
 
@@ -692,48 +663,36 @@ export async function registerRoutes(
           id: sdr.id,
           name: sdr.name,
           email: sdr.email,
-          performance: { weekCalls, weekQualified, weekMeetings, connectRate, trend },
+          performance: sdrMetrics,
         });
       }
 
-      teamMetrics.avgConnectRate = sdrWithCalls > 0 ? Math.round(totalConnectRates / sdrWithCalls) : 0;
+      // Calculate team average connect rate
+      teamMetrics.avgConnectRate = sdrsWithCalls > 0 ? Math.round(totalConnectRates / sdrsWithCalls) : 0;
 
+      // Process coaching data
       const allAnalyses = await storage.getAllManagerCallAnalyses();
       const teamAnalyses = allAnalyses.filter((a: any) => allSdrs.some((s: any) => s.id === a.sdrId));
-      teamMetrics.coachingSessionsGiven = teamAnalyses.length;
-      if (teamAnalyses.length > 0) {
-        teamMetrics.avgCoachingScore = Math.round(teamAnalyses.reduce((sum: number, a: any) => sum + (a.overallScore || 0), 0) / teamAnalyses.length);
-      }
+      const coachingMetrics = calculateCoachingMetrics(teamAnalyses);
+      teamMetrics.coachingSessionsGiven = coachingMetrics.sessionsGiven;
+      teamMetrics.avgCoachingScore = coachingMetrics.avgScore;
 
+      // Calculate trends
       const trends = {
-        callsTrend: teamMetrics.lastWeekCalls > 0 ? Math.round(((teamMetrics.weekCalls - teamMetrics.lastWeekCalls) / teamMetrics.lastWeekCalls) * 100) : 0,
-        qualifiedTrend: teamMetrics.lastWeekQualified > 0 ? Math.round(((teamMetrics.weekQualified - teamMetrics.lastWeekQualified) / teamMetrics.lastWeekQualified) * 100) : 0,
-        meetingsTrend: teamMetrics.lastWeekMeetings > 0 ? Math.round(((teamMetrics.weekMeetings - teamMetrics.lastWeekMeetings) / teamMetrics.lastWeekMeetings) * 100) : 0,
+        callsTrend: calculateTrend(teamMetrics.weekCalls, teamMetrics.lastWeekCalls),
+        qualifiedTrend: calculateTrend(teamMetrics.weekQualified, teamMetrics.lastWeekQualified),
+        meetingsTrend: calculateTrend(teamMetrics.weekMeetings, teamMetrics.lastWeekMeetings),
       };
 
-      const topPerformers = [...team]
-        .sort((a, b) => b.performance.weekQualified - a.performance.weekQualified)
-        .slice(0, 5)
-        .map(s => ({ name: s.name, metric: 'qualified', value: s.performance.weekQualified }));
-
-      const recentCoachingSessions = teamAnalyses.slice(0, 10).map((a: any) => ({
-        id: a.id,
-        sdrName: a.sdrName || 'Unknown',
-        date: a.analyzedAt,
-        score: a.overallScore || 0,
-        summary: a.summary || 'No summary available',
-      }));
-
-      const achievements = [
-        { title: "Team Builder", description: `Managing ${allSdrs.length} SDRs`, icon: "users" },
-        { title: "Coach Excellence", description: `${teamMetrics.coachingSessionsGiven} coaching sessions given`, icon: "graduation" },
-      ];
-      if (teamMetrics.avgCoachingScore >= 80) {
-        achievements.push({ title: "High Performance Team", description: "Team average score above 80", icon: "star" });
-      }
-      if (teamMetrics.weekMeetings >= 5) {
-        achievements.push({ title: "Meeting Machine", description: `${teamMetrics.weekMeetings} meetings booked this week`, icon: "target" });
-      }
+      // Derive summary data
+      const topPerformers = getTopPerformers(team, 5);
+      const recentCoachingSessions = teamAnalyses.slice(0, 10).map(formatCoachingSession);
+      const achievements = generateAchievements(
+        allSdrs.length,
+        teamMetrics.coachingSessionsGiven,
+        teamMetrics.avgCoachingScore,
+        teamMetrics.weekMeetings
+      );
 
       res.json({
         manager,
