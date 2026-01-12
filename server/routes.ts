@@ -177,24 +177,34 @@ export async function registerRoutes(
   app.post("/api/auth/login", authLimiter, async (req: Request, res: Response) => {
     try {
       const { email, password } = loginSchema.parse(req.body);
+      console.log("Login attempt for:", email);
 
       const user = await storage.getUserByEmail(email);
       if (!user) {
+        console.log("Login failed - user not found:", email);
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
       const isValid = await verifyPassword(password, user.password);
       if (!isValid) {
+        console.log("Login failed - invalid password for:", email);
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
       await storage.updateUserLastLogin(user.id);
       setUserSession(req.session, user);
 
-      console.log("Login successful - Session ID:", req.sessionID);
-      console.log("Login successful - User ID set:", user.id);
-
-      res.json({ user: excludePassword(user) });
+      // Explicitly save session to ensure it's persisted before responding
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error("Session save error:", saveErr);
+          return res.status(500).json({ message: "Login failed - session error" });
+        }
+        
+        console.log("Login successful - Session ID:", req.sessionID);
+        console.log("Login successful - User ID set:", user.id);
+        res.json({ user: excludePassword(user) });
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
