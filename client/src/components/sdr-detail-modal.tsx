@@ -499,7 +499,7 @@ export function SdrDetailModal({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          <Link href="/team">
+          <Link href={`/team/${sdr.sdrId}`}>
             <Button>View Full Profile</Button>
           </Link>
         </div>
