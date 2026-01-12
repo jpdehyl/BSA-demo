@@ -1656,6 +1656,64 @@ export async function registerRoutes(
         conversion: detectAnomaly(sparklines.conversion.slice(0, -1), conversionRate),
       };
 
+      // Goal tracking with predictions
+      // Calculate days elapsed and remaining in current month
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const daysInMonth = endOfMonth.getDate();
+      const daysElapsed = now.getDate();
+      const daysRemaining = daysInMonth - daysElapsed;
+
+      // Get current month's sessions
+      const monthSessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= startOfMonth);
+      const monthQualified = monthSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked");
+      const monthMeetings = monthSessions.filter(s => s.disposition === "meeting-booked");
+
+      // Define monthly goals (could be stored per-user in the future)
+      const monthlyGoals = {
+        calls: isPrivileged ? allSdrs.length * 200 : 200, // 200 calls per SDR per month
+        qualified: isPrivileged ? allSdrs.length * 20 : 20, // 20 qualified leads per SDR
+        meetings: isPrivileged ? allSdrs.length * 8 : 8, // 8 meetings per SDR
+      };
+
+      // Calculate projections based on current pace
+      const dailyRate = {
+        calls: daysElapsed > 0 ? monthSessions.length / daysElapsed : 0,
+        qualified: daysElapsed > 0 ? monthQualified.length / daysElapsed : 0,
+        meetings: daysElapsed > 0 ? monthMeetings.length / daysElapsed : 0,
+      };
+
+      const projectedMonth = {
+        calls: Math.round(monthSessions.length + (dailyRate.calls * daysRemaining)),
+        qualified: Math.round(monthQualified.length + (dailyRate.qualified * daysRemaining)),
+        meetings: Math.round(monthMeetings.length + (dailyRate.meetings * daysRemaining)),
+      };
+
+      const goalTracking = {
+        daysRemaining,
+        daysElapsed,
+        metrics: {
+          calls: {
+            current: monthSessions.length,
+            goal: monthlyGoals.calls,
+            projected: projectedMonth.calls,
+            dailyRate: Math.round(dailyRate.calls * 10) / 10,
+          },
+          qualified: {
+            current: monthQualified.length,
+            goal: monthlyGoals.qualified,
+            projected: projectedMonth.qualified,
+            dailyRate: Math.round(dailyRate.qualified * 10) / 10,
+          },
+          meetings: {
+            current: monthMeetings.length,
+            goal: monthlyGoals.meetings,
+            projected: projectedMonth.meetings,
+            dailyRate: Math.round(dailyRate.meetings * 10) / 10,
+          },
+        },
+      };
+
       res.json({
         hero: {
           pipelineValue,
@@ -1703,6 +1761,7 @@ export async function registerRoutes(
           leads: allLeads.length,
         },
         roiTracking,
+        goalTracking,
         isPrivileged,
         currentUserId: req.session.userId,
       });

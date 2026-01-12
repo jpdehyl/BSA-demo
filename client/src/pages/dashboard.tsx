@@ -14,6 +14,7 @@ import { LeadDetailModal } from "@/components/lead-detail-modal";
 import { TimeRangeSelector, type TimeRange, getTimeRangeLabel } from "@/components/time-range-selector";
 import { Sparkline } from "@/components/sparkline";
 import { InsightsCard } from "@/components/insights-card";
+import { GoalProgressCard } from "@/components/goal-progress-card";
 import { 
   Users, 
   Phone, 
@@ -111,6 +112,15 @@ interface DashboardMetrics {
     callsWithoutPrep: number;
     meetingsWithPrep: number;
     meetingsWithoutPrep: number;
+  };
+  goalTracking: {
+    daysRemaining: number;
+    daysElapsed: number;
+    metrics: {
+      calls: { current: number; goal: number; projected: number; dailyRate: number };
+      qualified: { current: number; goal: number; projected: number; dailyRate: number };
+      meetings: { current: number; goal: number; projected: number; dailyRate: number };
+    };
   };
   isPrivileged: boolean;
   currentUserId: string;
@@ -916,7 +926,36 @@ export default function DashboardPage() {
           </Card>
         )}
 
-        <InsightsCard timeRange={timeRange} className="lg:col-span-3" />
+        <InsightsCard timeRange={timeRange} className="lg:col-span-2" />
+
+        {metrics?.goalTracking && (
+          <GoalProgressCard
+            periodLabel="Monthly"
+            metrics={[
+              {
+                label: "Calls",
+                current: metrics.goalTracking.metrics.calls.current,
+                goal: metrics.goalTracking.metrics.calls.goal,
+                projected: metrics.goalTracking.metrics.calls.projected,
+                daysRemaining: metrics.goalTracking.daysRemaining,
+              },
+              {
+                label: "Qualified Leads",
+                current: metrics.goalTracking.metrics.qualified.current,
+                goal: metrics.goalTracking.metrics.qualified.goal,
+                projected: metrics.goalTracking.metrics.qualified.projected,
+                daysRemaining: metrics.goalTracking.daysRemaining,
+              },
+              {
+                label: "Meetings Booked",
+                current: metrics.goalTracking.metrics.meetings.current,
+                goal: metrics.goalTracking.metrics.meetings.goal,
+                projected: metrics.goalTracking.metrics.meetings.projected,
+                daysRemaining: metrics.goalTracking.daysRemaining,
+              },
+            ]}
+          />
+        )}
       </div>
 
       <DialingModal
