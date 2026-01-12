@@ -12,6 +12,7 @@ import { ROIStats } from "@/components/roi-stats";
 import { SdrDetailModal } from "@/components/sdr-detail-modal";
 import { LeadDetailModal } from "@/components/lead-detail-modal";
 import { TimeRangeSelector, type TimeRange, getTimeRangeLabel } from "@/components/time-range-selector";
+import { Sparkline } from "@/components/sparkline";
 import { 
   Users, 
   Phone, 
@@ -55,6 +56,12 @@ interface DashboardMetrics {
     callsTrend: number;
     meetingsBooked: number;
     qualifiedLeads: number;
+    sparklines: {
+      calls: number[];
+      qualified: number[];
+      meetings: number[];
+      conversion: number[];
+    };
   };
   timeRange: string;
   rangeDays: number;
@@ -138,7 +145,8 @@ function HeroMetric({
   prefix = "",
   suffix = "",
   loading = false,
-  accentColor = "primary"
+  accentColor = "primary",
+  sparklineData
 }: {
   label: string;
   value: number | string;
@@ -148,22 +156,40 @@ function HeroMetric({
   suffix?: string;
   loading?: boolean;
   accentColor?: "primary" | "green" | "blue" | "purple";
+  sparklineData?: number[];
 }) {
+  const colorMap = {
+    primary: "hsl(var(--primary))",
+    green: "#22c55e",
+    blue: "#3b82f6",
+    purple: "#8b5cf6",
+  };
+
   return (
     <Card className="border-0 shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-1">
-      <CardContent className="pt-8 pb-8 text-center">
+      <CardContent className="pt-6 pb-6 text-center">
         {loading ? (
-          <div className="flex items-center justify-center h-32">
+          <div className="flex items-center justify-center h-36">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="space-y-3">
-            <div className="text-6xl font-bold tracking-tight" data-testid={`metric-${label.toLowerCase().replace(/\s/g, '-')}`}>
+          <div className="space-y-2">
+            <div className="text-5xl font-bold tracking-tight" data-testid={`metric-${label.toLowerCase().replace(/\s/g, '-')}`}>
               {prefix}{typeof value === "number" ? value.toLocaleString() : value}{suffix}
             </div>
             <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               {label}
             </div>
+            {sparklineData && sparklineData.length > 0 && (
+              <div className="pt-2 px-4">
+                <Sparkline
+                  data={sparklineData}
+                  color={colorMap[accentColor]}
+                  height={28}
+                  showTrend={true}
+                />
+              </div>
+            )}
             {trend !== undefined && trend !== 0 && (
               <div className={`inline-flex items-center gap-1 text-sm font-medium ${trend > 0 ? 'text-green-600' : 'text-red-500'}`}>
                 {trend > 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
@@ -504,11 +530,12 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <HeroMetric
-          label="Pipeline Value"
-          value={formatCurrency(metrics?.hero.pipelineValue || 0)}
-          icon={<DollarSign className="h-5 w-5 text-green-600" />}
+          label="Qualified Leads"
+          value={metrics?.hero.qualifiedLeads || 0}
+          icon={<Target className="h-5 w-5 text-green-600" />}
           loading={isLoading}
           accentColor="green"
+          sparklineData={metrics?.hero.sparklines?.qualified}
         />
         <HeroMetric
           label="Conversion Rate"
@@ -518,6 +545,7 @@ export default function DashboardPage() {
           icon={<TrendingUp className="h-5 w-5 text-blue-600" />}
           loading={isLoading}
           accentColor="blue"
+          sparklineData={metrics?.hero.sparklines?.conversion}
         />
         <HeroMetric
           label={`Calls (${getTimeRangeLabel(timeRange)})`}
@@ -526,6 +554,7 @@ export default function DashboardPage() {
           icon={<Phone className="h-5 w-5 text-purple-600" />}
           loading={isLoading}
           accentColor="purple"
+          sparklineData={metrics?.hero.sparklines?.calls}
         />
         <HeroMetric
           label="Meetings Booked"
@@ -533,6 +562,7 @@ export default function DashboardPage() {
           icon={<Calendar className="h-5 w-5 text-primary" />}
           loading={isLoading}
           accentColor="primary"
+          sparklineData={metrics?.hero.sparklines?.meetings}
         />
       </div>
 

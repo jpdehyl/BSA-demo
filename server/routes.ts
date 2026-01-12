@@ -1591,6 +1591,41 @@ export async function registerRoutes(
         return { callsWithPrep, callsWithoutPrep, meetingsWithPrep, meetingsWithoutPrep };
       })();
 
+      // Generate sparkline data for hero metrics (last 7 periods)
+      const sparklinePoints = 7;
+      const periodLength = Math.ceil(rangeDays / sparklinePoints);
+
+      const sparklines = {
+        calls: [] as number[],
+        qualified: [] as number[],
+        meetings: [] as number[],
+        conversion: [] as number[],
+      };
+
+      for (let i = sparklinePoints - 1; i >= 0; i--) {
+        const periodEnd = new Date(now.getTime() - i * periodLength * 24 * 60 * 60 * 1000);
+        const periodStart = new Date(periodEnd.getTime() - periodLength * 24 * 60 * 60 * 1000);
+
+        const periodSessions = callSessions.filter(s => {
+          const d = s.startedAt ? new Date(s.startedAt) : null;
+          return d && d >= periodStart && d < periodEnd;
+        });
+
+        const periodQualified = periodSessions.filter(s =>
+          s.disposition === "qualified" || s.disposition === "meeting-booked"
+        ).length;
+        const periodMeetings = periodSessions.filter(s =>
+          s.disposition === "meeting-booked"
+        ).length;
+
+        sparklines.calls.push(periodSessions.length);
+        sparklines.qualified.push(periodQualified);
+        sparklines.meetings.push(periodMeetings);
+        sparklines.conversion.push(
+          periodSessions.length > 0 ? Math.round((periodQualified / periodSessions.length) * 100) : 0
+        );
+      }
+
       res.json({
         hero: {
           pipelineValue,
@@ -1604,6 +1639,7 @@ export async function registerRoutes(
             : rangeSessions.length > 0 ? 100 : 0,
           meetingsBooked: meetingsInRange.length,
           qualifiedLeads: qualifiedInRange.length,
+          sparklines,
         },
         timeRange,
         rangeDays,
