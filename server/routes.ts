@@ -16,6 +16,7 @@ import { registerLeadsRoutes } from "./leads-routes";
 import { registerCoachRoutes } from "./coach-routes";
 import { registerSalesforceRoutes } from "./salesforce-routes";
 import { registerSupportRoutes } from "./support-routes";
+import { registerZoomRoutes } from "./zoom-routes";
 import { listFilesInProcessed } from "./google/driveClient";
 
 declare module "express-session" {
@@ -2610,6 +2611,7 @@ export async function registerRoutes(
   registerCoachRoutes(app, requireAuth);
   registerSalesforceRoutes(app, requireAuth);
   registerSupportRoutes(app);
+  registerZoomRoutes(app);
   registerTwilioVoiceRoutes(app);
   registerTranscriptionRoutes(app);
   setupTranscriptionWebSocket(httpServer);

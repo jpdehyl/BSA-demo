@@ -78,6 +78,7 @@ export interface IStorage {
   
   getCallSession(id: string): Promise<CallSession | undefined>;
   getCallSessionByCallSid(callSid: string): Promise<CallSession | undefined>;
+  getCallSessionByZoomId(zoomCallId: string): Promise<CallSession | undefined>;
   getCallSessionsByUser(userId: string): Promise<CallSession[]>;
   getCallSessionsByLead(leadId: string): Promise<CallSession[]>;
   getAllCallSessions(): Promise<CallSession[]>;
@@ -419,6 +420,11 @@ export class DatabaseStorage implements IStorage {
 
   async getCallSessionByCallSid(callSid: string): Promise<CallSession | undefined> {
     const [session] = await db.select().from(callSessions).where(eq(callSessions.callSid, callSid));
+    return session;
+  }
+
+  async getCallSessionByZoomId(zoomCallId: string): Promise<CallSession | undefined> {
+    const [session] = await db.select().from(callSessions).where(eq(callSessions.callSid, `zoom_${zoomCallId}`));
     return session;
   }
 

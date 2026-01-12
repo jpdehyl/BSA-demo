@@ -93,6 +93,46 @@ export default function CoachingPage() {
     refetchOnWindowFocus: false,
   });
 
+  interface ZoomStats {
+    totalCalls: number;
+    inboundCalls: number;
+    outboundCalls: number;
+    totalDurationMinutes: number;
+    averageDurationSeconds: number;
+    connectedCalls: number;
+    missedCalls: number;
+    callsByDay: { date: string; calls: number; duration: number }[];
+  }
+
+  const { data: zoomStats, isLoading: zoomStatsLoading, refetch: refetchZoomStats } = useQuery<ZoomStats>({
+    queryKey: ["/api/zoom/stats"],
+    enabled: activeTab === "performance",
+    refetchOnWindowFocus: false,
+  });
+
+  const syncZoomCallsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/zoom/sync-calls", {});
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "Sync failed");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({ 
+        title: "Zoom Calls Synced", 
+        description: `${data.stats.synced} calls synced, ${data.stats.skipped} skipped` 
+      });
+      refetchZoomStats();
+      queryClient.invalidateQueries({ queryKey: ["/api/call-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/performance-summary"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Sync Failed", description: error.message, variant: "destructive" });
+    },
+  });
+
   const {
     transcripts,
     coachingTips,
@@ -848,6 +888,75 @@ export default function CoachingPage() {
                   </CardContent>
                 </Card>
               </div>
+
+              <Card className="border-2 border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-indigo-100 dark:bg-indigo-900 rounded-md">
+                        <Phone className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                      </div>
+                      <CardTitle className="text-lg text-indigo-900 dark:text-indigo-100">Zoom Phone Stats</CardTitle>
+                    </div>
+                    {(user?.role === "admin" || user?.role === "manager") && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => syncZoomCallsMutation.mutate()}
+                        disabled={syncZoomCallsMutation.isPending}
+                        className="border-indigo-300 dark:border-indigo-700"
+                      >
+                        {syncZoomCallsMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : null}
+                        Sync Zoom Calls
+                      </Button>
+                    )}
+                  </div>
+                  <CardDescription className="text-indigo-700 dark:text-indigo-300">
+                    Your Zoom Phone activity from the last 7 days
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {zoomStatsLoading ? (
+                    <div className="flex items-center justify-center py-6">
+                      <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+                    </div>
+                  ) : zoomStats ? (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="p-3 bg-white dark:bg-indigo-950/50 rounded-md border border-indigo-200 dark:border-indigo-800">
+                        <p className="text-2xl font-semibold text-indigo-900 dark:text-indigo-100">
+                          {zoomStats.totalCalls}
+                        </p>
+                        <p className="text-xs text-indigo-600 dark:text-indigo-400">Total Calls</p>
+                      </div>
+                      <div className="p-3 bg-white dark:bg-indigo-950/50 rounded-md border border-indigo-200 dark:border-indigo-800">
+                        <p className="text-2xl font-semibold text-indigo-900 dark:text-indigo-100">
+                          {zoomStats.outboundCalls}
+                        </p>
+                        <p className="text-xs text-indigo-600 dark:text-indigo-400">Outbound</p>
+                      </div>
+                      <div className="p-3 bg-white dark:bg-indigo-950/50 rounded-md border border-indigo-200 dark:border-indigo-800">
+                        <p className="text-2xl font-semibold text-indigo-900 dark:text-indigo-100">
+                          {zoomStats.totalDurationMinutes}m
+                        </p>
+                        <p className="text-xs text-indigo-600 dark:text-indigo-400">Talk Time</p>
+                      </div>
+                      <div className="p-3 bg-white dark:bg-indigo-950/50 rounded-md border border-indigo-200 dark:border-indigo-800">
+                        <p className="text-2xl font-semibold text-indigo-900 dark:text-indigo-100">
+                          {zoomStats.connectedCalls}
+                        </p>
+                        <p className="text-xs text-indigo-600 dark:text-indigo-400">Connected</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-indigo-600 dark:text-indigo-400">
+                      <Phone className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No Zoom Phone data available</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card className="border-2 border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20">
