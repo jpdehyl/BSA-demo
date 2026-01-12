@@ -154,10 +154,6 @@ export default function ReportsPage() {
               <Sparkles className="h-4 w-4 mr-2" />
               AI Insights
             </TabsTrigger>
-            <TabsTrigger value="classic" data-testid="tab-classic">
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Classic Reports
-            </TabsTrigger>
             <TabsTrigger value="team-oversight" data-testid="tab-team-oversight">
               <Eye className="h-4 w-4 mr-2" />
               Team Oversight
@@ -209,17 +205,6 @@ export default function ReportsPage() {
                 isLoading={aiLoading}
               />
             </div>
-          </TabsContent>
-
-          <TabsContent value="classic" className="space-y-6">
-            <ReportsContent
-              selectedPeriod={selectedPeriod === "7" ? "week" : "month"}
-              setSelectedPeriod={(p) => setSelectedPeriod(p === "week" ? "7" : "30")}
-              selectedSdr={selectedSdr}
-              setSelectedSdr={setSelectedSdr}
-              callSessions={callSessions}
-              sdrs={sdrs}
-            />
           </TabsContent>
 
           <TabsContent value="team-oversight" className="space-y-6">
