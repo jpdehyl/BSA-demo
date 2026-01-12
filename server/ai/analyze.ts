@@ -1,6 +1,12 @@
 import { GoogleGenAI } from "@google/genai";
-import pRetry from "p-retry";
 import { getPersonaContent, getKnowledgebaseContent, getDailySummaryCriteria } from "../google/driveClient";
+import {
+  getGenderLanguageGuidance,
+  extractTextFromGeminiResponse,
+  extractJsonFromText,
+  ensureArray,
+  withRetry,
+} from "./helpers/aiResponseHelpers";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
@@ -17,31 +23,24 @@ export interface AnalysisResult {
   improvement: string;
 }
 
-export async function analyzeTranscript(
+interface TranscriptAnalysisResponse {
+  managerSummary: string | string[];
+  coachingMessage: string;
+}
+
+/**
+ * Build the transcript analysis prompt
+ */
+function buildTranscriptAnalysisPrompt(
   transcript: string,
-  sdrFirstName?: string,
-  sdrGender?: string,
-): Promise<AnalysisResult> {
-  const [personaContent, knowledgeBase] = await Promise.all([
-    getPersonaContent(),
-    getKnowledgebaseContent(),
-  ]);
-  
-  console.log(`[Analyze] Fetched persona (${personaContent.length} chars) and knowledge base (${knowledgeBase.length} chars)`);
+  personaContent: string,
+  knowledgeBase: string,
+  sdrFirstName: string,
+  sdrGender?: string
+): string {
+  const languageGuidance = getGenderLanguageGuidance(sdrGender);
 
-  const analyze = async () => {
-    const nameToUse = sdrFirstName || "there";
-    
-    let languageGuidance = "";
-    if (sdrGender === "male") {
-      languageGuidance = `Use casual masculine language like "dude", "man", "bro" naturally in your message.`;
-    } else if (sdrGender === "female") {
-      languageGuidance = `Use supportive language but AVOID masculine terms like "dude", "man", "bro". Instead use phrases like "you crushed it", "that's what I'm talking about", "keep pushing".`;
-    } else {
-      languageGuidance = `Use gender-neutral encouraging language. Avoid "dude", "man", "bro". Use phrases like "you crushed it", "that's what I'm talking about", "keep pushing".`;
-    }
-
-    const prompt = `${personaContent}
+  return `${personaContent}
 
 ## GENDER-SPECIFIC LANGUAGE GUIDANCE:
 ${languageGuidance}
@@ -60,8 +59,8 @@ Analyze this call and provide TWO things:
    - Specific metrics noted (talk ratio, objection handling, etc.)
    - Areas for manager follow-up
 
-2. **Coaching Message for ${nameToUse}** (sent directly to the SDR):
-   - Start with "Hey ${nameToUse}," 
+2. **Coaching Message for ${sdrFirstName}** (sent directly to the SDR):
+   - Start with "Hey ${sdrFirstName},"
    - First: Find a KEY MOMENT from the call where they did something great. Quote it. Celebrate it.
    - Second: Give ONE improvement area with a specific script example they can use next time
    - End with encouragement that connects to their hustle and success
@@ -70,7 +69,7 @@ Analyze this call and provide TWO things:
 ## Response Format (JSON only - NO HTML TAGS):
 {
   "managerSummary": ["bullet 1", "bullet 2", "bullet 3"],
-  "coachingMessage": "Hey ${nameToUse},\\n\\n[Celebrate a specific moment - quote from the call]\\n\\n[One improvement with script example]\\n\\n[Encouraging close about their hustle]\\n\\n— Your Lead Intel Coach"
+  "coachingMessage": "Hey ${sdrFirstName},\\n\\n[Celebrate a specific moment - quote from the call]\\n\\n[One improvement with script example]\\n\\n[Encouraging close about their hustle]\\n\\n— Your Lead Intel Coach"
 }
 
 CRITICAL RULES:
@@ -78,63 +77,58 @@ CRITICAL RULES:
 - Use \\n for line breaks
 - Be SPECIFIC - reference actual quotes and moments from the transcript
 - Sound warm, real, encouraging, connected`;
+}
+
+export async function analyzeTranscript(
+  transcript: string,
+  sdrFirstName?: string,
+  sdrGender?: string,
+): Promise<AnalysisResult> {
+  const [personaContent, knowledgeBase] = await Promise.all([
+    getPersonaContent(),
+    getKnowledgebaseContent(),
+  ]);
+
+  console.log(`[Analyze] Fetched persona (${personaContent.length} chars) and knowledge base (${knowledgeBase.length} chars)`);
+
+  const nameToUse = sdrFirstName || "there";
+
+  const analyze = async (): Promise<AnalysisResult> => {
+    const prompt = buildTranscriptAnalysisPrompt(
+      transcript,
+      personaContent,
+      knowledgeBase,
+      nameToUse,
+      sdrGender
+    );
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
 
-    let text = "";
-    if (response.candidates && response.candidates.length > 0) {
-      const candidate = response.candidates[0];
-      if (candidate.content && candidate.content.parts) {
-        for (const part of candidate.content.parts) {
-          if (part.text) {
-            text += part.text;
-          }
-        }
-      }
-    }
-
+    const text = extractTextFromGeminiResponse(response);
     if (!text) {
       throw new Error("Empty analysis received from Gemini");
     }
 
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error("Could not parse JSON from analysis response");
-    }
-
-    const parsed = JSON.parse(jsonMatch[0]);
+    const parsed = extractJsonFromText<TranscriptAnalysisResponse>(text);
 
     if (!parsed.managerSummary || !parsed.coachingMessage) {
       throw new Error("Analysis missing required fields");
     }
 
-    const managerSummary = Array.isArray(parsed.managerSummary) 
-      ? parsed.managerSummary 
-      : [parsed.managerSummary];
+    const managerSummary = ensureArray(parsed.managerSummary);
 
-    const result: AnalysisResult = {
+    return {
       managerSummary,
       coachingMessage: parsed.coachingMessage,
       strength: JSON.stringify(managerSummary),
       improvement: parsed.coachingMessage,
     };
-
-    return result;
   };
 
-  return pRetry(analyze, {
-    retries: 3,
-    minTimeout: 1000,
-    maxTimeout: 10000,
-    onFailedAttempt: (error) => {
-      console.log(
-        `Analysis attempt ${error.attemptNumber} failed. ${error.retriesLeft} retries left.`,
-      );
-    },
-  });
+  return withRetry(analyze, "Analysis");
 }
 
 export interface DailySummaryAnalysis {
@@ -143,16 +137,22 @@ export interface DailySummaryAnalysis {
   overallPerformance: string;
 }
 
-export async function analyzeForDailySummary(
+interface DailySummaryResponse {
+  keyMoments: string | string[];
+  keyInsights: string | string[];
+  overallPerformance: string;
+}
+
+/**
+ * Build the daily summary analysis prompt
+ */
+function buildDailySummaryPrompt(
   transcript: string,
   sdrName: string,
   callAction: string,
-): Promise<DailySummaryAnalysis> {
-  const evaluationCriteria = await getDailySummaryCriteria();
-  console.log(`[DailySummary] Fetched evaluation criteria (${evaluationCriteria.length} chars)`);
-
-  const analyze = async () => {
-    const prompt = `You are analyzing a sales call for a manager's daily summary. Use the evaluation criteria provided to assess the call.
+  evaluationCriteria: string
+): string {
+  return `You are analyzing a sales call for a manager's daily summary. Use the evaluation criteria provided to assess the call.
 
 ## Evaluation Criteria (from company guidelines):
 ${evaluationCriteria}
@@ -188,54 +188,41 @@ CRITICAL RULES:
 - Tie observations to the evaluation criteria
 - Keep it concise - managers need quick summaries
 - Be objective - note both strengths and areas needing attention`;
+}
+
+export async function analyzeForDailySummary(
+  transcript: string,
+  sdrName: string,
+  callAction: string,
+): Promise<DailySummaryAnalysis> {
+  const evaluationCriteria = await getDailySummaryCriteria();
+  console.log(`[DailySummary] Fetched evaluation criteria (${evaluationCriteria.length} chars)`);
+
+  const analyze = async (): Promise<DailySummaryAnalysis> => {
+    const prompt = buildDailySummaryPrompt(transcript, sdrName, callAction, evaluationCriteria);
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
 
-    let text = "";
-    if (response.candidates && response.candidates.length > 0) {
-      const candidate = response.candidates[0];
-      if (candidate.content && candidate.content.parts) {
-        for (const part of candidate.content.parts) {
-          if (part.text) {
-            text += part.text;
-          }
-        }
-      }
-    }
-
+    const text = extractTextFromGeminiResponse(response);
     if (!text) {
       throw new Error("Empty daily summary analysis received from Gemini");
     }
 
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error("Could not parse JSON from daily summary analysis");
-    }
-
-    const parsed = JSON.parse(jsonMatch[0]);
+    const parsed = extractJsonFromText<DailySummaryResponse>(text);
 
     if (!parsed.keyMoments || !parsed.keyInsights || !parsed.overallPerformance) {
       throw new Error("Daily summary analysis missing required fields");
     }
 
     return {
-      keyMoments: Array.isArray(parsed.keyMoments) ? parsed.keyMoments : [parsed.keyMoments],
-      keyInsights: Array.isArray(parsed.keyInsights) ? parsed.keyInsights : [parsed.keyInsights],
+      keyMoments: ensureArray(parsed.keyMoments),
+      keyInsights: ensureArray(parsed.keyInsights),
       overallPerformance: parsed.overallPerformance,
     };
   };
 
-  return pRetry(analyze, {
-    retries: 3,
-    minTimeout: 1000,
-    maxTimeout: 10000,
-    onFailedAttempt: (error) => {
-      console.log(
-        `Daily summary analysis attempt ${error.attemptNumber} failed. ${error.retriesLeft} retries left.`,
-      );
-    },
-  });
+  return withRetry(analyze, "Daily summary analysis");
 }

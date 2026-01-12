@@ -2,7 +2,12 @@ import type { Express, Request, Response } from "express";
 import { storage } from "./storage";
 import { analyzeTranscript, analyzeForDailySummary } from "./ai/analyze";
 import { getKnowledgebaseContent, getPersonaContent, getDailySummaryCriteria, checkDriveConfig } from "./google/driveClient";
-import { sendFeedbackEmail, formatFeedbackEmail, formatCallDate } from "./google/gmailClient";
+import {
+  resolveEmailRecipient,
+  sendCoachingFeedbackEmail,
+  getCallDate,
+  parseManagerSummary,
+} from "./helpers/coachingEmailHelpers";
 
 export function registerCoachRoutes(app: Express, requireAuth: (req: Request, res: Response, next: () => void) => void) {
   
@@ -37,56 +42,19 @@ export function registerCoachRoutes(app: Express, requireAuth: (req: Request, re
         try {
           const user = callSession.userId ? await storage.getUser(callSession.userId) : null;
           const sdr = user?.sdrId ? await storage.getSdr(user.sdrId) : null;
-          
-          if (sdr?.email) {
-            const recipientEmail = sdr.email;
-            const sdrName = sdr.name || sdrFirstName || "Team Member";
-            const callDate = callSession.startedAt 
-              ? new Date(callSession.startedAt) 
-              : new Date();
-            
-            const emailBody = formatFeedbackEmail(
-              sdrName,
+          const recipient = resolveEmailRecipient(sdr, user, sdrFirstName);
+
+          if (recipient) {
+            const callDate = getCallDate(callSession.startedAt);
+            await sendCoachingFeedbackEmail({
+              recipient,
               callDate,
-              "Call",
-              analysis.managerSummary,
-              analysis.coachingMessage
-            );
-            
-            const dateStr = formatCallDate(callDate, "short");
-            
-            await sendFeedbackEmail({
-              to: recipientEmail,
-              cc: sdr.managerEmail,
-              subject: `Call Coaching Feedback - ${dateStr}`,
-              body: emailBody,
+              callType: "Call",
+              managerSummary: analysis.managerSummary,
+              coachingMessage: analysis.coachingMessage,
             });
-            
-            console.log(`[Coach] Sent coaching email to ${recipientEmail}`);
-            emailSent = true;
-          } else if (user?.email) {
-            console.log(`[Coach] SDR email not found, using user email: ${user.email}`);
-            const callDate = callSession.startedAt 
-              ? new Date(callSession.startedAt) 
-              : new Date();
-            
-            const emailBody = formatFeedbackEmail(
-              user.name || sdrFirstName || "Team Member",
-              callDate,
-              "Call",
-              analysis.managerSummary,
-              analysis.coachingMessage
-            );
-            
-            const dateStr = formatCallDate(callDate, "short");
-            
-            await sendFeedbackEmail({
-              to: user.email,
-              subject: `Call Coaching Feedback - ${dateStr}`,
-              body: emailBody,
-            });
-            
-            console.log(`[Coach] Sent coaching email to user: ${user.email}`);
+
+            console.log(`[Coach] Sent coaching email to ${recipient.email} (${recipient.source})`);
             emailSent = true;
           } else {
             console.log("[Coach] No email address found for SDR or user, skipping email");
@@ -135,49 +103,29 @@ export function registerCoachRoutes(app: Express, requireAuth: (req: Request, re
       
       const user = callSession.userId ? await storage.getUser(callSession.userId) : null;
       const sdr = user?.sdrId ? await storage.getSdr(user.sdrId) : null;
-      
-      const recipientEmail = sdr?.email || user?.email;
-      if (!recipientEmail) {
+      const recipient = resolveEmailRecipient(sdr, user);
+
+      if (!recipient) {
         return res.status(400).json({ message: "No email address found for SDR or user" });
       }
-      
-      const sdrName = sdr?.name || user?.name || "Team Member";
-      const callDate = callSession.startedAt 
-        ? new Date(callSession.startedAt) 
-        : new Date();
-      
-      let managerSummary: string[] = [];
-      try {
-        if (callSession.managerSummary) {
-          managerSummary = JSON.parse(callSession.managerSummary);
-        }
-      } catch (e) {
-        console.log("[Coach] Could not parse manager summary, continuing without it");
-      }
-      
-      const emailBody = formatFeedbackEmail(
-        sdrName,
+
+      const callDate = getCallDate(callSession.startedAt);
+      const managerSummary = parseManagerSummary(callSession.managerSummary);
+
+      await sendCoachingFeedbackEmail({
+        recipient,
         callDate,
-        "Call",
+        callType: "Call",
         managerSummary,
-        callSession.coachingNotes
-      );
-      
-      const dateStr = formatCallDate(callDate, "short");
-      
-      await sendFeedbackEmail({
-        to: recipientEmail,
-        cc: sdr?.managerEmail,
-        subject: `Call Coaching Feedback - ${dateStr}`,
-        body: emailBody,
+        coachingMessage: callSession.coachingNotes,
       });
-      
-      console.log(`[Coach] Resent coaching email to ${recipientEmail}`);
+
+      console.log(`[Coach] Resent coaching email to ${recipient.email}`);
       
       res.json({
         success: true,
-        sentTo: recipientEmail,
-        message: `Coaching email sent to ${recipientEmail}`
+        sentTo: recipient.email,
+        message: `Coaching email sent to ${recipient.email}`
       });
     } catch (error) {
       console.error("Resend email error:", error);
