@@ -1272,6 +1272,111 @@ export async function registerRoutes(
     }
   });
 
+  // Team averages for SDR comparison
+  app.get("/api/team-averages", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const allSdrs = await storage.getAllSdrs();
+      const allUsers = await storage.getAllUsers();
+
+      // Build SDR to User map
+      const sdrUserMap = new Map<string, string>();
+      for (const u of allUsers) {
+        if (u.sdrId) sdrUserMap.set(u.sdrId, u.id);
+      }
+
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      let totalCalls = 0;
+      let totalConnected = 0;
+      let totalQualified = 0;
+      let totalMeetings = 0;
+      let totalTalkTime = 0;
+      let weekCalls = 0;
+      let weekConnected = 0;
+      let weekQualified = 0;
+      let weekMeetings = 0;
+      let monthCalls = 0;
+      let monthConnected = 0;
+      let monthQualified = 0;
+      let monthMeetings = 0;
+      let sdrCount = 0;
+
+      for (const sdr of allSdrs) {
+        const userId = sdrUserMap.get(sdr.id);
+        if (!userId) continue;
+
+        const calls = await storage.getCallSessionsByUser(userId);
+        if (calls.length === 0) continue;
+
+        sdrCount++;
+
+        for (const call of calls) {
+          const callDate = new Date(call.startedAt);
+          const isThisWeek = callDate >= startOfWeek;
+          const isThisMonth = callDate >= startOfMonth;
+
+          totalCalls++;
+          if (isThisWeek) weekCalls++;
+          if (isThisMonth) monthCalls++;
+
+          if (call.duration) {
+            totalTalkTime += call.duration;
+          }
+
+          if (call.disposition) {
+            const isConnected = ['connected', 'qualified', 'meeting-booked', 'callback-scheduled', 'not-interested'].includes(call.disposition);
+            if (isConnected) {
+              totalConnected++;
+              if (isThisWeek) weekConnected++;
+              if (isThisMonth) monthConnected++;
+            }
+            if (call.disposition === 'qualified') {
+              totalQualified++;
+              if (isThisWeek) weekQualified++;
+              if (isThisMonth) monthQualified++;
+            }
+            if (call.disposition === 'meeting-booked') {
+              totalMeetings++;
+              if (isThisWeek) weekMeetings++;
+              if (isThisMonth) monthMeetings++;
+            }
+          }
+        }
+      }
+
+      const avgDivisor = sdrCount || 1;
+
+      res.json({
+        sdrCount,
+        // All-time averages per SDR
+        avgTotalCalls: Math.round(totalCalls / avgDivisor),
+        avgTotalConnected: Math.round(totalConnected / avgDivisor),
+        avgTotalQualified: Math.round(totalQualified / avgDivisor),
+        avgTotalMeetings: Math.round(totalMeetings / avgDivisor),
+        avgConnectRate: totalCalls > 0 ? Math.round((totalConnected / totalCalls) * 100) : 0,
+        avgConversionRate: totalCalls > 0 ? Math.round((totalQualified / totalCalls) * 100) : 0,
+        avgMeetingRate: totalCalls > 0 ? Math.round((totalMeetings / totalCalls) * 100) : 0,
+        // Weekly averages per SDR
+        avgWeekCalls: Math.round(weekCalls / avgDivisor),
+        avgWeekConnected: Math.round(weekConnected / avgDivisor),
+        avgWeekQualified: Math.round(weekQualified / avgDivisor),
+        avgWeekMeetings: Math.round(weekMeetings / avgDivisor),
+        // Monthly averages per SDR
+        avgMonthCalls: Math.round(monthCalls / avgDivisor),
+        avgMonthConnected: Math.round(monthConnected / avgDivisor),
+        avgMonthQualified: Math.round(monthQualified / avgDivisor),
+        avgMonthMeetings: Math.round(monthMeetings / avgDivisor),
+      });
+    } catch (error) {
+      console.error("Get team averages error:", error);
+      res.status(500).json({ message: "Failed to fetch team averages" });
+    }
+  });
+
   app.patch("/api/sdrs/:id", requireRole("admin", "manager"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
