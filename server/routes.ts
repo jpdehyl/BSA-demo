@@ -1390,13 +1390,32 @@ export async function registerRoutes(
         return res.status(401).json({ message: "User not found" });
       }
 
+      // Parse time range from query parameter (default: 7d)
+      const timeRange = (req.query.range as string) || "7d";
+      const now = new Date();
+
+      // Calculate days based on range
+      let rangeDays: number;
+      switch (timeRange) {
+        case "7d": rangeDays = 7; break;
+        case "14d": rangeDays = 14; break;
+        case "30d": rangeDays = 30; break;
+        case "90d": rangeDays = 90; break;
+        case "ytd": {
+          const startOfYear = new Date(now.getFullYear(), 0, 1);
+          rangeDays = Math.ceil((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+          break;
+        }
+        default: rangeDays = 7;
+      }
+
       const isPrivileged = currentUser.role === "admin" || currentUser.role === "manager";
       const allLeads = await storage.getAllLeads();
       const allSdrs = await storage.getAllSdrs();
       const allAEs = await storage.getAllAccountExecutives();
       const sdrIds = allSdrs.map(sdr => sdr.id);
       const sdrUsers = await storage.getUsersBySdrIds(sdrIds);
-      
+
       let callSessions;
       if (isPrivileged) {
         const sdrUserIds = sdrUsers.map(u => u.id);
@@ -1404,66 +1423,90 @@ export async function registerRoutes(
       } else {
         callSessions = await storage.getCallSessionsByUser(req.session.userId!);
       }
-      
-      const now = new Date();
+
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+      const rangeStart = new Date(now.getTime() - rangeDays * 24 * 60 * 60 * 1000);
+      const previousRangeStart = new Date(now.getTime() - (rangeDays * 2) * 24 * 60 * 60 * 1000);
       const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
       const todaySessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= today);
-      const weekSessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= weekAgo);
-      const lastWeekSessions = callSessions.filter(s => {
+      const rangeSessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= rangeStart);
+      const previousRangeSessions = callSessions.filter(s => {
         const d = s.startedAt ? new Date(s.startedAt) : null;
-        return d && d >= twoWeeksAgo && d < weekAgo;
+        return d && d >= previousRangeStart && d < rangeStart;
       });
       const monthSessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= monthAgo);
 
-      const qualifiedWeek = weekSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked");
-      const qualifiedLastWeek = lastWeekSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked");
-      const meetingsWeek = weekSessions.filter(s => s.disposition === "meeting-booked");
-      const connectedWeek = weekSessions.filter(s => 
-        s.disposition === "connected" || s.disposition === "qualified" || 
+      const qualifiedInRange = rangeSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked");
+      const qualifiedPrevRange = previousRangeSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked");
+      const meetingsInRange = rangeSessions.filter(s => s.disposition === "meeting-booked");
+      const connectedInRange = rangeSessions.filter(s =>
+        s.disposition === "connected" || s.disposition === "qualified" ||
         s.disposition === "meeting-booked" || s.disposition === "callback-scheduled"
       );
 
-      const conversionRate = weekSessions.length > 0 
-        ? Math.round((qualifiedWeek.length / weekSessions.length) * 100) 
+      const conversionRate = rangeSessions.length > 0
+        ? Math.round((qualifiedInRange.length / rangeSessions.length) * 100)
         : 0;
-      const lastConversionRate = lastWeekSessions.length > 0 
-        ? Math.round((qualifiedLastWeek.length / lastWeekSessions.length) * 100) 
+      const lastConversionRate = previousRangeSessions.length > 0
+        ? Math.round((qualifiedPrevRange.length / previousRangeSessions.length) * 100)
         : 0;
 
       const qualifiedLeads = allLeads.filter(l => l.status === "qualified" || l.status === "sent_to_ae");
       const pipelineValue = qualifiedLeads.length * 15000;
 
+      // Generate daily activity based on the selected range
+      // For ranges > 30 days, aggregate by week to keep chart readable
       const dailyActivity: { date: string; calls: number; qualified: number }[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const day = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-        const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
-        const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
-        const daySessions = callSessions.filter(s => {
-          const d = s.startedAt ? new Date(s.startedAt) : null;
-          return d && d >= dayStart && d < dayEnd;
-        });
-        dailyActivity.push({
-          date: dayStart.toLocaleDateString("en-US", { weekday: "short" }),
-          calls: daySessions.length,
-          qualified: daySessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked").length,
-        });
+      const useWeeklyAggregation = rangeDays > 30;
+      const dataPoints = useWeeklyAggregation ? Math.min(Math.ceil(rangeDays / 7), 13) : Math.min(rangeDays, 30);
+
+      for (let i = dataPoints - 1; i >= 0; i--) {
+        if (useWeeklyAggregation) {
+          // Aggregate by week
+          const weekEnd = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
+          const weekStart = new Date(weekEnd.getTime() - 7 * 24 * 60 * 60 * 1000);
+          const weekSessions = callSessions.filter(s => {
+            const d = s.startedAt ? new Date(s.startedAt) : null;
+            return d && d >= weekStart && d < weekEnd;
+          });
+          dailyActivity.push({
+            date: weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+            calls: weekSessions.length,
+            qualified: weekSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked").length,
+          });
+        } else {
+          // Daily data points
+          const day = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+          const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+          const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+          const daySessions = callSessions.filter(s => {
+            const d = s.startedAt ? new Date(s.startedAt) : null;
+            return d && d >= dayStart && d < dayEnd;
+          });
+          // Use shorter date format for ranges > 7 days
+          const dateFormat = rangeDays > 7
+            ? { month: "short" as const, day: "numeric" as const }
+            : { weekday: "short" as const };
+          dailyActivity.push({
+            date: dayStart.toLocaleDateString("en-US", dateFormat),
+            calls: daySessions.length,
+            qualified: daySessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked").length,
+          });
+        }
       }
 
-      const dispositionBreakdown = weekSessions.reduce((acc, s) => {
+      const dispositionBreakdown = rangeSessions.reduce((acc, s) => {
         const disp = s.disposition || "no-answer";
         acc[disp] = (acc[disp] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
 
       const funnel = {
-        totalCalls: weekSessions.length,
-        connected: connectedWeek.length,
-        qualified: qualifiedWeek.length,
-        meetings: meetingsWeek.length,
+        totalCalls: rangeSessions.length,
+        connected: connectedInRange.length,
+        qualified: qualifiedInRange.length,
+        meetings: meetingsInRange.length,
       };
 
       let sdrLeaderboard: Array<{
@@ -1480,10 +1523,10 @@ export async function registerRoutes(
       if (isPrivileged) {
         sdrLeaderboard = allSdrs.map(sdr => {
           const sdrUser = sdrUsers.find(u => u.sdrId === sdr.id);
-          const sdrSessions = sdrUser ? weekSessions.filter(s => s.userId === sdrUser.id) : [];
+          const sdrSessions = sdrUser ? rangeSessions.filter(s => s.userId === sdrUser.id) : [];
           const completed = sdrSessions.filter(s => s.status === "completed");
-          const connected = sdrSessions.filter(s => 
-            s.disposition === "connected" || s.disposition === "qualified" || 
+          const connected = sdrSessions.filter(s =>
+            s.disposition === "connected" || s.disposition === "qualified" ||
             s.disposition === "meeting-booked" || s.disposition === "callback-scheduled"
           );
           return {
@@ -1518,8 +1561,8 @@ export async function registerRoutes(
         let callsWithoutPrep = 0;
         let meetingsWithPrep = 0;
         let meetingsWithoutPrep = 0;
-        
-        for (const session of weekSessions) {
+
+        for (const session of rangeSessions) {
           if (!session.leadId) {
             callsWithoutPrep++;
             if (session.disposition === "meeting-booked") {
@@ -1527,11 +1570,11 @@ export async function registerRoutes(
             }
             continue;
           }
-          
+
           const researchPacket = await storage.getResearchPacketByLead(session.leadId);
           const hadResearch = researchPacket && researchPacket.createdAt && session.startedAt &&
             new Date(researchPacket.createdAt) < new Date(session.startedAt);
-          
+
           if (hadResearch) {
             callsWithPrep++;
             if (session.disposition === "meeting-booked") {
@@ -1544,7 +1587,7 @@ export async function registerRoutes(
             }
           }
         }
-        
+
         return { callsWithPrep, callsWithoutPrep, meetingsWithPrep, meetingsWithoutPrep };
       })();
 
@@ -1555,13 +1598,15 @@ export async function registerRoutes(
           conversionRate,
           conversionTrend: conversionRate - lastConversionRate,
           callsToday: todaySessions.length,
-          callsThisWeek: weekSessions.length,
-          callsTrend: lastWeekSessions.length > 0 
-            ? Math.round(((weekSessions.length - lastWeekSessions.length) / lastWeekSessions.length) * 100)
-            : weekSessions.length > 0 ? 100 : 0,
-          meetingsBooked: meetingsWeek.length,
-          qualifiedLeads: qualifiedWeek.length,
+          callsInRange: rangeSessions.length,
+          callsTrend: previousRangeSessions.length > 0
+            ? Math.round(((rangeSessions.length - previousRangeSessions.length) / previousRangeSessions.length) * 100)
+            : rangeSessions.length > 0 ? 100 : 0,
+          meetingsBooked: meetingsInRange.length,
+          qualifiedLeads: qualifiedInRange.length,
         },
+        timeRange,
+        rangeDays,
         funnel,
         dispositionBreakdown,
         dailyActivity,

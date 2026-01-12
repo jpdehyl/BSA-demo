@@ -11,6 +11,7 @@ import { DialingModal } from "@/components/dialing-modal";
 import { ROIStats } from "@/components/roi-stats";
 import { SdrDetailModal } from "@/components/sdr-detail-modal";
 import { LeadDetailModal } from "@/components/lead-detail-modal";
+import { TimeRangeSelector, type TimeRange, getTimeRangeLabel } from "@/components/time-range-selector";
 import { 
   Users, 
   Phone, 
@@ -50,11 +51,13 @@ interface DashboardMetrics {
     conversionRate: number;
     conversionTrend: number;
     callsToday: number;
-    callsThisWeek: number;
+    callsInRange: number;
     callsTrend: number;
     meetingsBooked: number;
     qualifiedLeads: number;
   };
+  timeRange: string;
+  rangeDays: number;
   funnel: {
     totalCalls: number;
     connected: number;
@@ -340,9 +343,17 @@ export default function DashboardPage() {
   const [dialingLead, setDialingLead] = useState<any | null>(null);
   const [selectedSdr, setSelectedSdr] = useState<SdrLeaderboardData | null>(null);
   const [selectedLead, setSelectedLead] = useState<LeadSummary | null>(null);
+  const [timeRange, setTimeRange] = useState<TimeRange>("7d");
 
   const { data: metrics, isLoading } = useQuery<DashboardMetrics>({
-    queryKey: ["/api/dashboard/metrics"],
+    queryKey: ["/api/dashboard/metrics", timeRange],
+    queryFn: async () => {
+      const res = await fetch(`/api/dashboard/metrics?range=${timeRange}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch metrics");
+      return res.json();
+    },
   });
 
   const { data: leads = [] } = useQuery<any[]>({
@@ -372,15 +383,22 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <div className="flex flex-col gap-2 mb-2">
-        <h1 className="text-4xl font-bold tracking-tight" data-testid="text-greeting">
-          {getGreeting()}, {user?.name?.split(" ")[0]}
-        </h1>
-        <p className="text-muted-foreground text-lg">
-          {metrics?.isPrivileged
-            ? "Your team's performance at a glance"
-            : "Your sales performance at a glance"}
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-4xl font-bold tracking-tight" data-testid="text-greeting">
+            {getGreeting()}, {user?.name?.split(" ")[0]}
+          </h1>
+          <p className="text-muted-foreground text-lg">
+            {metrics?.isPrivileged
+              ? "Your team's performance at a glance"
+              : "Your sales performance at a glance"}
+          </p>
+        </div>
+        <TimeRangeSelector
+          value={timeRange}
+          onChange={setTimeRange}
+          className="self-start sm:self-auto"
+        />
       </div>
 
       {/* Call Queue - Priority #1 for SDRs */}
@@ -427,7 +445,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
                 <div className="text-3xl font-bold text-primary mb-1">
-                  {metrics.hero.callsThisWeek}
+                  {metrics.hero.callsInRange}
                 </div>
                 <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
                   Total Calls
@@ -464,13 +482,13 @@ export default function DashboardPage() {
               {metrics.hero.conversionTrend > 0 && (
                 <div className="flex items-center gap-2 text-sm text-green-600">
                   <TrendingUp className="h-4 w-4" />
-                  <span>Conversion up {Math.abs(metrics.hero.conversionTrend).toFixed(1)}% from last week</span>
+                  <span>Conversion up {Math.abs(metrics.hero.conversionTrend).toFixed(1)}% vs previous period</span>
                 </div>
               )}
               {metrics.hero.conversionTrend < 0 && (
                 <div className="flex items-center gap-2 text-sm text-amber-600">
                   <TrendingDown className="h-4 w-4" />
-                  <span>Conversion down {Math.abs(metrics.hero.conversionTrend).toFixed(1)}% from last week</span>
+                  <span>Conversion down {Math.abs(metrics.hero.conversionTrend).toFixed(1)}% vs previous period</span>
                 </div>
               )}
               {metrics.actionItems.hotLeads.length > 0 && (
@@ -502,8 +520,8 @@ export default function DashboardPage() {
           accentColor="blue"
         />
         <HeroMetric
-          label="Calls This Week"
-          value={metrics?.hero.callsThisWeek || 0}
+          label={`Calls (${getTimeRangeLabel(timeRange)})`}
+          value={metrics?.hero.callsInRange || 0}
           trend={metrics?.hero.callsTrend}
           icon={<Phone className="h-5 w-5 text-purple-600" />}
           loading={isLoading}
@@ -521,8 +539,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">7-Day Activity</CardTitle>
-            <CardDescription>Calls and qualified leads over the past week</CardDescription>
+            <CardTitle className="text-lg">{getTimeRangeLabel(timeRange)} Activity</CardTitle>
+            <CardDescription>Calls and qualified leads over the selected period</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -587,7 +605,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Call Outcomes</CardTitle>
-            <CardDescription>This week's disposition breakdown</CardDescription>
+            <CardDescription>Disposition breakdown for {getTimeRangeLabel(timeRange).toLowerCase()}</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -597,7 +615,7 @@ export default function DashboardPage() {
             ) : pieData.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-[200px] text-muted-foreground">
                 <Phone className="h-8 w-8 mb-2 opacity-50" />
-                <p className="text-sm">No calls this week</p>
+                <p className="text-sm">No calls in this period</p>
               </div>
             ) : (
               <div className="flex items-center gap-4">
@@ -643,7 +661,7 @@ export default function DashboardPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-lg">Sales Funnel</CardTitle>
-          <CardDescription>This week's conversion journey</CardDescription>
+          <CardDescription>Conversion journey for {getTimeRangeLabel(timeRange).toLowerCase()}</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -696,7 +714,7 @@ export default function DashboardPage() {
             <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
               <div>
                 <CardTitle className="text-lg">SDR Leaderboard</CardTitle>
-                <CardDescription>Top performers this week</CardDescription>
+                <CardDescription>Top performers ({getTimeRangeLabel(timeRange).toLowerCase()})</CardDescription>
               </div>
               <Link href="/team">
                 <Button variant="ghost" size="sm" data-testid="button-view-team">
@@ -713,7 +731,7 @@ export default function DashboardPage() {
               ) : metrics?.sdrLeaderboard.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
                   <Trophy className="h-8 w-8 mb-2 opacity-50" />
-                  <p className="text-sm">No activity this week</p>
+                  <p className="text-sm">No activity in this period</p>
                 </div>
               ) : (
                 <div className="space-y-1">
