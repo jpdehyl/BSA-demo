@@ -4,7 +4,6 @@ import { createServer, type Server } from "http";
 import session from "express-session";
 import MemoryStore from "memorystore";
 import connectPgSimple from "connect-pg-simple";
-import bcrypt from "bcrypt";
 import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { pool } from "./db";
@@ -34,6 +33,14 @@ import {
   type TeamMetrics,
   type WeeklyActivityDay,
 } from "./helpers/managerProfileHelpers";
+import {
+  hashPassword,
+  verifyPassword,
+  excludePassword,
+  excludePasswordFromAll,
+  validatePasswordStrength,
+  setUserSession,
+} from "./helpers/authHelpers";
 
 declare module "express-session" {
   interface SessionData {
@@ -44,8 +51,6 @@ declare module "express-session" {
 
 const MemoryStoreSession = MemoryStore(session);
 const PgSession = connectPgSimple(session);
-
-const SALT_ROUNDS = 12;
 
 // Rate limiter for auth endpoints: 5 attempts per 15 minutes
 const authLimiter = rateLimit({
@@ -166,24 +171,20 @@ export async function registerRoutes(
   app.post("/api/auth/register", authLimiter, async (req: Request, res: Response) => {
     try {
       const validatedData = insertUserSchema.parse(req.body);
-      
+
       const existingUser = await storage.getUserByEmail(validatedData.email);
       if (existingUser) {
         return res.status(400).json({ message: "Email already registered" });
       }
 
-      const hashedPassword = await bcrypt.hash(validatedData.password, SALT_ROUNDS);
-      
+      const hashedPwd = await hashPassword(validatedData.password);
       const user = await storage.createUser({
         ...validatedData,
-        password: hashedPassword,
+        password: hashedPwd,
       });
 
-      req.session.userId = user.id;
-      req.session.userRole = user.role;
-
-      const { password: _, ...userWithoutPassword } = user;
-      res.status(201).json({ user: userWithoutPassword });
+      setUserSession(req.session, user);
+      res.status(201).json({ user: excludePassword(user) });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
@@ -202,21 +203,18 @@ export async function registerRoutes(
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
-      const isValidPassword = await bcrypt.compare(password, user.password);
-      if (!isValidPassword) {
+      const isValid = await verifyPassword(password, user.password);
+      if (!isValid) {
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
       await storage.updateUserLastLogin(user.id);
+      setUserSession(req.session, user);
 
-      req.session.userId = user.id;
-      req.session.userRole = user.role;
-      
       console.log("Login successful - Session ID:", req.sessionID);
       console.log("Login successful - User ID set:", user.id);
 
-      const { password: _, ...userWithoutPassword } = user;
-      res.json({ user: userWithoutPassword });
+      res.json({ user: excludePassword(user) });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
@@ -249,8 +247,7 @@ export async function registerRoutes(
         return res.json({ user: null });
       }
 
-      const { password: _, ...userWithoutPassword } = user;
-      res.json({ user: userWithoutPassword });
+      res.json({ user: excludePassword(user) });
     } catch (error) {
       console.error("Auth check error:", error);
       res.status(500).json({ message: "Authentication check failed" });
@@ -264,8 +261,7 @@ export async function registerRoutes(
         return res.status(404).json({ message: "User not found" });
       }
 
-      const { password: _, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+      res.json(excludePassword(user));
     } catch (error) {
       console.error("Get user error:", error);
       res.status(500).json({ message: "Failed to get user" });
@@ -298,8 +294,7 @@ export async function registerRoutes(
         return res.status(404).json({ message: "User not found" });
       }
       
-      const { password: _, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+      res.json(excludePassword(user));
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -315,28 +310,29 @@ export async function registerRoutes(
   app.patch("/api/user/password", requireAuth, async (req: Request, res: Response) => {
     try {
       const { currentPassword, newPassword } = req.body;
-      
+
       if (!currentPassword || !newPassword) {
         return res.status(400).json({ message: "Current and new password are required" });
       }
-      
-      if (newPassword.length < 6) {
-        return res.status(400).json({ message: "New password must be at least 6 characters" });
+
+      const passwordCheck = validatePasswordStrength(newPassword);
+      if (!passwordCheck.valid) {
+        return res.status(400).json({ message: passwordCheck.message });
       }
-      
+
       const user = await storage.getUser(req.session.userId!);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-      
-      const isValid = await bcrypt.compare(currentPassword, user.password);
+
+      const isValid = await verifyPassword(currentPassword, user.password);
       if (!isValid) {
         return res.status(400).json({ message: "Current password is incorrect" });
       }
-      
-      const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
-      await storage.updateUserPassword(req.session.userId!, hashedPassword);
-      
+
+      const hashedPwd = await hashPassword(newPassword);
+      await storage.updateUserPassword(req.session.userId!, hashedPwd);
+
       res.json({ message: "Password updated successfully" });
     } catch (error) {
       console.error("Update password error:", error);
@@ -347,8 +343,7 @@ export async function registerRoutes(
   app.get("/api/users", requireRole("admin", "manager"), async (req: Request, res: Response) => {
     try {
       const allUsers = await storage.getAllUsers();
-      const usersWithoutPasswords = allUsers.map(({ password: _, ...user }) => user);
-      res.json(usersWithoutPasswords);
+      res.json(excludePasswordFromAll(allUsers));
     } catch (error) {
       console.error("Get all users error:", error);
       res.status(500).json({ message: "Failed to fetch users" });
@@ -371,8 +366,7 @@ export async function registerRoutes(
         return res.status(404).json({ message: "User not found" });
       }
       
-      const { password: _, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+      res.json(excludePassword(user));
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({

@@ -5,6 +5,7 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { searchLinkedInProfile } from "./serpApiClient";
+import { extractTextFromGeminiResponse, extractJsonFromText } from "./helpers/aiResponseHelpers";
 
 function getAiClient() {
   const apiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
@@ -221,31 +222,20 @@ IMPORTANT:
         temperature: 0.5,
       }
     });
-    
-    let text = "";
-    if (response.candidates && response.candidates.length > 0) {
-      const candidate = response.candidates[0];
-      if (candidate.content && candidate.content.parts) {
-        for (const part of candidate.content.parts) {
-          if (part.text) {
-            text += part.text;
-          }
-        }
-      }
-    }
-    
+
+    const text = extractTextFromGeminiResponse(response);
     if (!text) {
       console.log(`[LinkedInResearch] Empty response for ${companyName}`);
       return null;
     }
-    
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+
+    let parsed: LinkedInCompanyData;
+    try {
+      parsed = extractJsonFromText<LinkedInCompanyData>(text);
+    } catch {
       console.log(`[LinkedInResearch] Could not parse JSON for ${companyName}`);
       return null;
     }
-    
-    const parsed = JSON.parse(jsonMatch[0]) as LinkedInCompanyData;
     parsed.fetchedAt = new Date().toISOString();
     
     console.log(`[LinkedInResearch] Found LinkedIn data for ${companyName}: ${parsed.linkedInUrl || "no URL"}`);
@@ -337,53 +327,34 @@ IMPORTANT:
         temperature: 0.5,
       }
     });
-    
-    let text = "";
-    if (response.candidates && response.candidates.length > 0) {
-      const candidate = response.candidates[0];
-      if (candidate.content && candidate.content.parts) {
-        for (const part of candidate.content.parts) {
-          if (part.text) {
-            text += part.text;
-          }
-        }
-      }
-    }
-    
+
+    // Fallback response using just SerpAPI data
+    const buildFallbackResponse = (): ContactLinkedInData => ({
+      linkedInUrl: serpResult.profileUrl,
+      headline: serpResult.title || null,
+      currentTitle: null,
+      currentCompany: companyName,
+      location: null,
+      summary: serpResult.snippet || null,
+      experience: [],
+      education: [],
+      skills: [],
+      fetchedAt: new Date().toISOString(),
+    });
+
+    const text = extractTextFromGeminiResponse(response);
     if (!text) {
       console.log(`[ContactLinkedIn] Gemini returned empty, but we have URL from SerpAPI`);
-      return {
-        linkedInUrl: serpResult.profileUrl,
-        headline: serpResult.title || null,
-        currentTitle: null,
-        currentCompany: companyName,
-        location: null,
-        summary: serpResult.snippet || null,
-        experience: [],
-        education: [],
-        skills: [],
-        fetchedAt: new Date().toISOString()
-      };
+      return buildFallbackResponse();
     }
-    
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+
+    let parsed: ContactLinkedInData;
+    try {
+      parsed = extractJsonFromText<ContactLinkedInData>(text);
+    } catch {
       console.log(`[ContactLinkedIn] Could not parse JSON, using SerpAPI data only`);
-      return {
-        linkedInUrl: serpResult.profileUrl,
-        headline: serpResult.title || null,
-        currentTitle: null,
-        currentCompany: companyName,
-        location: null,
-        summary: serpResult.snippet || null,
-        experience: [],
-        education: [],
-        skills: [],
-        fetchedAt: new Date().toISOString()
-      };
+      return buildFallbackResponse();
     }
-    
-    const parsed = JSON.parse(jsonMatch[0]) as ContactLinkedInData;
     parsed.fetchedAt = new Date().toISOString();
     parsed.linkedInUrl = serpResult.profileUrl;
     

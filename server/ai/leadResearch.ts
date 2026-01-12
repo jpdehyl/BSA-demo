@@ -2,16 +2,25 @@ import type { Lead, InsertResearchPacket } from "@shared/schema";
 import { researchLeadOnX, formatXIntel, type XIntelResult } from "./xResearch";
 import { gatherCompanyHardIntel, formatCompanyHardIntel, type CompanyHardIntel } from "./companyHardIntel";
 import { HAWK_RIDGE_PRODUCTS, getProductCatalogPrompt, matchProductsToLead } from "./productCatalog";
-import { 
-  gatherCompanyIntel, 
+import {
+  gatherCompanyIntel,
   researchContactLinkedIn as scrapeContactLinkedIn,
   formatScrapedContentForPrompt,
   extractPhoneFromScrapedContent,
   type ScrapedIntel,
-  type ContactLinkedInData
+  type ContactLinkedInData,
 } from "./websiteScraper";
 import { getKnowledgebaseContent, getLeadScoringParameters } from "../google/driveClient";
 import { callClaudeWithRetry, extractJsonFromResponse } from "./claudeClient";
+import {
+  calculateFitScorePenalties,
+  applyScorePenalties,
+  formatPenaltyBreakdown,
+  determinePriority,
+  normalizeConfidenceAssessment,
+  extractString,
+  extractArray,
+} from "./helpers/leadScoringHelpers";
 
 const HAWK_RIDGE_CONTEXT = `
 Hawk Ridge Systems is a leading provider of 3D design, manufacturing, and product data management solutions.
@@ -408,100 +417,58 @@ BE THOROUGH. Use the pre-scraped data as your primary source.`;
   console.log(`[LeadResearch] Raw dossier response length: ${text.length}`);
   
   const raw = extractJsonFromResponse(text) as Record<string, unknown>;
-  
-  let aiScore = typeof raw.fitScore === "number" ? raw.fitScore : 50;
-  const penaltyBreakdown: string[] = [];
-  
-  const emailDomain = lead.contactEmail.split("@")[1]?.toLowerCase() || "";
-  const genericDomains = ["gmail.com", "hotmail.com", "live.com", "outlook.com", "yahoo.com", "aol.com", "icloud.com", "mail.com", "protonmail.com", "zoho.com"];
-  const isGenericEmail = genericDomains.includes(emailDomain);
-  
-  if (isGenericEmail) {
-    aiScore -= 30;
-    penaltyBreakdown.push("-30: Gmail/personal email domain");
-  }
-  
-  if (!lead.companyWebsite && !scraped.scrapedIntel.website) {
-    aiScore -= 15;
-    penaltyBreakdown.push("-15: No company website found");
-  }
-  
-  if (!lead.contactTitle && !scraped.contactLinkedIn?.currentTitle) {
-    aiScore -= 10;
-    penaltyBreakdown.push("-10: Contact title unknown");
-  }
-  
-  if (!lead.companyIndustry) {
-    aiScore -= 10;
-    penaltyBreakdown.push("-10: No industry information");
-  }
-  
-  const companyNameLower = lead.companyName.toLowerCase();
-  const contactNameParts = lead.contactName.toLowerCase().split(" ");
-  const looksLikePersonName = contactNameParts.some(part => 
-    companyNameLower.includes(part) && part.length > 2
+
+  // Calculate score with penalties
+  const aiScore = typeof raw.fitScore === "number" ? raw.fitScore : 50;
+  const penalties = calculateFitScorePenalties(lead, scraped.scrapedIntel, scraped.contactLinkedIn);
+  const finalScore = applyScorePenalties(aiScore, penalties);
+  const adjustedPriority = determinePriority(finalScore);
+  const fullBreakdown = formatPenaltyBreakdown(
+    aiScore,
+    penalties,
+    finalScore,
+    extractString(raw.fitScoreBreakdown)
   );
-  
-  if (looksLikePersonName) {
-    aiScore -= 25;
-    penaltyBreakdown.push("-25: Company name appears to be a person's name");
-  }
-  
-  const finalScore = Math.max(0, Math.min(100, aiScore));
-  
-  let adjustedPriority: "hot" | "warm" | "cool" | "cold";
-  if (finalScore >= 80) adjustedPriority = "hot";
-  else if (finalScore >= 60) adjustedPriority = "warm";
-  else if (finalScore >= 40) adjustedPriority = "cool";
-  else adjustedPriority = "cold";
-  
-  const fullBreakdown = penaltyBreakdown.length > 0 
-    ? `AI Score: ${raw.fitScore || 50}\nPenalties Applied:\n${penaltyBreakdown.join("\n")}\nFinal Score: ${finalScore}\n\n${raw.fitScoreBreakdown || ""}`
-    : (raw.fitScoreBreakdown as string) || "";
-  
-  const confidenceFromAI = (raw.confidenceAssessment || {}) as Record<string, unknown>;
-  const confidenceAssessment: ConfidenceAssessment = {
-    overall: (["high", "medium", "low"].includes(confidenceFromAI.overall as string) ? confidenceFromAI.overall : "medium") as "high" | "medium" | "low",
-    companyInfoConfidence: (["high", "medium", "low"].includes(confidenceFromAI.companyInfoConfidence as string) ? confidenceFromAI.companyInfoConfidence : "medium") as "high" | "medium" | "low",
-    contactInfoConfidence: (["high", "medium", "low"].includes(confidenceFromAI.contactInfoConfidence as string) ? confidenceFromAI.contactInfoConfidence : "medium") as "high" | "medium" | "low",
-    reasoning: (confidenceFromAI.reasoning as string) || "Confidence assessment not provided by AI",
-    warnings: Array.isArray(confidenceFromAI.warnings) ? (confidenceFromAI.warnings as string[]).filter((w: string) => w && !w.startsWith("Examples:")) : []
-  };
+
+  // Normalize confidence assessment
+  const confidenceAssessment = normalizeConfidenceAssessment(
+    raw.confidenceAssessment as Record<string, unknown> | undefined
+  );
 
   const dossier: LeadDossier = {
-    companySummary: (raw.companySummary as string) || "",
-    companyNews: Array.isArray(raw.companyNews) ? raw.companyNews as string[] : [],
-    painPoints: Array.isArray(raw.painPoints) ? raw.painPoints as PainPoint[] : [],
-    productMatches: Array.isArray(raw.productMatches) ? raw.productMatches as ProductMatch[] : [],
-    techStackIntel: Array.isArray(raw.techStackIntel) ? raw.techStackIntel as string[] : [],
-    buyingTriggers: Array.isArray(raw.buyingTriggers) ? raw.buyingTriggers as string[] : [],
-    
-    contactBackground: (raw.contactBackground as string) || "",
-    careerHistory: Array.isArray(raw.careerHistory) ? raw.careerHistory as CareerHistoryItem[] : [],
-    professionalInterests: Array.isArray(raw.professionalInterests) ? raw.professionalInterests as string[] : [],
-    decisionMakingStyle: (raw.decisionMakingStyle as string) || "",
-    
-    commonGround: Array.isArray(raw.commonGround) ? raw.commonGround as string[] : [],
-    openingLine: (raw.openingLine as string) || "",
-    talkTrack: Array.isArray(raw.talkTrack) ? raw.talkTrack as string[] : [],
-    discoveryQuestions: Array.isArray(raw.discoveryQuestions) ? raw.discoveryQuestions as string[] : [],
-    objectionHandles: Array.isArray(raw.objectionHandles) ? raw.objectionHandles as Array<{ objection: string; response: string }> : [],
-    theAsk: (raw.theAsk as string) || "",
-    
+    companySummary: extractString(raw.companySummary),
+    companyNews: extractArray<string>(raw.companyNews),
+    painPoints: extractArray<PainPoint>(raw.painPoints),
+    productMatches: extractArray<ProductMatch>(raw.productMatches),
+    techStackIntel: extractArray<string>(raw.techStackIntel),
+    buyingTriggers: extractArray<string>(raw.buyingTriggers),
+
+    contactBackground: extractString(raw.contactBackground),
+    careerHistory: extractArray<CareerHistoryItem>(raw.careerHistory),
+    professionalInterests: extractArray<string>(raw.professionalInterests),
+    decisionMakingStyle: extractString(raw.decisionMakingStyle),
+
+    commonGround: extractArray<string>(raw.commonGround),
+    openingLine: extractString(raw.openingLine),
+    talkTrack: extractArray<string>(raw.talkTrack),
+    discoveryQuestions: extractArray<string>(raw.discoveryQuestions),
+    objectionHandles: extractArray<{ objection: string; response: string }>(raw.objectionHandles),
+    theAsk: extractString(raw.theAsk),
+
     fitScore: finalScore,
     fitScoreBreakdown: fullBreakdown,
     priority: adjustedPriority,
-    
+
     sources: scraped.scrapedIntel.sources.join(" | ") + " | Claude AI",
-    linkedInUrl: scraped.contactLinkedIn?.linkedInUrl || (raw.linkedInUrl as string),
-    phoneNumber: phoneFromScrape || (raw.phoneNumber as string),
-    jobTitle: scraped.contactLinkedIn?.currentTitle || (raw.jobTitle as string),
-    companyWebsite: lead.companyWebsite || scraped.scrapedIntel.website?.url || (raw.companyWebsite as string),
-    companyAddress: raw.companyAddress as string,
+    linkedInUrl: scraped.contactLinkedIn?.linkedInUrl || extractString(raw.linkedInUrl),
+    phoneNumber: phoneFromScrape || extractString(raw.phoneNumber),
+    jobTitle: scraped.contactLinkedIn?.currentTitle || extractString(raw.jobTitle),
+    companyWebsite: lead.companyWebsite || scraped.scrapedIntel.website?.url || extractString(raw.companyWebsite),
+    companyAddress: extractString(raw.companyAddress),
     confidenceAssessment
   };
   
-  console.log(`[LeadResearch] Dossier generated. AI Score: ${raw.fitScore || 50}, Penalties: ${penaltyBreakdown.length}, Final: ${finalScore}, Priority: ${adjustedPriority}, Confidence: ${confidenceAssessment.overall}`);
+  console.log(`[LeadResearch] Dossier generated. AI Score: ${aiScore}, Penalties: ${penalties.length}, Final: ${finalScore}, Priority: ${adjustedPriority}, Confidence: ${confidenceAssessment.overall}`);
   
   return dossier;
 }

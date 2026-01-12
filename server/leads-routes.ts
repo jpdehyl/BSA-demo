@@ -7,6 +7,13 @@ import { researchLead } from "./ai/leadResearch";
 import { extractQualificationFromTranscript, QualificationDraft } from "./ai/qualificationExtractor";
 import { notifyLeadStatusChange, notifyLeadQualified, notifyManagersOfQualifiedLead, notifyAEHandoff, notifyResearchReady } from "./notificationService";
 import pLimit from "p-limit";
+import {
+  buildDiscoveredInfoUpdates,
+  isFallbackResearch,
+  hasResearchableCompanyInfo,
+  buildScoreUpdates,
+  mergeLeadUpdates,
+} from "./helpers/leadResearchHelpers";
 
 // Limit concurrent research to 2 to avoid rate limits with Claude API
 const researchLimit = pLimit(2);
@@ -15,91 +22,71 @@ const researchLimit = pLimit(2);
 const researchInProgress = new Set<string>();
 
 // Shared helper for processing lead research with all guardrails
-async function processLeadResearch(lead: Lead, options: { forceRefresh?: boolean; notifyUserId?: string } = {}): Promise<{ success: boolean; packet?: any; isExisting?: boolean }> {
+async function processLeadResearch(
+  lead: Lead,
+  options: { forceRefresh?: boolean; notifyUserId?: string } = {}
+): Promise<{ success: boolean; packet?: any; isExisting?: boolean }> {
   const { forceRefresh = false, notifyUserId } = options;
   const leadId = lead.id;
-  
+  const leadName = lead.contactName || lead.companyName || leadId;
+
   // Check if research already in progress
   if (researchInProgress.has(leadId)) {
-    console.log(`[LeadResearch] Already in progress for ${lead.contactName || leadId}, skipping`);
+    console.log(`[LeadResearch] Already in progress for ${leadName}, skipping`);
     const existingPacket = await storage.getResearchPacketByLead(leadId);
     return { success: true, packet: existingPacket, isExisting: true };
   }
-  
+
   // Skip if no company info
-  if (!lead.companyName && !lead.companyWebsite) {
+  if (!hasResearchableCompanyInfo(lead)) {
     console.log(`[LeadResearch] Skipping ${leadId} - no company info`);
     return { success: false };
   }
-  
+
   // Check for existing research
   const existingPacket = await storage.getResearchPacketByLead(leadId);
-  const existingIsFallback = existingPacket?.sources?.includes("Fallback template");
-  
+  const existingIsFallback = isFallbackResearch(existingPacket);
+
   // Return existing if not forcing refresh and not fallback
   if (existingPacket && !forceRefresh && !existingIsFallback) {
     return { success: true, packet: existingPacket, isExisting: true };
   }
-  
+
   // Mark as in progress
   researchInProgress.add(leadId);
-  
+
   try {
-    console.log(`[LeadResearch] Processing: ${lead.contactName || lead.companyName}`);
+    console.log(`[LeadResearch] Processing: ${leadName}`);
     const researchResult = await researchLead(lead);
-    
+
     // Check if new result is fallback but existing was good
-    const newIsFallback = researchResult.packet.sources?.includes("Fallback template");
-    if (existingPacket && !existingIsFallback && newIsFallback) {
-      console.log(`[LeadResearch] New result is fallback, keeping existing for ${lead.contactName}`);
+    if (existingPacket && !existingIsFallback && isFallbackResearch(researchResult.packet)) {
+      console.log(`[LeadResearch] New result is fallback, keeping existing for ${leadName}`);
       return { success: true, packet: existingPacket, isExisting: true };
     }
-    
+
     // Save research packet
-    let researchPacket;
-    if (existingPacket) {
-      researchPacket = await storage.updateResearchPacket(existingPacket.id, researchResult.packet);
-    } else {
-      researchPacket = await storage.createResearchPacket(researchResult.packet);
+    const researchPacket = existingPacket
+      ? await storage.updateResearchPacket(existingPacket.id, researchResult.packet)
+      : await storage.createResearchPacket(researchResult.packet);
+
+    // Build and apply lead updates
+    const discoveredUpdates = buildDiscoveredInfoUpdates(lead, researchResult.discoveredInfo);
+    const scoreUpdates = buildScoreUpdates(researchPacket);
+    const allUpdates = mergeLeadUpdates(discoveredUpdates, scoreUpdates);
+
+    if (Object.keys(allUpdates).length > 0) {
+      await storage.updateLead(leadId, allUpdates);
+      console.log(`[LeadResearch] Updated lead ${leadId} with:`, Object.keys(allUpdates));
     }
-    
-    // Update lead with discovered info
-    const { discoveredInfo } = researchResult;
-    const updateData: Record<string, string | number | null> = {};
-    if (discoveredInfo.linkedInUrl && !lead.contactLinkedIn) {
-      updateData.contactLinkedIn = discoveredInfo.linkedInUrl;
-    }
-    if (discoveredInfo.phoneNumber && !lead.contactPhone) {
-      updateData.contactPhone = discoveredInfo.phoneNumber;
-    }
-    if (discoveredInfo.jobTitle && !lead.contactTitle) {
-      updateData.contactTitle = discoveredInfo.jobTitle;
-    }
-    if (discoveredInfo.companyWebsite && !lead.companyWebsite) {
-      updateData.companyWebsite = discoveredInfo.companyWebsite;
-    }
-    
-    // Update fitScore and priority from research
-    if (researchPacket && researchPacket.fitScore !== null && researchPacket.fitScore !== undefined) {
-      updateData.fitScore = researchPacket.fitScore;
-    }
-    if (researchPacket && researchPacket.priority) {
-      updateData.priority = researchPacket.priority;
-    }
-    
-    if (Object.keys(updateData).length > 0) {
-      await storage.updateLead(leadId, updateData);
-      console.log(`[LeadResearch] Updated lead ${leadId} with:`, Object.keys(updateData));
-    }
-    
+
     // Send notification if user ID provided
     if (notifyUserId) {
       await notifyResearchReady(notifyUserId, leadId, lead.contactName, lead.companyName);
     }
-    
-    console.log(`[LeadResearch] Completed: ${lead.contactName || lead.companyName}`);
+
+    console.log(`[LeadResearch] Completed: ${leadName}`);
     return { success: true, packet: researchPacket, isExisting: false };
-    
   } catch (err: any) {
     console.error(`[LeadResearch] Failed for ${leadId}:`, err.message);
     return { success: false };
