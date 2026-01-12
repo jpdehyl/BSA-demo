@@ -1771,6 +1771,105 @@ export async function registerRoutes(
     }
   });
 
+  // Drill-down endpoint for chart interactions
+  app.get("/api/dashboard/drilldown", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const { type, filter, range } = req.query as { type: string; filter: string; range: string };
+      const timeRange = range || "7d";
+      const now = new Date();
+
+      let rangeDays: number;
+      switch (timeRange) {
+        case "7d": rangeDays = 7; break;
+        case "14d": rangeDays = 14; break;
+        case "30d": rangeDays = 30; break;
+        case "90d": rangeDays = 90; break;
+        case "ytd": {
+          const startOfYear = new Date(now.getFullYear(), 0, 1);
+          rangeDays = Math.ceil((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+          break;
+        }
+        default: rangeDays = 7;
+      }
+
+      const rangeStart = new Date(now.getTime() - rangeDays * 24 * 60 * 60 * 1000);
+      const isPrivileged = currentUser.role === "admin" || currentUser.role === "manager";
+
+      const allSdrs = await storage.getAllSdrs();
+      const sdrIds = allSdrs.map(sdr => sdr.id);
+      const sdrUsers = await storage.getUsersBySdrIds(sdrIds);
+
+      let callSessions;
+      if (isPrivileged) {
+        const sdrUserIds = sdrUsers.map(u => u.id);
+        callSessions = await storage.getCallSessionsByUserIds(sdrUserIds);
+      } else {
+        callSessions = await storage.getCallSessionsByUser(req.session.userId!);
+      }
+
+      const rangeSessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= rangeStart);
+
+      // Filter based on type and filter value
+      let filteredSessions = rangeSessions;
+      if (type === "disposition") {
+        filteredSessions = rangeSessions.filter(s => s.disposition === filter);
+      } else if (type === "funnel") {
+        // Funnel stages: total, connected, qualified, meetings
+        switch (filter) {
+          case "total":
+            filteredSessions = rangeSessions;
+            break;
+          case "connected":
+            filteredSessions = rangeSessions.filter(s =>
+              s.disposition === "connected" || s.disposition === "qualified" ||
+              s.disposition === "meeting-booked" || s.disposition === "callback-scheduled"
+            );
+            break;
+          case "qualified":
+            filteredSessions = rangeSessions.filter(s =>
+              s.disposition === "qualified" || s.disposition === "meeting-booked"
+            );
+            break;
+          case "meetings":
+            filteredSessions = rangeSessions.filter(s => s.disposition === "meeting-booked");
+            break;
+        }
+      }
+
+      // Get lead info for each session
+      const allLeads = await storage.getAllLeads();
+      const leadMap = new Map(allLeads.map(l => [l.id, l]));
+
+      const calls = filteredSessions.slice(0, 50).map(session => {
+        const lead = session.leadId ? leadMap.get(session.leadId) : null;
+        return {
+          id: session.id,
+          leadId: session.leadId,
+          companyName: lead?.companyName || null,
+          contactName: lead?.contactName || null,
+          toNumber: session.toNumber || "",
+          disposition: session.disposition || "unknown",
+          duration: session.duration,
+          startedAt: session.startedAt,
+        };
+      }).sort((a, b) => new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime());
+
+      res.json({
+        calls,
+        total: filteredSessions.length,
+        filter,
+      });
+    } catch (error) {
+      console.error("Drill-down error:", error);
+      res.status(500).json({ message: "Failed to fetch drill-down data" });
+    }
+  });
+
   // AI-powered dashboard insights
   app.get("/api/dashboard/insights", requireAuth, async (req: Request, res: Response) => {
     try {

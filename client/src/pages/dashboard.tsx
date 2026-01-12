@@ -15,6 +15,7 @@ import { TimeRangeSelector, type TimeRange, getTimeRangeLabel } from "@/componen
 import { Sparkline } from "@/components/sparkline";
 import { InsightsCard } from "@/components/insights-card";
 import { GoalProgressCard } from "@/components/goal-progress-card";
+import { DrillDownModal } from "@/components/drill-down-modal";
 import { 
   Users, 
   Phone, 
@@ -237,26 +238,28 @@ function HeroMetric({
   );
 }
 
-function FunnelStage({ 
-  label, 
-  value, 
-  percentage, 
-  color 
-}: { 
-  label: string; 
-  value: number; 
-  percentage: number; 
+function FunnelStage({
+  label,
+  value,
+  percentage,
+  color,
+  onClick
+}: {
+  label: string;
+  value: number;
+  percentage: number;
   color: string;
+  onClick?: () => void;
 }) {
   return (
-    <div className="flex-1 text-center">
-      <div 
-        className="mx-auto mb-2 flex items-center justify-center rounded-md text-white font-bold text-xl"
-        style={{ 
+    <div className={`flex-1 text-center ${onClick ? 'cursor-pointer' : ''}`} onClick={onClick}>
+      <div
+        className={`mx-auto mb-2 flex items-center justify-center rounded-md text-white font-bold text-xl ${onClick ? 'hover:opacity-80 transition-opacity' : ''}`}
+        style={{
           backgroundColor: color,
           width: `${Math.max(60, percentage * 1.5)}%`,
           height: "48px",
-          transition: "width 0.5s ease-out"
+          transition: "width 0.5s ease-out, opacity 0.2s ease"
         }}
       >
         {value}
@@ -404,6 +407,7 @@ export default function DashboardPage() {
   const [selectedSdr, setSelectedSdr] = useState<SdrLeaderboardData | null>(null);
   const [selectedLead, setSelectedLead] = useState<LeadSummary | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>("7d");
+  const [drillDown, setDrillDown] = useState<{ type: "disposition" | "funnel"; filter: string; label: string } | null>(null);
 
   const { data: metrics, isLoading } = useQuery<DashboardMetrics>({
     queryKey: ["/api/dashboard/metrics", timeRange],
@@ -673,7 +677,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Call Outcomes</CardTitle>
-            <CardDescription>Disposition breakdown for {getTimeRangeLabel(timeRange).toLowerCase()}</CardDescription>
+            <CardDescription>Disposition breakdown for {getTimeRangeLabel(timeRange).toLowerCase()} (click to drill down)</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -697,28 +701,50 @@ export default function DashboardPage() {
                       outerRadius={55}
                       paddingAngle={2}
                       dataKey="value"
+                      onClick={(data) => {
+                        if (data && data.payload) {
+                          const disposition = Object.keys(DISPOSITION_LABELS).find(
+                            k => DISPOSITION_LABELS[k] === data.payload.name
+                          ) || data.payload.name;
+                          setDrillDown({
+                            type: "disposition",
+                            filter: disposition,
+                            label: data.payload.name,
+                          });
+                        }
+                      }}
+                      className="cursor-pointer"
                     >
                       {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
+                        <Cell key={`cell-${index}`} fill={entry.color} className="hover:opacity-80 transition-opacity" />
                       ))}
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="flex-1 space-y-1.5">
-                  {pieData.slice(0, 4).map((item) => (
-                    <div key={item.name} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-2.5 h-2.5 rounded-full" 
-                          style={{ backgroundColor: item.color }}
-                        />
-                        <span className="text-muted-foreground truncate max-w-[80px]">{item.name}</span>
+                  {pieData.slice(0, 4).map((item) => {
+                    const disposition = Object.keys(DISPOSITION_LABELS).find(
+                      k => DISPOSITION_LABELS[k] === item.name
+                    ) || item.name;
+                    return (
+                      <div
+                        key={item.name}
+                        className="flex items-center justify-between text-sm cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5 -mx-1 transition-colors"
+                        onClick={() => setDrillDown({ type: "disposition", filter: disposition, label: item.name })}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-2.5 h-2.5 rounded-full"
+                            style={{ backgroundColor: item.color }}
+                          />
+                          <span className="text-muted-foreground truncate max-w-[80px]">{item.name}</span>
+                        </div>
+                        <span className="font-medium">
+                          {Math.round((item.value / totalDispositions) * 100)}%
+                        </span>
                       </div>
-                      <span className="font-medium">
-                        {Math.round((item.value / totalDispositions) * 100)}%
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -729,7 +755,7 @@ export default function DashboardPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-lg">Sales Funnel</CardTitle>
-          <CardDescription>Conversion journey for {getTimeRangeLabel(timeRange).toLowerCase()}</CardDescription>
+          <CardDescription>Conversion journey for {getTimeRangeLabel(timeRange).toLowerCase()} (click to drill down)</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -738,38 +764,42 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="flex items-end gap-4 py-4">
-              <FunnelStage 
-                label="Total Calls" 
-                value={metrics?.funnel.totalCalls || 0} 
+              <FunnelStage
+                label="Total Calls"
+                value={metrics?.funnel.totalCalls || 0}
                 percentage={100}
                 color="hsl(var(--primary))"
+                onClick={() => setDrillDown({ type: "funnel", filter: "total", label: "Total Calls" })}
               />
               <div className="text-muted-foreground">
                 <ChevronRight className="h-5 w-5" />
               </div>
-              <FunnelStage 
-                label="Connected" 
-                value={metrics?.funnel.connected || 0} 
+              <FunnelStage
+                label="Connected"
+                value={metrics?.funnel.connected || 0}
                 percentage={metrics?.funnel.totalCalls ? Math.round((metrics.funnel.connected / metrics.funnel.totalCalls) * 100) : 0}
                 color="#8b5cf6"
+                onClick={() => setDrillDown({ type: "funnel", filter: "connected", label: "Connected" })}
               />
               <div className="text-muted-foreground">
                 <ChevronRight className="h-5 w-5" />
               </div>
-              <FunnelStage 
-                label="Qualified" 
-                value={metrics?.funnel.qualified || 0} 
+              <FunnelStage
+                label="Qualified"
+                value={metrics?.funnel.qualified || 0}
                 percentage={metrics?.funnel.totalCalls ? Math.round((metrics.funnel.qualified / metrics.funnel.totalCalls) * 100) : 0}
                 color="#22c55e"
+                onClick={() => setDrillDown({ type: "funnel", filter: "qualified", label: "Qualified" })}
               />
               <div className="text-muted-foreground">
                 <ChevronRight className="h-5 w-5" />
               </div>
-              <FunnelStage 
-                label="Meetings" 
-                value={metrics?.funnel.meetings || 0} 
+              <FunnelStage
+                label="Meetings"
+                value={metrics?.funnel.meetings || 0}
                 percentage={metrics?.funnel.totalCalls ? Math.round((metrics.funnel.meetings / metrics.funnel.totalCalls) * 100) : 0}
                 color="#3b82f6"
+                onClick={() => setDrillDown({ type: "funnel", filter: "meetings", label: "Meetings Booked" })}
               />
             </div>
           )}
@@ -989,6 +1019,21 @@ export default function DashboardPage() {
         onCall={(lead) => {
           setSelectedLead(null);
           setDialingLead(lead);
+        }}
+      />
+
+      {/* Drill-down Modal - shows underlying data when clicking on charts */}
+      <DrillDownModal
+        open={!!drillDown}
+        onOpenChange={(open) => !open && setDrillDown(null)}
+        type={drillDown?.type || "disposition"}
+        filter={drillDown?.filter || ""}
+        filterLabel={drillDown?.label || ""}
+        timeRange={timeRange}
+        onLeadClick={(leadId) => {
+          setDrillDown(null);
+          // Navigate to leads page with the specific lead
+          navigate(`/leads?id=${leadId}`);
         }}
       />
     </div>
