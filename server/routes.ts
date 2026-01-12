@@ -1681,6 +1681,124 @@ export async function registerRoutes(
     }
   });
 
+  // AI-powered dashboard insights
+  app.get("/api/dashboard/insights", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const currentUser = await storage.getUser(req.session.userId!);
+      if (!currentUser) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      const timeRange = (req.query.range as string) || "7d";
+      const now = new Date();
+
+      let rangeDays: number;
+      switch (timeRange) {
+        case "7d": rangeDays = 7; break;
+        case "14d": rangeDays = 14; break;
+        case "30d": rangeDays = 30; break;
+        case "90d": rangeDays = 90; break;
+        case "ytd": {
+          const startOfYear = new Date(now.getFullYear(), 0, 1);
+          rangeDays = Math.ceil((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+          break;
+        }
+        default: rangeDays = 7;
+      }
+
+      const isPrivileged = currentUser.role === "admin" || currentUser.role === "manager";
+      const allSdrs = await storage.getAllSdrs();
+      const sdrIds = allSdrs.map(sdr => sdr.id);
+      const sdrUsers = await storage.getUsersBySdrIds(sdrIds);
+
+      let callSessions;
+      if (isPrivileged) {
+        const sdrUserIds = sdrUsers.map(u => u.id);
+        callSessions = await storage.getCallSessionsByUserIds(sdrUserIds);
+      } else {
+        callSessions = await storage.getCallSessionsByUser(req.session.userId!);
+      }
+
+      const rangeStart = new Date(now.getTime() - rangeDays * 24 * 60 * 60 * 1000);
+      const previousRangeStart = new Date(now.getTime() - (rangeDays * 2) * 24 * 60 * 60 * 1000);
+
+      const rangeSessions = callSessions.filter(s => s.startedAt && new Date(s.startedAt) >= rangeStart);
+      const previousRangeSessions = callSessions.filter(s => {
+        const d = s.startedAt ? new Date(s.startedAt) : null;
+        return d && d >= previousRangeStart && d < rangeStart;
+      });
+
+      const qualifiedInRange = rangeSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked");
+      const qualifiedPrevRange = previousRangeSessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked");
+      const meetingsInRange = rangeSessions.filter(s => s.disposition === "meeting-booked");
+      const meetingsPrevRange = previousRangeSessions.filter(s => s.disposition === "meeting-booked");
+      const connectedInRange = rangeSessions.filter(s =>
+        s.disposition === "connected" || s.disposition === "qualified" ||
+        s.disposition === "meeting-booked" || s.disposition === "callback-scheduled"
+      );
+
+      const conversionRate = rangeSessions.length > 0
+        ? Math.round((qualifiedInRange.length / rangeSessions.length) * 100)
+        : 0;
+      const previousConversionRate = previousRangeSessions.length > 0
+        ? Math.round((qualifiedPrevRange.length / previousRangeSessions.length) * 100)
+        : 0;
+      const connectRate = rangeSessions.length > 0
+        ? Math.round((connectedInRange.length / rangeSessions.length) * 100)
+        : 0;
+
+      // Generate daily activity for analysis
+      const dailyActivity: Array<{ date: string; calls: number; qualified: number }> = [];
+      const dataPoints = Math.min(rangeDays, 14);
+      for (let i = dataPoints - 1; i >= 0; i--) {
+        const day = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+        const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+        const daySessions = callSessions.filter(s => {
+          const d = s.startedAt ? new Date(s.startedAt) : null;
+          return d && d >= dayStart && d < dayEnd;
+        });
+        dailyActivity.push({
+          date: dayStart.toLocaleDateString("en-US", { weekday: "short" }),
+          calls: daySessions.length,
+          qualified: daySessions.filter(s => s.disposition === "qualified" || s.disposition === "meeting-booked").length,
+        });
+      }
+
+      const dispositionBreakdown = rangeSessions.reduce((acc, s) => {
+        const disp = s.disposition || "no-answer";
+        acc[disp] = (acc[disp] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      // Import and use the AI insights generator
+      const { generateDashboardInsights } = await import("./ai/dashboardInsights.js");
+
+      const insights = await generateDashboardInsights({
+        callsInRange: rangeSessions.length,
+        previousCalls: previousRangeSessions.length,
+        qualifiedLeads: qualifiedInRange.length,
+        previousQualified: qualifiedPrevRange.length,
+        meetingsBooked: meetingsInRange.length,
+        previousMeetings: meetingsPrevRange.length,
+        conversionRate,
+        previousConversionRate,
+        connectRate,
+        dailyActivity,
+        dispositionBreakdown,
+        topPerformingDays: dailyActivity.sort((a, b) => b.qualified - a.qualified).slice(0, 3).map(d => d.date),
+        lowPerformingDays: dailyActivity.sort((a, b) => a.calls - b.calls).slice(0, 3).map(d => d.date),
+        teamSize: isPrivileged ? allSdrs.length : 1,
+        isManager: isPrivileged,
+      });
+
+      res.json({ insights, timeRange, generatedAt: new Date().toISOString() });
+    } catch (error) {
+      console.error("Dashboard insights error:", error);
+      res.status(500).json({ message: "Failed to generate insights" });
+    }
+  });
+
   app.get("/api/manager/oversight", requireRole("admin", "manager"), async (req: Request, res: Response) => {
     try {
       const user = await storage.getUser(req.session.userId!);

@@ -13,6 +13,7 @@ import { SdrDetailModal } from "@/components/sdr-detail-modal";
 import { LeadDetailModal } from "@/components/lead-detail-modal";
 import { TimeRangeSelector, type TimeRange, getTimeRangeLabel } from "@/components/time-range-selector";
 import { Sparkline } from "@/components/sparkline";
+import { InsightsCard } from "@/components/insights-card";
 import { 
   Users, 
   Phone, 
@@ -887,6 +888,8 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         )}
+
+        <InsightsCard timeRange={timeRange} className="lg:col-span-3" />
       </div>
 
       <DialingModal
