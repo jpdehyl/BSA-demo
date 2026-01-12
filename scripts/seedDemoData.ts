@@ -277,6 +277,351 @@ const LAST_NAMES = [
 const LEAD_STATUSES = ["new", "contacted", "qualified", "meeting-booked", "handed-off"];
 const DISPOSITIONS = ["connected", "voicemail", "no-answer", "busy", "callback-scheduled", "not-interested", "qualified", "meeting-booked"];
 
+// Comprehensive observations templates based on score and disposition
+const OBSERVATION_TEMPLATES = {
+  excellent: [
+    "Demonstrated exceptional discovery skills by asking 5+ probing questions that uncovered the prospect's core pain points",
+    "Built strong rapport immediately by referencing the prospect's recent company news and industry challenges",
+    "Effectively navigated past the gatekeeper with confidence and professionalism",
+    "Showed deep product knowledge when connecting SOLIDWORKS features to specific customer needs",
+    "Handled the budget objection skillfully by shifting focus to ROI and total cost of ownership",
+    "Used social proof effectively by mentioning similar companies in the prospect's industry",
+    "Demonstrated active listening by accurately summarizing the prospect's concerns before responding",
+    "Created urgency naturally by connecting to the prospect's stated timeline and business goals",
+    "Transitioned smoothly from discovery to value proposition without being pushy",
+    "Closed confidently for the next step with a clear, compelling reason to meet",
+  ],
+  good: [
+    "Asked solid discovery questions but could have dug deeper on budget and decision-making process",
+    "Built adequate rapport, though missed opportunity to personalize based on LinkedIn research",
+    "Product positioning was good but relied heavily on features rather than business outcomes",
+    "Handled initial resistance well but backed off too quickly when prospect hesitated",
+    "Good energy and pacing throughout the call, maintained professional tone",
+    "Identified key pain point but didn't fully explore the business impact",
+    "Demonstrated knowledge of the manufacturing industry and common challenges",
+    "Asked for the meeting but could have been more direct in setting a specific date/time",
+    "Good follow-up on voicemail but could have added more value proposition",
+    "Showed improvement in objection handling compared to previous calls",
+  ],
+  needsWork: [
+    "Rushed through the opening without building rapport or qualifying interest",
+    "Talked about product features too early before understanding prospect needs",
+    "Missed multiple buying signals that could have advanced the conversation",
+    "Didn't ask any questions about the decision-making process or timeline",
+    "Lost control of the conversation when prospect started asking detailed technical questions",
+    "Sounded scripted and didn't adapt to the prospect's specific situation",
+    "Failed to address the competitor objection effectively, seemed caught off guard",
+    "Didn't summarize next steps clearly, leaving the prospect confused about follow-up",
+    "Spoke too quickly and didn't pause to let the prospect respond fully",
+    "Gave up too easily after first objection without attempting to understand the concern",
+  ],
+};
+
+const RECOMMENDATION_TEMPLATES = {
+  discovery: [
+    "Practice the SPIN questioning technique - focus on Situation, Problem, Implication, and Need-payoff questions",
+    "Prepare 3-5 industry-specific pain point questions before each call",
+    "When prospect mentions a challenge, use 'Tell me more about that' to dig deeper",
+    "Ask about the business impact: 'How does this affect your timeline/budget/team?'",
+    "Qualify budget early: 'What has the company invested in similar solutions before?'",
+  ],
+  objectionHandling: [
+    "Use the LAER framework: Listen, Acknowledge, Explore, Respond when handling objections",
+    "Prepare responses for the top 5 objections: price, timing, competitor, authority, need",
+    "When prospect says 'not interested,' ask: 'What would need to change for this to be relevant?'",
+    "Practice the feel-felt-found technique for empathetic objection handling",
+    "Don't argue - instead, ask questions to understand the real concern behind the objection",
+  ],
+  closing: [
+    "Always assume the sale - use assumptive closes like 'Would Tuesday or Thursday work better?'",
+    "Create urgency by connecting to their stated timeline and business goals",
+    "Summarize value received before asking for the meeting",
+    "Use the alternative close: offer two meeting times instead of asking yes/no",
+    "If prospect hesitates, offer a low-commitment next step like a brief demo or case study",
+  ],
+  rapport: [
+    "Research the prospect on LinkedIn before calling - mention something specific",
+    "Reference recent company news or industry trends to show you've done your homework",
+    "Mirror the prospect's pace and energy level to build connection",
+    "Find common ground early - industry experience, shared connections, or mutual interests",
+    "Use the prospect's name 2-3 times during the call to personalize the conversation",
+  ],
+  valueProposition: [
+    "Lead with business outcomes, not product features - ROI, time savings, quality improvement",
+    "Use customer success stories from similar companies in their industry",
+    "Quantify the value: 'Companies like yours typically see X% reduction in design time'",
+    "Connect SOLIDWORKS capabilities directly to the pain points they mentioned",
+    "Prepare an elevator pitch that's 30 seconds or less and focuses on customer benefits",
+  ],
+};
+
+const CRITERIA_MET_TEMPLATES = {
+  opening: [
+    { met: true, criterion: "Professional greeting and introduction", detail: "Clearly stated name and company within first 10 seconds" },
+    { met: true, criterion: "Permission-based approach", detail: "Asked if it was a good time before diving in" },
+    { met: false, criterion: "Value statement in opening", detail: "Missed opportunity to lead with a compelling reason for the call" },
+    { met: true, criterion: "Reference to prior research", detail: "Mentioned company news or industry context" },
+  ],
+  discovery: [
+    { met: true, criterion: "Identified primary pain point", detail: "Successfully uncovered main challenge within first 3 minutes" },
+    { met: true, criterion: "Asked about business impact", detail: "Explored how the problem affects revenue/timeline/team" },
+    { met: false, criterion: "Budget qualification", detail: "Did not ask about budget or previous investment in solutions" },
+    { met: true, criterion: "Decision-maker identification", detail: "Confirmed who else is involved in the decision" },
+    { met: false, criterion: "Timeline exploration", detail: "Did not establish urgency or implementation timeline" },
+    { met: true, criterion: "Competition awareness", detail: "Asked what other solutions they're considering" },
+  ],
+  presentation: [
+    { met: true, criterion: "Solution matched to pain points", detail: "Connected SOLIDWORKS features to stated challenges" },
+    { met: true, criterion: "Used customer proof points", detail: "Referenced similar customers or case studies" },
+    { met: false, criterion: "Quantified ROI", detail: "Did not provide specific ROI numbers or benchmarks" },
+    { met: true, criterion: "Avoided feature dumping", detail: "Focused on relevant capabilities only" },
+  ],
+  closing: [
+    { met: true, criterion: "Clear call-to-action", detail: "Asked for specific next step with defined timeline" },
+    { met: true, criterion: "Handled final objections", detail: "Addressed last-minute concerns before closing" },
+    { met: false, criterion: "Set specific meeting time", detail: "Left follow-up vague instead of booking on the call" },
+    { met: true, criterion: "Confirmed contact information", detail: "Verified email and phone for follow-up" },
+  ],
+  compliance: [
+    { met: true, criterion: "DNC compliance", detail: "Verified number is not on do-not-call list" },
+    { met: true, criterion: "Professional language", detail: "Maintained appropriate business communication" },
+    { met: true, criterion: "Accurate product claims", detail: "Did not make exaggerated or false statements" },
+    { met: true, criterion: "Proper call recording disclosure", detail: "Informed prospect call may be recorded" },
+  ],
+};
+
+const OBSERVATION_CATEGORIES = ["Opening", "Discovery", "Objection Handling", "Value Proposition", "Closing", "Rapport", "Listening", "Product Knowledge"];
+
+function generateDetailedObservations(score: number, disposition: string, sdrName: string): string {
+  const observations: { category: string; observation: string; quote?: string }[] = [];
+  
+  const quotes = [
+    "I completely understand your concern about budget...",
+    "Tell me more about how that affects your team...",
+    "Based on what you've shared, I think SOLIDWORKS could help by...",
+    "What would need to happen for you to move forward?",
+    "Other companies in your industry have seen 30% time savings...",
+    "It sounds like version control is really slowing your team down...",
+    "If we could solve that problem, what would that mean for your Q2 goals?",
+  ];
+  
+  if (score >= 8) {
+    const excellent = randomItems(OBSERVATION_TEMPLATES.excellent, 4);
+    excellent.forEach((obs, i) => {
+      observations.push({
+        category: randomItem(OBSERVATION_CATEGORIES),
+        observation: obs,
+        quote: i < 2 ? randomItem(quotes) : undefined,
+      });
+    });
+    observations.push({
+      category: randomItem(OBSERVATION_CATEGORIES),
+      observation: randomItem(OBSERVATION_TEMPLATES.good),
+    });
+  } else if (score >= 6) {
+    const good = randomItems(OBSERVATION_TEMPLATES.good, 3);
+    good.forEach((obs, i) => {
+      observations.push({
+        category: randomItem(OBSERVATION_CATEGORIES),
+        observation: obs,
+        quote: i === 0 ? randomItem(quotes) : undefined,
+      });
+    });
+    observations.push({
+      category: randomItem(OBSERVATION_CATEGORIES),
+      observation: randomItem(OBSERVATION_TEMPLATES.excellent),
+      quote: randomItem(quotes),
+    });
+    observations.push({
+      category: randomItem(OBSERVATION_CATEGORIES),
+      observation: randomItem(OBSERVATION_TEMPLATES.needsWork),
+    });
+  } else {
+    const needsWork = randomItems(OBSERVATION_TEMPLATES.needsWork, 3);
+    needsWork.forEach(obs => {
+      observations.push({
+        category: randomItem(OBSERVATION_CATEGORIES),
+        observation: obs,
+      });
+    });
+    observations.push({
+      category: randomItem(OBSERVATION_CATEGORIES),
+      observation: randomItem(OBSERVATION_TEMPLATES.good),
+      quote: randomItem(quotes),
+    });
+  }
+  
+  // Add disposition-specific observation
+  if (disposition === "meeting-booked") {
+    observations.push({
+      category: "Closing",
+      observation: "Successfully converted the conversation to a scheduled demo, demonstrating strong closing skills",
+      quote: "How about we set up a 30-minute demo next Tuesday at 2pm?",
+    });
+  } else if (disposition === "qualified") {
+    observations.push({
+      category: "Qualification",
+      observation: "Effectively qualified the opportunity, identifying clear next steps and decision criteria",
+    });
+  } else if (disposition === "callback-scheduled") {
+    observations.push({
+      category: "Follow-up",
+      observation: "Secured commitment for a follow-up call, maintaining momentum in the sales process",
+    });
+  } else if (disposition === "not-interested") {
+    observations.push({
+      category: "Qualification",
+      observation: "Prospect declined - consider whether earlier qualification could have saved time",
+    });
+  }
+  
+  return JSON.stringify(observations);
+}
+
+function generateDetailedRecommendations(score: number, openingScore: number, discoveryScore: number, objectionScore: number, closingScore: number, valueScore: number): string {
+  const recommendations: { priority: string; recommendation: string; action: string }[] = [];
+  
+  // Add recommendations based on weakest areas
+  const scores = [
+    { area: "Discovery", score: discoveryScore, templates: RECOMMENDATION_TEMPLATES.discovery },
+    { area: "Objection Handling", score: objectionScore, templates: RECOMMENDATION_TEMPLATES.objectionHandling },
+    { area: "Closing", score: closingScore, templates: RECOMMENDATION_TEMPLATES.closing },
+    { area: "Rapport Building", score: openingScore, templates: RECOMMENDATION_TEMPLATES.rapport },
+    { area: "Value Proposition", score: valueScore, templates: RECOMMENDATION_TEMPLATES.valueProposition },
+  ];
+  
+  // Sort by score (lowest first) to prioritize areas needing most work
+  scores.sort((a, b) => a.score - b.score);
+  
+  // Get recommendations from weakest areas with priorities
+  const weakestRecs = randomItems(scores[0].templates, 2);
+  weakestRecs.forEach(rec => {
+    recommendations.push({
+      priority: "high",
+      recommendation: rec,
+      action: `Focus on ${scores[0].area.toLowerCase()} techniques in next 3 calls`,
+    });
+  });
+  
+  recommendations.push({
+    priority: "medium",
+    recommendation: randomItem(scores[1].templates),
+    action: `Practice ${scores[1].area.toLowerCase()} skills in role-play session`,
+  });
+  
+  // Add coaching suggestion based on overall score
+  if (score >= 8) {
+    recommendations.push({
+      priority: "low",
+      recommendation: "Consider shadowing newer team members to share your successful techniques",
+      action: "Schedule a peer coaching session this week",
+    });
+    recommendations.push({
+      priority: "low",
+      recommendation: "Document your most effective talk tracks for the team playbook",
+      action: "Submit 2-3 successful talk tracks to the team knowledge base",
+    });
+  } else if (score >= 6) {
+    recommendations.push({
+      priority: "medium",
+      recommendation: "Schedule a role-play session focusing on the areas identified above",
+      action: "Book 30-min role-play with manager before Friday",
+    });
+    recommendations.push({
+      priority: "low",
+      recommendation: "Listen to recordings of top performers handling similar call types",
+      action: "Review 3 call recordings from top SDRs this week",
+    });
+  } else {
+    recommendations.push({
+      priority: "high",
+      recommendation: "Mandatory coaching session scheduled to review call techniques",
+      action: "1:1 coaching session with manager - scheduled for this week",
+    });
+    recommendations.push({
+      priority: "high",
+      recommendation: "Complete the online training module on consultative selling basics",
+      action: "Complete training module within 48 hours",
+    });
+    recommendations.push({
+      priority: "medium",
+      recommendation: "Shadow a senior SDR for at least 3 calls this week",
+      action: "Coordinate with team lead to schedule shadowing sessions",
+    });
+  }
+  
+  return JSON.stringify(recommendations);
+}
+
+function generateCriteriaMet(openingScore: number, discoveryScore: number, valueScore: number, closingScore: number, complianceScore: number): string {
+  const criteria: { criterion: string; status: string; notes: string }[] = [];
+  
+  // Helper to determine status based on score and randomness
+  const getStatus = (score: number): string => {
+    if (score >= 9) return Math.random() > 0.3 ? "exceeded" : "met";
+    if (score >= 7) return Math.random() > 0.2 ? "met" : "missed";
+    if (score >= 5) return Math.random() > 0.5 ? "met" : "missed";
+    return Math.random() > 0.7 ? "met" : "missed";
+  };
+  
+  // Opening criteria
+  CRITERIA_MET_TEMPLATES.opening.forEach(c => {
+    const status = getStatus(openingScore);
+    criteria.push({
+      criterion: c.criterion,
+      status: status,
+      notes: status === "missed" ? `Needs improvement: ${c.detail}` : c.detail,
+    });
+  });
+  
+  // Discovery criteria  
+  CRITERIA_MET_TEMPLATES.discovery.forEach(c => {
+    const status = getStatus(discoveryScore);
+    criteria.push({
+      criterion: c.criterion,
+      status: status,
+      notes: status === "missed" ? `Opportunity missed: ${c.detail}` : c.detail,
+    });
+  });
+  
+  // Value proposition criteria
+  CRITERIA_MET_TEMPLATES.presentation.forEach(c => {
+    const status = getStatus(valueScore);
+    criteria.push({
+      criterion: c.criterion,
+      status: status,
+      notes: status === "exceeded" ? `Excellent: ${c.detail}` : c.detail,
+    });
+  });
+  
+  // Closing criteria
+  CRITERIA_MET_TEMPLATES.closing.forEach(c => {
+    const status = getStatus(closingScore);
+    criteria.push({
+      criterion: c.criterion,
+      status: status,
+      notes: c.detail,
+    });
+  });
+  
+  // Compliance criteria (usually all met)
+  CRITERIA_MET_TEMPLATES.compliance.forEach(c => {
+    const status = complianceScore >= 8 ? "met" : "missed";
+    criteria.push({
+      criterion: c.criterion,
+      status: status,
+      notes: c.detail,
+    });
+  });
+  
+  return JSON.stringify(criteria);
+}
+
+function randomItems<T>(arr: T[], count: number): T[] {
+  const shuffled = [...arr].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, Math.min(count, arr.length));
+}
+
 function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -710,6 +1055,20 @@ async function seedDemoData() {
       }).returning();
       
       if (session && duration > 120) {
+        // Generate individual scores
+        const openingScore = Math.min(10, Math.max(1, randomInt(score - 1, score + 2)));
+        const discoveryScore = Math.min(10, Math.max(1, randomInt(score - 1, score + 1)));
+        const listeningScore = Math.min(10, Math.max(1, randomInt(score, score + 2)));
+        const objectionScore = Math.min(10, Math.max(1, randomInt(score - 2, score + 1)));
+        const valueScore = Math.min(10, Math.max(1, randomInt(score - 1, score + 1)));
+        const closingScore = Math.min(10, Math.max(1, randomInt(score - 2, score + 2)));
+        const complianceScore = randomInt(8, 10);
+        
+        // Generate detailed observations, recommendations, and criteria
+        const detailedObservations = generateDetailedObservations(score, disposition, sdr.name);
+        const detailedRecommendations = generateDetailedRecommendations(score, openingScore, discoveryScore, objectionScore, closingScore, valueScore);
+        const criteriaMet = generateCriteriaMet(openingScore, discoveryScore, valueScore, closingScore, complianceScore);
+        
         await db.insert(managerCallAnalyses).values({
           callSessionId: session.id,
           sdrId: sdr.id,
@@ -718,16 +1077,17 @@ async function seedDemoData() {
           callType: "outbound_prospecting",
           durationSeconds: duration,
           overallScore: score,
-          openingScore: Math.min(10, randomInt(score - 1, score + 2)),
-          discoveryScore: Math.min(10, randomInt(score - 1, score + 1)),
-          listeningScore: Math.min(10, randomInt(score, score + 2)),
-          objectionScore: Math.min(10, randomInt(score - 2, score + 1)),
-          valuePropositionScore: Math.min(10, randomInt(score - 1, score + 1)),
-          closingScore: Math.min(10, randomInt(score - 2, score + 2)),
-          complianceScore: randomInt(8, 10),
-          keyObservations: `${sdr.name} ${score >= 8 ? "demonstrated excellent sales execution with strong discovery and closing" : score >= 6 ? "showed solid fundamental skills with room for growth" : "needs additional coaching on key selling techniques"}. ${disposition === "meeting-booked" ? "Successfully converted to meeting." : disposition === "qualified" ? "Good qualification achieved." : "Productive prospecting activity."}`,
-          recommendations: `Focus on ${randomItem(["deeper discovery questioning", "stronger value articulation", "more confident closing", "better objection handling", "improved active listening"])}. ${score >= 7 ? "Consider for advanced coaching track." : "Schedule additional role-play sessions."}`,
-          summary: `${duration >= 300 ? "Extended" : "Standard"} prospecting call with ${lead.companyName}. ${disposition === "meeting-booked" ? "High-value outcome with demo scheduled." : disposition === "qualified" ? "Qualified opportunity identified." : "Productive conversation establishing rapport."}`,
+          openingScore: openingScore,
+          discoveryScore: discoveryScore,
+          listeningScore: listeningScore,
+          objectionScore: objectionScore,
+          valuePropositionScore: valueScore,
+          closingScore: closingScore,
+          complianceScore: complianceScore,
+          keyObservations: detailedObservations,
+          recommendations: detailedRecommendations,
+          criteriaComparison: criteriaMet,
+          summary: `${duration >= 300 ? "Extended" : "Standard"} prospecting call with ${lead.companyName}. ${disposition === "meeting-booked" ? "High-value outcome with demo scheduled." : disposition === "qualified" ? "Qualified opportunity identified." : "Productive conversation establishing rapport."} Overall performance: ${score >= 8 ? "Excellent execution demonstrating mastery of sales fundamentals." : score >= 6 ? "Solid performance with identified areas for continued development." : "Call reveals coaching opportunities to strengthen core skills."}`,
         }).onConflictDoNothing();
       }
       
