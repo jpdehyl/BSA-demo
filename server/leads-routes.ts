@@ -3,7 +3,7 @@ import { storage } from "./storage";
 import { insertLeadSchema, type Lead } from "@shared/schema";
 import { z } from "zod";
 import { fetchLeadsFromSheet, parseLeadsFromSheet, detectColumnMapping, getSpreadsheetInfo } from "./google/sheetsClient";
-import { researchLead } from "./ai/leadResearch";
+import { researchLead, type ResearchOptions } from "./ai/leadResearch";
 import { extractQualificationFromTranscript, QualificationDraft } from "./ai/qualificationExtractor";
 import { notifyLeadStatusChange, notifyLeadQualified, notifyManagersOfQualifiedLead, notifyAEHandoff, notifyResearchReady } from "./notificationService";
 import { notifyResearchComplete } from "./dashboardUpdates";
@@ -25,9 +25,9 @@ const researchInProgress = new Set<string>();
 // Shared helper for processing lead research with all guardrails
 async function processLeadResearch(
   lead: Lead,
-  options: { forceRefresh?: boolean; notifyUserId?: string } = {}
-): Promise<{ success: boolean; packet?: any; isExisting?: boolean }> {
-  const { forceRefresh = false, notifyUserId } = options;
+  options: { forceRefresh?: boolean; notifyUserId?: string; researchMode?: 'fast' | 'deep'; researchSources?: ResearchOptions['sources'] } = {}
+): Promise<{ success: boolean; packet?: any; isExisting?: boolean; researchMode?: 'fast' | 'deep' }> {
+  const { forceRefresh = false, notifyUserId, researchMode = 'fast', researchSources } = options;
   const leadId = lead.id;
   const leadName = lead.contactName || lead.companyName || leadId;
 
@@ -57,8 +57,8 @@ async function processLeadResearch(
   researchInProgress.add(leadId);
 
   try {
-    console.log(`[LeadResearch] Processing: ${leadName}`);
-    const researchResult = await researchLead(lead);
+    console.log(`[LeadResearch] Processing: ${leadName} (mode: ${researchMode})`);
+    const researchResult = await researchLead(lead, { mode: researchMode, sources: researchSources });
 
     // Check if new result is fallback but existing was good
     if (existingPacket && !existingIsFallback && isFallbackResearch(researchResult.packet)) {
@@ -86,8 +86,8 @@ async function processLeadResearch(
       await notifyResearchReady(notifyUserId, leadId, lead.contactName, lead.companyName);
     }
 
-    console.log(`[LeadResearch] Completed: ${leadName}`);
-    return { success: true, packet: researchPacket, isExisting: false };
+    console.log(`[LeadResearch] Completed: ${leadName} (mode: ${researchMode})`);
+    return { success: true, packet: researchPacket, isExisting: false, researchMode };
   } catch (err: any) {
     console.error(`[LeadResearch] Failed for ${leadId}:`, err.message);
     return { success: false };
@@ -450,15 +450,20 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
       if (!lead) {
         return res.status(404).json({ message: "Lead not found" });
       }
-      
+
       const forceRefresh = req.query.refresh === "true";
       const userId = req.session.userId!;
-      
-      const result = await processLeadResearch(lead, { 
-        forceRefresh, 
-        notifyUserId: userId 
+
+      // Extract research mode and sources from request body
+      const { mode = 'fast', sources } = req.body as { mode?: 'fast' | 'deep'; sources?: ResearchOptions['sources'] };
+
+      const result = await processLeadResearch(lead, {
+        forceRefresh,
+        notifyUserId: userId,
+        researchMode: mode,
+        researchSources: sources
       });
-      
+
       if (!result.success && !result.packet) {
         return res.status(500).json({ message: "Failed to research lead" });
       }
@@ -469,9 +474,10 @@ export function registerLeadsRoutes(app: Express, requireAuth: (req: Request, re
       }
 
       res.json({
-        message: result.isExisting ? "Research already exists" : "Research completed",
+        message: result.isExisting ? "Research already exists" : `Research completed (${result.researchMode || 'fast'} mode)`,
         researchPacket: result.packet,
-        isExisting: result.isExisting
+        isExisting: result.isExisting,
+        researchMode: result.researchMode || 'fast'
       });
     } catch (error) {
       console.error("Lead research error:", error);

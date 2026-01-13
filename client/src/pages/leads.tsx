@@ -68,6 +68,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { SiLinkedin, SiX } from "react-icons/si";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -171,17 +177,18 @@ export default function LeadsPage() {
   }, [showQualifyDialog]);
 
   const researchMutation = useMutation({
-    mutationFn: async ({ leadId, refresh = false }: { leadId: string; refresh?: boolean }) => {
-      const url = refresh 
+    mutationFn: async ({ leadId, refresh = false, mode = 'fast' }: { leadId: string; refresh?: boolean; mode?: 'fast' | 'deep' }) => {
+      const url = refresh
         ? `/api/leads/${leadId}/research?refresh=true`
         : `/api/leads/${leadId}/research`;
-      const res = await apiRequest("POST", url);
+      const res = await apiRequest("POST", url, { mode });
       return res.json();
     },
-    onSuccess: async () => {
+    onSuccess: async (data) => {
       await queryClient.invalidateQueries({ queryKey: ["/api/leads"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/leads", selectedLead?.id] });
-      toast({ title: "Intel Gathered", description: "Lead dossier compiled successfully" });
+      const modeLabel = data?.researchMode === 'deep' ? 'Deep Intel' : 'Intel';
+      toast({ title: `${modeLabel} Gathered`, description: "Lead dossier compiled successfully" });
     },
     onError: () => {
       toast({ title: "Intel Failed", description: "Could not compile lead dossier", variant: "destructive" });
@@ -428,7 +435,8 @@ export default function LeadsPage() {
               lead={selectedLead}
               detail={leadDetail}
               isLoading={detailLoading}
-              onResearch={() => researchMutation.mutate({ leadId: selectedLead.id, refresh: selectedLead.hasResearch })}
+              onResearch={() => researchMutation.mutate({ leadId: selectedLead.id, refresh: selectedLead.hasResearch, mode: 'fast' })}
+              onDeepResearch={() => researchMutation.mutate({ leadId: selectedLead.id, refresh: true, mode: 'deep' })}
               isResearching={researchMutation.isPending}
               onCall={() => handleCallLead(selectedLead)}
               onHandoff={() => setShowQualifyDialog(true)}
@@ -769,6 +777,7 @@ function LeadDetailPanel({
   detail,
   isLoading,
   onResearch,
+  onDeepResearch,
   isResearching,
   onCall,
   onHandoff,
@@ -778,6 +787,7 @@ function LeadDetailPanel({
   detail: { lead: Lead; researchPacket: ResearchPacket | null } | undefined;
   isLoading: boolean;
   onResearch: () => void;
+  onDeepResearch: () => void;
   isResearching: boolean;
   onCall: () => void;
   onHandoff: () => void;
@@ -900,19 +910,32 @@ function LeadDetailPanel({
               {lead.status === "handed_off" ? "Handed Off" : "Qualified"}
             </Badge>
           )}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={onResearch}
-            disabled={isResearching}
-            data-testid="button-refresh-intel"
-          >
-            {isResearching ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={isResearching}
+                data-testid="button-refresh-intel"
+              >
+                {isResearching ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onResearch} disabled={isResearching}>
+                <Zap className="h-4 w-4 mr-2" />
+                Quick Research (~5s)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onDeepResearch} disabled={isResearching}>
+                <Search className="h-4 w-4 mr-2" />
+                Deep Research (~60s)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -941,10 +964,16 @@ function LeadDetailPanel({
                 : "Research is auto-generated when leads are added. Check back shortly or refresh."}
             </p>
             {!isResearching && (
-              <Button onClick={onResearch} variant="outline" size="sm" data-testid="button-generate-intel">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={onResearch} variant="outline" size="sm" data-testid="button-generate-intel">
+                  <Zap className="h-4 w-4 mr-2" />
+                  Quick (~5s)
+                </Button>
+                <Button onClick={onDeepResearch} variant="default" size="sm" data-testid="button-deep-research">
+                  <Search className="h-4 w-4 mr-2" />
+                  Deep (~60s)
+                </Button>
+              </div>
             )}
           </div>
         )}
