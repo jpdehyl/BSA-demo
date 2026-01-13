@@ -21,6 +21,41 @@ import {
   extractString,
   extractArray,
 } from "./helpers/leadScoringHelpers";
+import { isBrowserlessConfigured } from "./browserlessClient.js";
+import {
+  scrapeLinkedInCompany,
+  scrapeLinkedInProfile,
+  scrapeCompanyJobs,
+  scrapeCompanyWebsite,
+  formatLinkedInCompanyData,
+  formatLinkedInProfileData,
+  formatJobPostingsData,
+  formatCompanyWebsiteData,
+  type LinkedInCompanyData,
+  type LinkedInProfileData,
+  type JobPostingsData,
+  type CompanyWebsiteData,
+} from "./scrapers/index.js";
+
+// Research mode options
+export interface ResearchOptions {
+  mode: 'fast' | 'deep';
+  sources?: {
+    linkedInCompany?: boolean;
+    linkedInProfile?: boolean;
+    companyWebsite?: boolean;
+    jobPostings?: boolean;
+    news?: boolean;
+  };
+}
+
+// Deep research data gathered via Browserless
+export interface DeepResearchData {
+  linkedInCompany: LinkedInCompanyData | null;
+  linkedInProfile: LinkedInProfileData | null;
+  jobPostings: JobPostingsData | null;
+  websiteDeep: CompanyWebsiteData | null;
+}
 
 const HAWK_RIDGE_CONTEXT = `
 Hawk Ridge Systems is a leading provider of 3D design, manufacturing, and product data management solutions.
@@ -152,6 +187,8 @@ interface PreScrapedData {
   xIntel: XIntelResult;
   knowledgeBase: string;
   scoringParams: string;
+  deepResearch?: DeepResearchData;
+  researchMode?: 'fast' | 'deep';
 }
 
 async function gatherAllIntelInParallel(lead: Lead): Promise<PreScrapedData> {
@@ -185,7 +222,7 @@ async function gatherAllIntelInParallel(lead: Lead): Promise<PreScrapedData> {
   ]);
   
   console.log(`[LeadResearch] Pre-fetch complete. Website: ${!!scrapedIntel.website}, LinkedIn contact: ${!!contactLinkedIn}, LinkedIn company: ${!!scrapedIntel.linkedInCompany}`);
-  
+
   return {
     scrapedIntel,
     contactLinkedIn,
@@ -194,6 +231,157 @@ async function gatherAllIntelInParallel(lead: Lead): Promise<PreScrapedData> {
     knowledgeBase,
     scoringParams
   };
+}
+
+/**
+ * Gather deep research data using Browserless.io scrapers
+ * This provides richer intelligence but takes longer (30-60 seconds)
+ */
+async function gatherDeepResearchData(
+  lead: Lead,
+  sources: ResearchOptions['sources'] = {}
+): Promise<DeepResearchData> {
+  console.log(`[LeadResearch] Starting DEEP research for ${lead.contactName} at ${lead.companyName}`);
+
+  if (!isBrowserlessConfigured()) {
+    console.log('[LeadResearch] Browserless not configured, skipping deep research');
+    return {
+      linkedInCompany: null,
+      linkedInProfile: null,
+      jobPostings: null,
+      websiteDeep: null,
+    };
+  }
+
+  const deepTasks: Promise<void>[] = [];
+  const results: DeepResearchData = {
+    linkedInCompany: null,
+    linkedInProfile: null,
+    jobPostings: null,
+    websiteDeep: null,
+  };
+
+  // LinkedIn Company scraping
+  if (sources.linkedInCompany !== false) {
+    const companyLinkedIn = lead.companyLinkedIn ||
+      `https://www.linkedin.com/company/${lead.companyName.toLowerCase().replace(/\s+/g, '-')}/`;
+
+    deepTasks.push(
+      scrapeLinkedInCompany(companyLinkedIn)
+        .then((result) => {
+          if (result.data) {
+            results.linkedInCompany = result.data;
+            console.log(`[LeadResearch] LinkedIn company scraped: ${result.data.name}`);
+          } else if (result.error) {
+            console.error(`[LeadResearch] LinkedIn company scrape failed: ${result.error}`);
+          }
+        })
+        .catch((err) => {
+          console.error(`[LeadResearch] LinkedIn company scrape error: ${err.message}`);
+        })
+    );
+  }
+
+  // LinkedIn Profile scraping
+  if (sources.linkedInProfile !== false && lead.contactLinkedIn) {
+    deepTasks.push(
+      scrapeLinkedInProfile(lead.contactLinkedIn)
+        .then((result) => {
+          if (result.data) {
+            results.linkedInProfile = result.data;
+            console.log(`[LeadResearch] LinkedIn profile scraped: ${result.data.name}`);
+          } else if (result.error) {
+            console.error(`[LeadResearch] LinkedIn profile scrape failed: ${result.error}`);
+          }
+        })
+        .catch((err) => {
+          console.error(`[LeadResearch] LinkedIn profile scrape error: ${err.message}`);
+        })
+    );
+  }
+
+  // Company website deep scraping
+  if (sources.companyWebsite !== false && lead.companyWebsite) {
+    deepTasks.push(
+      scrapeCompanyWebsite(lead.companyWebsite)
+        .then((result) => {
+          if (result.data) {
+            results.websiteDeep = result.data;
+            console.log(`[LeadResearch] Website deep scraped: ${result.data.url}`);
+          } else if (result.error) {
+            console.error(`[LeadResearch] Website deep scrape failed: ${result.error}`);
+          }
+        })
+        .catch((err) => {
+          console.error(`[LeadResearch] Website deep scrape error: ${err.message}`);
+        })
+    );
+  }
+
+  // Job postings scraping
+  if (sources.jobPostings !== false) {
+    deepTasks.push(
+      scrapeCompanyJobs(lead.companyName)
+        .then((result) => {
+          if (result.data) {
+            results.jobPostings = result.data;
+            console.log(`[LeadResearch] Job postings scraped: ${result.data.totalOpenings} jobs`);
+          } else if (result.error) {
+            console.error(`[LeadResearch] Job postings scrape failed: ${result.error}`);
+          }
+        })
+        .catch((err) => {
+          console.error(`[LeadResearch] Job postings scrape error: ${err.message}`);
+        })
+    );
+  }
+
+  // Execute all deep scrapes in parallel
+  await Promise.allSettled(deepTasks);
+
+  const successCount = [
+    results.linkedInCompany,
+    results.linkedInProfile,
+    results.jobPostings,
+    results.websiteDeep,
+  ].filter(Boolean).length;
+
+  console.log(`[LeadResearch] Deep research complete. ${successCount}/4 sources gathered`);
+
+  return results;
+}
+
+/**
+ * Format deep research data for inclusion in Claude prompt
+ */
+function formatDeepResearchForPrompt(data: DeepResearchData): string {
+  const sections: string[] = [];
+
+  if (data.linkedInCompany) {
+    sections.push('## DEEP RESEARCH: LinkedIn Company Data (via Browserless)');
+    sections.push(formatLinkedInCompanyData(data.linkedInCompany));
+    sections.push('');
+  }
+
+  if (data.linkedInProfile) {
+    sections.push('## DEEP RESEARCH: LinkedIn Profile Data (via Browserless)');
+    sections.push(formatLinkedInProfileData(data.linkedInProfile));
+    sections.push('');
+  }
+
+  if (data.jobPostings && data.jobPostings.totalOpenings > 0) {
+    sections.push('## DEEP RESEARCH: Job Postings Analysis (via Browserless)');
+    sections.push(formatJobPostingsData(data.jobPostings));
+    sections.push('');
+  }
+
+  if (data.websiteDeep) {
+    sections.push('## DEEP RESEARCH: Website Deep Scrape (via Browserless)');
+    sections.push(formatCompanyWebsiteData(data.websiteDeep));
+    sections.push('');
+  }
+
+  return sections.join('\n');
 }
 
 export async function generateLeadDossier(lead: Lead, preScraped?: PreScrapedData): Promise<LeadDossier> {
@@ -248,7 +436,13 @@ ${scraped.knowledgeBase.substring(0, 12000)}` : "";
 ## LEAD SCORING PARAMETERS (Use these criteria):
 ${scraped.scoringParams.substring(0, 4000)}` : "";
 
-  const prompt = `You are an expert B2B sales intelligence analyst preparing a COMPREHENSIVE dossier for a sales call to sell Hawk Ridge Systems solutions.
+  // Deep research section (only if deep mode was used)
+  const deepResearchSection = scraped.deepResearch ? formatDeepResearchForPrompt(scraped.deepResearch) : "";
+  const researchModeNote = scraped.researchMode === 'deep'
+    ? "\n\n🔬 RESEARCH MODE: DEEP - Enhanced intelligence gathered via headless browser scraping. Use this additional data to provide more detailed insights.\n"
+    : "";
+
+  const prompt = `You are an expert B2B sales intelligence analyst preparing a COMPREHENSIVE dossier for a sales call to sell Hawk Ridge Systems solutions.${researchModeNote}
 
 ${HAWK_RIDGE_CONTEXT}
 
@@ -269,6 +463,8 @@ ${contactLinkedInSection}
 ${companyHardIntelSection}
 ${knowledgeBaseSection}
 ${scoringSection}
+
+${deepResearchSection}
 
 === END PRE-SCRAPED INTELLIGENCE ===
 
@@ -486,14 +682,29 @@ export interface ResearchResult {
     xIntel: XIntelResult;
     linkedInProfile: LinkedInProfile;
     companyHardIntel: CompanyHardIntel;
+    deepResearch?: DeepResearchData;
   };
+  researchMode: 'fast' | 'deep';
 }
 
-export async function researchLead(lead: Lead): Promise<ResearchResult> {
-  console.log(`[LeadResearch] Starting parallel research for ${lead.contactName} at ${lead.companyName}`);
-  
+export async function researchLead(
+  lead: Lead,
+  options: ResearchOptions = { mode: 'fast' }
+): Promise<ResearchResult> {
+  const { mode, sources } = options;
+  console.log(`[LeadResearch] Starting ${mode.toUpperCase()} research for ${lead.contactName} at ${lead.companyName}`);
+
+  // Always gather fast/API-based research first
   const preScraped = await gatherAllIntelInParallel(lead);
-  
+  preScraped.researchMode = mode;
+
+  // Add deep research if requested
+  if (mode === 'deep') {
+    console.log(`[LeadResearch] Deep mode enabled, gathering Browserless intelligence...`);
+    const deepData = await gatherDeepResearchData(lead, sources);
+    preScraped.deepResearch = deepData;
+  }
+
   const dossier = await generateLeadDossier(lead, preScraped);
   
   const linkedInProfile = formatContactLinkedInAsProfile(preScraped.contactLinkedIn);
@@ -600,7 +811,9 @@ export async function researchLead(lead: Lead): Promise<ResearchResult> {
       dossier,
       xIntel: preScraped.xIntel,
       linkedInProfile,
-      companyHardIntel: preScraped.companyHardIntel
-    }
+      companyHardIntel: preScraped.companyHardIntel,
+      deepResearch: preScraped.deepResearch
+    },
+    researchMode: mode
   };
 }
