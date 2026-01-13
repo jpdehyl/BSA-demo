@@ -201,6 +201,9 @@ hawkridgesales/
 │       └── chat.ts                 # Chat/conversation models
 │
 ├── docs/                           # Documentation
+│   ├── discovery/                  # Client discovery & integration specs
+│   │   ├── DISCOVERY_QUESTIONNAIRE.md  # Client requirements questionnaire
+│   │   └── BROWSERLESS_INTEGRATION_SPEC.md # Browserless.io integration
 │   ├── SALESFORCE_INTEGRATION_GUIDE.md # Salesforce setup guide
 │   └── WORKFLOW.md                 # Platform workflow docs
 │
@@ -1827,6 +1830,8 @@ All environment variables must be set in Replit Secrets:
 - **`LEAD_INTEL_TECHNICAL_DOCUMENTATION.md`** - Comprehensive technical documentation
 - **`docs/SALESFORCE_INTEGRATION_GUIDE.md`** - Salesforce setup guide
 - **`docs/WORKFLOW.md`** - Platform workflow documentation
+- **`docs/discovery/DISCOVERY_QUESTIONNAIRE.md`** - Client discovery questionnaire for Salesforce/Zoom/Azure adaptation
+- **`docs/discovery/BROWSERLESS_INTEGRATION_SPEC.md`** - Browserless.io headless browser integration spec
 - **`design_guidelines.md`** - Design system documentation
 - **`replit.md`** - Replit setup guide
 - **`.claude/agents/README.md`** - Multi-agent system documentation
