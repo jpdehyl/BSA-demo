@@ -1,0 +1,87 @@
+{
+  "colorScheme": "light",
+  "fonts": [
+    {
+      "family": "sans-serif",
+      "count": 57
+    },
+    {
+      "family": "LeagueSpartan",
+      "count": 26
+    },
+    {
+      "family": "CrimsonPro",
+      "count": 20
+    },
+    {
+      "family": "Roboto",
+      "count": 11
+    }
+  ],
+  "colors": {
+    "primary": "#E5C100",
+    "accent": "#14202E",
+    "background": "#F3F4F5",
+    "textPrimary": "#14202E",
+    "link": "#14202E"
+  },
+  "typography": {
+    "fontFamilies": {
+      "primary": "Roboto",
+      "heading": "LeagueSpartan"
+    },
+    "fontStacks": {
+      "body": [
+        "Roboto",
+        "sans-serif"
+      ],
+      "heading": [
+        "LeagueSpartan",
+        "sans-serif"
+      ],
+      "paragraph": [
+        "CrimsonPro",
+        "sans-serif"
+      ]
+    },
+    "fontSizes": {
+      "h1": "80px",
+      "h2": "80px",
+      "body": "20px"
+    }
+  },
+  "spacing": {
+    "baseUnit": 4,
+    "borderRadius": "0px"
+  },
+  "components": {},
+  "images": {
+    "logo": "File saved at: attached_assets/logo.png",
+    "favicon": "File saved at: attached_assets/favicon.png",
+    "ogImage": "File saved at: attached_assets/ogImage.png"
+  },
+  "__framework_hints": [],
+  "__llm_logo_reasoning": {
+    "selectedIndex": 0,
+    "reasoning": "Strong indicators: header logo linking to homepage, header location, visible, highest logo on page, class contains logo, reasonable size. Score: 107 (clear winner by 107 points)",
+    "confidence": 0.9
+  },
+  "__llm_button_reasoning": {
+    "primary": {
+      "index": -1,
+      "text": "N/A",
+      "reasoning": "LLM failed"
+    },
+    "secondary": {
+      "index": -1,
+      "text": "N/A",
+      "reasoning": "LLM failed"
+    },
+    "confidence": 0
+  },
+  "confidence": {
+    "buttons": 0,
+    "colors": 0,
+    "overall": 0
+  }
+}
