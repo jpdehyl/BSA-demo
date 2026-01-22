@@ -82,7 +82,7 @@ export function DialingModal({ open, onOpenChange, lead }: DialingModalProps) {
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
-              <Phone className="h-5 w-5 text-[#2C88C9]" />
+              <Phone className="h-5 w-5 text-primary" />
               Calling {lead.contactName}
             </DialogTitle>
           </div>
@@ -199,7 +199,7 @@ export function DialingModal({ open, onOpenChange, lead }: DialingModalProps) {
             Full Prep
           </Button>
           <Button 
-            className="flex-1 bg-[#2C88C9] hover:bg-[#2477AD] text-white"
+            className="flex-1 bg-primary hover:bg-primary/90 text-white"
             onClick={handleDial}
             disabled={isDialing}
           >
