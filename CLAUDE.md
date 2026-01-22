@@ -1,7 +1,7 @@
 # CLAUDE.md - AI Assistant Guide for Lead Intel
 
-> **Last Updated:** January 11, 2026
-> **Repository:** hawkridgesales
+> **Last Updated:** January 22, 2026
+> **Repository:** BSA-demo
 > **Type:** Full-stack TypeScript monorepo (React + Express.js)
 
 This document provides comprehensive guidance for AI assistants working on the Lead Intel codebase. It covers project structure, development workflows, key conventions, and common tasks.
@@ -90,7 +90,7 @@ This document provides comprehensive guidance for AI assistants working on the L
 ## Repository Structure
 
 ```
-hawkridgesales/
+BSA-demo/
 ├── .claude/                         # AI Agent & Development System
 │   ├── agents/                     # Multi-agent system
 │   │   ├── README.md               # Agent documentation
@@ -115,11 +115,12 @@ hawkridgesales/
 │
 ├── client/                          # React frontend (Vite)
 │   ├── src/
-│   │   ├── pages/                  # Route components (14 pages)
+│   │   ├── pages/                  # Route components (18 pages)
 │   │   │   ├── landing.tsx         # Marketing homepage
 │   │   │   ├── login.tsx           # Authentication
 │   │   │   ├── signup.tsx          # User registration
-│   │   │   ├── dashboard.tsx       # Main KPI dashboard
+│   │   │   ├── dashboard.tsx       # SDR main KPI dashboard
+│   │   │   ├── manager-dashboard.tsx # Manager oversight view
 │   │   │   ├── leads.tsx           # Lead management
 │   │   │   ├── coaching.tsx        # Live call coaching
 │   │   │   ├── call-prep.tsx       # Pre-call research view
@@ -129,18 +130,31 @@ hawkridgesales/
 │   │   │   ├── ae-pipeline.tsx     # AE pipeline view
 │   │   │   ├── budgeting.tsx       # Territory budgeting
 │   │   │   ├── learning.tsx        # Learning resources
+│   │   │   ├── sdr-profile.tsx     # SDR profile page
+│   │   │   ├── manager-profile.tsx # Manager profile page
+│   │   │   ├── ae-profile.tsx      # Account Executive profile
 │   │   │   └── not-found.tsx       # 404 page
 │   │   ├── components/             # React components (81+)
-│   │   │   ├── ui/                 # shadcn/ui library (64 components)
+│   │   │   ├── ui/                 # shadcn/ui library (55 components)
+│   │   │   ├── ai-reports/         # AI-powered report components (8)
+│   │   │   │   ├── executive-summary.tsx
+│   │   │   │   ├── performance-trends.tsx
+│   │   │   │   ├── team-comparison.tsx
+│   │   │   │   └── ... (5 more)
 │   │   │   ├── softphone.tsx       # Twilio voice integration
 │   │   │   ├── call-brief.tsx      # Pre-call intelligence display
 │   │   │   ├── call-review-dialog.tsx # Post-call review
 │   │   │   ├── call-queue.tsx      # Call queue management
 │   │   │   ├── kanban-board.tsx    # Lead pipeline board
 │   │   │   ├── zoom-phone-embed.tsx # Zoom Phone widget
-│   │   │   └── app-sidebar.tsx     # Main navigation
-│   │   ├── hooks/                  # Custom React hooks
+│   │   │   ├── app-sidebar.tsx     # Main navigation
+│   │   │   ├── manager-oversight-dashboard.tsx # Manager analytics
+│   │   │   └── post-call-summary-form.tsx # Call outcome form
+│   │   ├── hooks/                  # Custom React hooks (6)
 │   │   │   ├── use-transcription.ts # WebSocket transcription
+│   │   │   ├── use-agents.ts       # Agent interaction
+│   │   │   ├── use-dashboard-updates.ts # Real-time dashboard sync
+│   │   │   ├── use-keyboard-shortcuts.ts # Keyboard shortcuts
 │   │   │   ├── use-toast.ts
 │   │   │   └── use-mobile.tsx
 │   │   ├── lib/
@@ -151,8 +165,8 @@ hawkridgesales/
 │   │   └── main.tsx                # React entry point
 │   └── index.html
 │
-├── server/                          # Express.js backend
-│   ├── ai/                         # AI modules (15 modules)
+├── server/                          # Express.js backend (74 TypeScript files)
+│   ├── ai/                         # AI modules (28 modules)
 │   │   ├── leadResearch.ts         # Main research orchestrator
 │   │   ├── websiteScraper.ts       # Website & LinkedIn scraping
 │   │   ├── xResearch.ts            # X/Twitter research
@@ -164,10 +178,24 @@ hawkridgesales/
 │   │   ├── callCoachingAnalysis.ts # Call coaching (Claude)
 │   │   ├── claudeClient.ts         # Claude SDK wrapper
 │   │   ├── qualificationExtractor.ts # BANT extraction
+│   │   ├── bantExtraction.ts       # Alternative BANT extraction
 │   │   ├── managerAnalysis.ts      # Manager performance analysis
+│   │   ├── reportsAnalysis.ts      # AI report generation
+│   │   ├── baselineMetrics.ts      # Success metrics analysis
+│   │   ├── dashboardInsights.ts    # Dashboard insights
+│   │   ├── dispositionSuggestion.ts # Call outcome prediction
 │   │   ├── transcribe.ts           # Audio transcription
 │   │   ├── serpApiClient.ts        # LinkedIn search API
-│   │   └── zoomClient.ts           # Zoom Phone integration
+│   │   ├── zoomClient.ts           # Zoom Phone integration
+│   │   ├── browserlessClient.ts    # Browserless.io integration
+│   │   ├── scrapers/               # Web scraping modules (5 files)
+│   │   └── helpers/                # AI helper functions
+│   │
+│   ├── agents/                     # Multi-Agent System (server-side)
+│   │   ├── director.ts             # Orchestrator agent (12KB)
+│   │   ├── agentExecutor.ts        # Execution engine
+│   │   ├── promptLoader.ts         # Prompt management
+│   │   └── types.ts                # Type definitions
 │   │
 │   ├── integrations/               # External service integrations
 │   │   ├── salesforceClient.ts     # Salesforce OAuth & REST API
@@ -179,24 +207,42 @@ hawkridgesales/
 │   │   ├── driveClient.ts          # Google Drive operations
 │   │   └── gmailClient.ts          # Gmail sending
 │   │
-│   ├── replit_integrations/        # Replit AI services
-│   │   ├── batch/                  # Batch processing
-│   │   ├── chat/                   # Gemini chat integration
-│   │   └── image/                  # Image generation
+│   ├── helpers/                    # Server utilities
+│   │   ├── authHelpers.ts          # Password hashing, session
+│   │   ├── leadResearchHelpers.ts  # Research utilities
+│   │   ├── managerProfileHelpers.ts # Manager analytics
+│   │   └── coachingEmailHelpers.ts # Email formatting
 │   │
-│   ├── routes.ts                   # Main API routes (42+ endpoints)
+│   ├── middleware/                 # Express middleware
+│   │   └── auth.ts                 # Authentication middleware
+│   │
+│   ├── prompts/                    # AI Prompts
+│   │   └── supportAgent.ts         # Support chat agent prompt
+│   │
+│   ├── replit_integrations/        # Replit AI services (placeholder)
+│   │
+│   ├── routes.ts                   # Main API routes (50+ endpoints)
 │   ├── leads-routes.ts             # Leads-specific routes
 │   ├── coach-routes.ts             # Coaching routes
+│   ├── ai-reports-routes.ts        # AI-generated reports
+│   ├── baseline-routes.ts          # Success metrics tracking
+│   ├── support-routes.ts           # Support AI agent (1,600+ lines)
+│   ├── agent-routes.ts             # Multi-agent system routes
 │   ├── salesforce-routes.ts        # Salesforce API endpoints
+│   ├── zoom-routes.ts              # Zoom Phone integration
 │   ├── twilio-voice.ts             # Twilio Voice integration
 │   ├── transcription.ts            # WebSocket transcription
 │   ├── notificationService.ts      # Real-time notifications
-│   ├── storage.ts                  # Database abstraction
+│   ├── dashboardUpdates.ts         # WebSocket dashboard sync
+│   ├── pdf-service.ts              # PDF generation
+│   ├── storage.ts                  # Database abstraction (772 lines)
 │   ├── db.ts                       # Drizzle ORM connection
+│   ├── vite.ts                     # Vite dev server setup
+│   ├── static.ts                   # Static file serving
 │   └── index.ts                    # Express app initialization
 │
 ├── shared/                         # Shared code
-│   ├── schema.ts                   # Database schema & Zod validators
+│   ├── schema.ts                   # Database schema & Zod validators (350+ lines)
 │   └── models/
 │       └── chat.ts                 # Chat/conversation models
 │
@@ -204,35 +250,47 @@ hawkridgesales/
 │   ├── discovery/                  # Client discovery & integration specs
 │   │   ├── DISCOVERY_QUESTIONNAIRE.md  # Client requirements questionnaire
 │   │   └── BROWSERLESS_INTEGRATION_SPEC.md # Browserless.io integration
+│   ├── BASELINE_SUCCESS_METRICS.md # Success metrics documentation
 │   ├── SALESFORCE_INTEGRATION_GUIDE.md # Salesforce setup guide
-│   └── WORKFLOW.md                 # Platform workflow docs
+│   ├── SUPPORT_CHAT_GUIDE.md       # Support chat documentation
+│   ├── WORKFLOW.md                 # Platform workflow docs
+│   └── groundgame-*.md             # Sales methodology guides
 │
 ├── scripts/                        # Build & test scripts
-│   ├── build.ts
+│   ├── seedDemoData.ts             # Demo data seeding
 │   └── playwright-ux/              # UX testing
 │       ├── README.md
 │       ├── accessibility-audit.ts  # A11y compliance
 │       ├── screenshot.ts           # Visual regression
 │       └── user-flow.ts            # E2E user journeys
 │
+├── attached_assets/                # Images & media
+│   ├── generated_images/
+│   └── stock_images/
+│
 ├── migrations/                     # Drizzle migrations
 │
-├── package.json                    # Dependencies & scripts
+├── package.json                    # Dependencies (137 packages)
 ├── tsconfig.json                   # TypeScript config
 ├── vite.config.ts                  # Vite config
 ├── drizzle.config.ts               # Drizzle ORM config
 ├── tailwind.config.ts              # Tailwind CSS config
+├── postcss.config.js               # PostCSS config
+├── components.json                 # shadcn/ui config
 ├── playwright.config.ts            # Playwright test config
 └── .replit                         # Replit environment config
 ```
 
 ### Key Metrics
-- **Total TypeScript Files:** 137
-- **Total API Endpoints:** 70+
-- **Frontend Pages:** 14
-- **UI Components:** 81+ (17 custom + 64 shadcn/ui)
-- **Database Tables:** 17 primary tables
-- **AI Modules:** 15 specialized modules
+- **Total TypeScript Files:** 215
+- **Total Lines of Code:** ~61,763
+- **Total API Endpoints:** 50+
+- **Frontend Pages:** 18
+- **UI Components:** 81+ (26 custom + 55 shadcn/ui)
+- **Custom React Hooks:** 6
+- **Database Tables:** 15+ primary tables
+- **AI Modules:** 28 specialized modules
+- **NPM Dependencies:** 137 packages
 
 ---
 
@@ -290,8 +348,6 @@ npx drizzle-kit generate
 
 ### Git Workflow
 
-**Current Branch:** `claude/add-claude-documentation-IUhta`
-
 **Standard Workflow:**
 1. Make changes on feature branch
 2. Commit with descriptive messages
@@ -299,6 +355,12 @@ npx drizzle-kit generate
 4. Create PR to main branch
 
 **Important:** Always develop on designated feature branches starting with `claude/` and ending with session ID.
+
+**Branch Naming Convention:**
+```
+claude/{description}-{sessionId}
+```
+Example: `claude/claude-md-mkpr91qo4f27550u-1HgEg`
 
 ---
 
@@ -330,6 +392,12 @@ npx drizzle-kit generate
 │  │ - /api/coach/*                      │   │
 │  │ - /api/call-sessions/*              │   │
 │  │ - /api/manager/*                    │   │
+│  │ - /api/ai-reports/*                 │   │
+│  │ - /api/baseline/*                   │   │
+│  │ - /api/support/*                    │   │
+│  │ - /api/agents/*                     │   │
+│  │ - /api/salesforce/*                 │   │
+│  │ - /api/zoom/*                       │   │
 │  └─────────────────────────────────────┘   │
 │  ┌─────────────────────────────────────┐   │
 │  │ Business Logic Layer                │   │
@@ -763,17 +831,79 @@ Audit trail for Salesforce lead synchronization.
 }
 ```
 
+#### live_coaching_sessions
+Real-time call coaching session tracking.
+
+```typescript
+{
+  id: number (primary key)
+  userId: number (foreign key -> users)
+  leadId: number (nullable, foreign key -> leads)
+  callSid: string (Twilio call SID)
+  status: 'active' | 'completed' | 'abandoned'
+  startedAt: Date
+  endedAt: Date (nullable)
+  createdAt: Date
+}
+```
+
+#### live_coaching_tips
+AI-generated coaching tips during calls.
+
+```typescript
+{
+  id: number (primary key)
+  sessionId: number (foreign key -> live_coaching_sessions)
+  tipType: 'suggestion' | 'warning' | 'opportunity'
+  content: text
+  confidence: number (0-100)
+  createdAt: Date
+}
+```
+
+#### live_transcripts
+Real-time call transcription storage.
+
+```typescript
+{
+  id: number (primary key)
+  sessionId: number (foreign key -> live_coaching_sessions)
+  speaker: 'agent' | 'customer'
+  content: text
+  timestamp: Date
+  createdAt: Date
+}
+```
+
+#### navigation_settings
+Dynamic UI navigation configuration.
+
+```typescript
+{
+  id: number (primary key)
+  userId: number (foreign key -> users)
+  sidebarOrder: jsonb (array of menu item IDs)
+  hiddenItems: jsonb (array of hidden menu IDs)
+  createdAt: Date
+  updatedAt: Date
+}
+```
+
 ### Relationships
 
 ```
 users ←→ sdrs (one-to-one via sdrId)
 users ←→ managers (one-to-one via managerId)
+users ←→ navigation_settings (one-to-one)
 managers ←→ sdrs (one-to-many)
 sdrs ←→ leads (one-to-many via assignedSdrId)
 leads ←→ research_packets (one-to-many)
 leads ←→ call_sessions (one-to-many)
+leads ←→ live_coaching_sessions (one-to-many)
 leads ←→ salesforce_sync_log (one-to-many)
 call_sessions ←→ manager_call_analyses (one-to-one)
+live_coaching_sessions ←→ live_coaching_tips (one-to-many)
+live_coaching_sessions ←→ live_transcripts (one-to-many)
 ```
 
 ### Naming Conventions
@@ -844,6 +974,29 @@ Examples:
 - `POST /api/salesforce/import` - Import leads from Salesforce
 - `POST /api/salesforce/push/:leadId` - Push lead updates to Salesforce
 - `POST /api/salesforce/handover/:leadId` - Hand off lead to AE in Salesforce
+
+**AI Reports Endpoints:**
+- `GET /api/ai-reports/executive-summary` - Generate executive summary
+- `GET /api/ai-reports/performance-trends` - Performance trend analysis
+- `GET /api/ai-reports/team-comparison` - Team comparison metrics
+- `POST /api/ai-reports/generate` - Generate custom AI report
+
+**Baseline Metrics Endpoints:**
+- `GET /api/baseline/metrics` - Get baseline success metrics
+- `POST /api/baseline/metrics` - Record new baseline metrics
+- `GET /api/baseline/comparison` - Compare against baseline
+
+**Support AI Agent Endpoints:**
+- `POST /api/support/chat` - Chat with support AI agent
+- `GET /api/support/history` - Get chat history
+
+**Multi-Agent System Endpoints:**
+- `POST /api/agents/execute` - Execute agent task
+- `GET /api/agents/status/:taskId` - Get task status
+
+**Zoom Integration Endpoints:**
+- `GET /api/zoom/recordings` - Get call recordings
+- `POST /api/zoom/transcribe/:recordingId` - Transcribe recording
 
 ### Request/Response Format
 
@@ -1236,6 +1389,11 @@ AI is used for:
 3. **Post-Call Analysis**: Transcript analysis and scoring
 4. **Manager Insights**: Performance analysis and recommendations
 5. **Qualification Extraction**: BANT extraction from transcripts
+6. **AI Reports**: Executive summaries, performance trends, team comparisons
+7. **Support Chat**: AI-powered support agent for user assistance
+8. **Baseline Metrics**: Success tracking and comparison analysis
+9. **Disposition Prediction**: Call outcome prediction
+10. **Dashboard Insights**: AI-generated dashboard recommendations
 
 ### AI Best Practices
 
@@ -1781,11 +1939,21 @@ All environment variables must be set in Replit Secrets:
 ### Backend Entry Points
 
 - **`server/index.ts`** - Express app initialization, middleware setup
-- **`server/routes.ts`** - Main API routes (42+ endpoints)
+- **`server/routes.ts`** - Main API routes (50+ endpoints, 3,734 lines)
 - **`server/leads-routes.ts`** - Leads-specific routes
 - **`server/coach-routes.ts`** - Coaching routes
+- **`server/ai-reports-routes.ts`** - AI-generated reports endpoints
+- **`server/baseline-routes.ts`** - Success metrics tracking
+- **`server/support-routes.ts`** - Support AI agent (1,616 lines)
+- **`server/agent-routes.ts`** - Multi-agent system routes
 - **`server/salesforce-routes.ts`** - Salesforce integration routes
-- **`server/storage.ts`** - Database abstraction layer
+- **`server/zoom-routes.ts`** - Zoom Phone integration
+- **`server/twilio-voice.ts`** - Twilio Voice integration
+- **`server/transcription.ts`** - WebSocket transcription
+- **`server/dashboardUpdates.ts`** - WebSocket dashboard sync
+- **`server/notificationService.ts`** - Real-time notifications
+- **`server/pdf-service.ts`** - PDF generation
+- **`server/storage.ts`** - Database abstraction layer (772 lines)
 - **`server/db.ts`** - Drizzle ORM connection
 
 ### Frontend Entry Points
@@ -1797,7 +1965,7 @@ All environment variables must be set in Replit Secrets:
 
 ### Schema & Types
 
-- **`shared/schema.ts`** - Database schema, Zod validators, TypeScript types
+- **`shared/schema.ts`** - Database schema, Zod validators, TypeScript types (350+ lines)
 
 ### AI Modules
 
@@ -1807,8 +1975,30 @@ All environment variables must be set in Replit Secrets:
 - **`server/ai/callCoachingAnalysis.ts`** - Call coaching analysis (Claude)
 - **`server/ai/claudeClient.ts`** - Anthropic Claude SDK wrapper
 - **`server/ai/qualificationExtractor.ts`** - BANT extraction from transcripts
+- **`server/ai/bantExtraction.ts`** - Alternative BANT extraction
 - **`server/ai/managerAnalysis.ts`** - Manager performance analysis
+- **`server/ai/reportsAnalysis.ts`** - AI report generation
+- **`server/ai/baselineMetrics.ts`** - Success metrics analysis
+- **`server/ai/dashboardInsights.ts`** - Dashboard insights generation
+- **`server/ai/dispositionSuggestion.ts`** - Call outcome prediction
 - **`server/ai/zoomClient.ts`** - Zoom Phone integration
+- **`server/ai/browserlessClient.ts`** - Browserless.io integration
+- **`server/ai/serpApiClient.ts`** - LinkedIn search API
+
+### Multi-Agent System (Server-side)
+
+- **`server/agents/director.ts`** - Orchestrator agent (12KB)
+- **`server/agents/agentExecutor.ts`** - Execution engine
+- **`server/agents/promptLoader.ts`** - Prompt management
+- **`server/agents/types.ts`** - Type definitions
+- **`server/prompts/supportAgent.ts`** - Support chat agent prompt
+
+### Server Helpers
+
+- **`server/helpers/authHelpers.ts`** - Password hashing, session management
+- **`server/helpers/leadResearchHelpers.ts`** - Research utilities
+- **`server/helpers/managerProfileHelpers.ts`** - Manager analytics
+- **`server/helpers/coachingEmailHelpers.ts`** - Email formatting
 
 ### Integrations
 
@@ -1817,21 +2007,26 @@ All environment variables must be set in Replit Secrets:
 
 ### Configuration Files
 
-- **`package.json`** - Dependencies and scripts
+- **`package.json`** - Dependencies and scripts (137 packages)
 - **`tsconfig.json`** - TypeScript configuration
 - **`vite.config.ts`** - Vite build configuration
 - **`drizzle.config.ts`** - Drizzle ORM configuration
 - **`tailwind.config.ts`** - Tailwind CSS configuration
+- **`postcss.config.js`** - PostCSS configuration
+- **`components.json`** - shadcn/ui configuration
 - **`playwright.config.ts`** - Playwright test configuration
 - **`.replit`** - Replit environment configuration
 
 ### Documentation
 
+- **`CLAUDE.md`** - This file - AI Assistant guide
 - **`LEAD_INTEL_TECHNICAL_DOCUMENTATION.md`** - Comprehensive technical documentation
 - **`docs/SALESFORCE_INTEGRATION_GUIDE.md`** - Salesforce setup guide
 - **`docs/WORKFLOW.md`** - Platform workflow documentation
-- **`docs/discovery/DISCOVERY_QUESTIONNAIRE.md`** - Client discovery questionnaire for Salesforce/Zoom/Azure adaptation
-- **`docs/discovery/BROWSERLESS_INTEGRATION_SPEC.md`** - Browserless.io headless browser integration spec
+- **`docs/BASELINE_SUCCESS_METRICS.md`** - Success metrics documentation
+- **`docs/SUPPORT_CHAT_GUIDE.md`** - Support chat documentation
+- **`docs/discovery/DISCOVERY_QUESTIONNAIRE.md`** - Client discovery questionnaire
+- **`docs/discovery/BROWSERLESS_INTEGRATION_SPEC.md`** - Browserless.io integration spec
 - **`design_guidelines.md`** - Design system documentation
 - **`replit.md`** - Replit setup guide
 - **`.claude/agents/README.md`** - Multi-agent system documentation
@@ -1922,12 +2117,21 @@ The Director requires approval for:
 
 ### Agent Files
 
-All agent configurations are in `.claude/agents/`:
+**Prompt Configurations** (`.claude/agents/`):
 - `director.md` - Director Agent prompt
 - `researcher.md` - Researcher Agent prompt
 - `business-analyst.md` - Business Analyst Agent prompt
 - `ux-agent.md` - UX Agent prompt
 - `README.md` - Complete multi-agent system guide
+
+**Server-side Implementation** (`server/agents/`):
+- `director.ts` - Director orchestrator implementation (12KB)
+- `agentExecutor.ts` - Task execution engine
+- `promptLoader.ts` - Dynamic prompt loading
+- `types.ts` - TypeScript type definitions
+
+**Support Agent** (`server/prompts/`):
+- `supportAgent.ts` - Support chat agent prompt definition
 
 ### Philosophy
 
@@ -1965,6 +2169,68 @@ Result: Business Analyst diagnoses bottlenecks → Researcher gathers market int
 ```
 
 For complete documentation, see `.claude/agents/README.md`
+
+---
+
+## Support AI Agent
+
+### Overview
+
+Lead Intel includes a built-in **Support AI Agent** that provides contextual help and guidance to users. The agent is powered by Gemini AI and has deep knowledge of the platform's features and workflows.
+
+### Key Files
+
+- **`server/support-routes.ts`** - API endpoints (1,616 lines)
+- **`server/prompts/supportAgent.ts`** - Agent prompt definition
+- **`docs/SUPPORT_CHAT_GUIDE.md`** - User documentation
+
+### API Endpoints
+
+```typescript
+// Start or continue support chat
+POST /api/support/chat
+{
+  message: string,
+  sessionId?: string,  // Continue existing session
+  context?: {
+    currentPage: string,
+    userRole: string,
+  }
+}
+
+// Get chat history
+GET /api/support/history?sessionId=xxx
+```
+
+### Usage Example
+
+```typescript
+// Client-side usage
+const response = await fetch('/api/support/chat', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  credentials: 'include',
+  body: JSON.stringify({
+    message: 'How do I research a lead?',
+    context: {
+      currentPage: '/leads',
+      userRole: 'sdr',
+    },
+  }),
+});
+
+const { reply, sessionId } = await response.json();
+```
+
+### Capabilities
+
+The Support Agent can help with:
+- Platform navigation and feature discovery
+- Lead research and qualification workflows
+- Call coaching and post-call analysis
+- Salesforce integration troubleshooting
+- Performance metrics interpretation
+- Best practices and sales methodology
 
 ---
 
