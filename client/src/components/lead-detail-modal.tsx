@@ -670,7 +670,7 @@ export function LeadDetailModal({
                   onOpenChange(false);
                   onCall(lead);
                 }}
-                className="bg-hawk-blue hover:bg-hawk-blue-600"
+                className="bg-primary hover:bg-primary/90"
               >
                 <Phone className="h-4 w-4 mr-2" />
                 Call Now

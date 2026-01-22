@@ -748,7 +748,7 @@ export default function DashboardPage() {
                 </Button>
               </Link>
               <Link href="/leads">
-                <Button className="w-full justify-start gap-2 bg-hawk-blue hover:bg-hawk-blue-600 text-white" data-testid="button-import">
+                <Button className="w-full justify-start gap-2 bg-primary hover:bg-primary/90 text-white" data-testid="button-import">
                   <Zap className="h-4 w-4" />
                   Import Leads
                 </Button>

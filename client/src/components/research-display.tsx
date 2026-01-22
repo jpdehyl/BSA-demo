@@ -157,11 +157,11 @@ export function ResearchDisplay({ research, lead, className = "", onCopy }: Rese
   const xIntel = parseJsonSafe(research.xIntelJson) as Record<string, unknown> | null;
 
   return (
-    <Card className={`border-l-4 border-l-hawk-blue ${className}`}>
+    <Card className={`border-l-4 border-l-primary ${className}`}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-hawk-blue" />
+            <Sparkles className="h-5 w-5 text-primary" />
             Lead Intelligence Dossier
           </CardTitle>
           <ConfidenceBadge confidence={research.confidence} />
@@ -175,9 +175,9 @@ export function ResearchDisplay({ research, lead, className = "", onCopy }: Rese
           <div className="space-y-1 p-4 pt-0">
             {/* Fit Score */}
             {research.fitScore && (
-              <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-hawk-blue/10 to-transparent mb-4">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-primary/10 to-transparent mb-4">
                 <div className="flex items-center gap-2">
-                  <Target className="h-5 w-5 text-hawk-blue" />
+                  <Target className="h-5 w-5 text-primary" />
                   <span className="font-medium">Fit Score</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -328,7 +328,7 @@ export function ResearchDisplay({ research, lead, className = "", onCopy }: Rese
             {productMatches && productMatches.length > 0 && (
               <ResearchSection
                 title="Product Recommendations"
-                icon={<TrendingUp className="h-4 w-4 text-hawk-blue" />}
+                icon={<TrendingUp className="h-4 w-4 text-primary" />}
                 badge={`${productMatches.length} matches`}
                 defaultOpen={false}
               >
@@ -336,7 +336,7 @@ export function ResearchDisplay({ research, lead, className = "", onCopy }: Rese
                   {productMatches.map((match, idx) => (
                     <div
                       key={idx}
-                      className="p-2 rounded-md bg-hawk-blue/5 border border-hawk-blue/20"
+                      className="p-2 rounded-md bg-primary/5 border border-primary/20"
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-sm">{match.product}</span>
@@ -377,7 +377,7 @@ export function ResearchDisplay({ research, lead, className = "", onCopy }: Rese
                       href={lead.contactLinkedIn}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-hawk-blue hover:underline mt-2"
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-2"
                     >
                       <ExternalLink className="h-3 w-3" />
                       View Profile

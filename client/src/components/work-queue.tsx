@@ -125,7 +125,7 @@ function WorkQueueItemRow({
             e.stopPropagation();
             onCall();
           }}
-          className="h-8 bg-hawk-blue hover:bg-hawk-blue-600 text-white shrink-0"
+          className="h-8 bg-primary hover:bg-primary/90 text-white shrink-0"
         >
           <Phone className="h-3 w-3 mr-1" />
           Call
@@ -152,7 +152,7 @@ export function WorkQueue({
       <Card className={className}>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <Target className="h-5 w-5 text-hawk-blue" />
+            <Target className="h-5 w-5 text-primary" />
             My Work Queue
           </CardTitle>
         </CardHeader>
@@ -172,7 +172,7 @@ export function WorkQueue({
       <Card className={className}>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <Target className="h-5 w-5 text-hawk-blue" />
+            <Target className="h-5 w-5 text-primary" />
             My Work Queue
           </CardTitle>
         </CardHeader>
@@ -195,12 +195,12 @@ export function WorkQueue({
   }
 
   return (
-    <Card className={`border-l-4 border-l-hawk-blue ${className}`}>
+    <Card className={`border-l-4 border-l-primary ${className}`}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-lg flex items-center gap-2">
-              <Target className="h-5 w-5 text-hawk-blue" />
+              <Target className="h-5 w-5 text-primary" />
               My Work Queue
             </CardTitle>
             <CardDescription>
