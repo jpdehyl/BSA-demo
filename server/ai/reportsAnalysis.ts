@@ -227,6 +227,429 @@ export interface ComparativeAnalytics {
 }
 
 // ============================================================================
+// DEMO DATA GENERATION (for when database is empty)
+// ============================================================================
+
+function generateDemoReportData(periodDays: number = 7): AggregatedReportData {
+  const endDate = new Date();
+  const startDate = new Date(endDate.getTime() - periodDays * 24 * 60 * 60 * 1000);
+
+  // Generate realistic demo data
+  const demoSdrs = [
+    { id: "demo-sdr-1", name: "Sofia Vargas" },
+    { id: "demo-sdr-2", name: "Marcus Chen" },
+    { id: "demo-sdr-3", name: "Emma Rodriguez" },
+    { id: "demo-sdr-4", name: "James Wilson" },
+    { id: "demo-sdr-5", name: "Aisha Patel" }
+  ];
+
+  // Generate calls by day for the period
+  const callsByDay: Record<string, number> = {};
+  for (let i = 0; i < periodDays; i++) {
+    const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
+    const dayKey = date.toISOString().split("T")[0];
+    // Weekdays have more calls than weekends
+    const dayOfWeek = date.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    callsByDay[dayKey] = isWeekend ? Math.floor(Math.random() * 40 + 30) : Math.floor(Math.random() * 60 + 100);
+  }
+
+  // Build SDR stats
+  const sdrStats: Record<string, { name: string; count: number; avgDuration: number }> = {};
+  demoSdrs.forEach((sdr, index) => {
+    const baseCount = 180 - index * 20 + Math.floor(Math.random() * 30);
+    sdrStats[sdr.id] = {
+      name: sdr.name,
+      count: baseCount,
+      avgDuration: 300 + Math.floor(Math.random() * 180) // 5-8 minutes avg
+    };
+  });
+
+  return {
+    period: {
+      start: startDate,
+      end: endDate,
+      label: periodDays === 7 ? "This Week" : periodDays === 30 ? "This Month" : `Last ${periodDays} Days`
+    },
+    calls: {
+      total: 847,
+      completed: 782,
+      avgDuration: 342, // 5.7 minutes average
+      totalTalkTime: 267444, // ~74 hours
+      byDisposition: {
+        "connected": 312,
+        "voicemail": 198,
+        "no-answer": 127,
+        "meeting-booked": 89,
+        "callback-scheduled": 67,
+        "qualified": 45,
+        "not-interested": 9
+      },
+      bySdr: sdrStats,
+      byDay: callsByDay,
+      sentimentDistribution: {
+        positive: 423,
+        neutral: 298,
+        negative: 126
+      }
+    },
+    leads: {
+      total: 342,
+      byStatus: {
+        "new": 78,
+        "contacted": 112,
+        "qualified": 89,
+        "nurturing": 34,
+        "handed_off": 18,
+        "converted": 11
+      },
+      qualified: 89,
+      handedOff: 18,
+      converted: 11,
+      avgFitScore: 72.4,
+      bySource: {
+        "Website": 98,
+        "LinkedIn": 87,
+        "Referral": 62,
+        "Cold Outreach": 55,
+        "Trade Show": 40
+      },
+      newThisPeriod: 156
+    },
+    coaching: {
+      sessionsWithScores: 234,
+      avgOverallScore: 78.5,
+      scoresByDimension: {
+        opening: 82.3,
+        discovery: 76.8,
+        listening: 84.1,
+        objection: 71.2,
+        valueProposition: 79.6,
+        closing: 74.5,
+        compliance: 88.9
+      },
+      tipsGenerated: 156,
+      topPerformers: [
+        { sdrId: "demo-sdr-1", name: "Sofia Vargas", avgScore: 92.3 },
+        { sdrId: "demo-sdr-2", name: "Marcus Chen", avgScore: 87.8 },
+        { sdrId: "demo-sdr-3", name: "Emma Rodriguez", avgScore: 84.2 }
+      ],
+      needsCoaching: [
+        { sdrId: "demo-sdr-4", name: "James Wilson", weakestArea: "objection", score: 62.5 },
+        { sdrId: "demo-sdr-5", name: "Aisha Patel", weakestArea: "closing", score: 68.3 }
+      ]
+    },
+    research: {
+      packetsGenerated: 189,
+      avgConfidence: "high",
+      topPainPoints: [
+        { painPoint: "Manual data entry inefficiencies", count: 67 },
+        { painPoint: "Legacy system integration challenges", count: 54 },
+        { painPoint: "Scaling engineering capacity", count: 48 },
+        { painPoint: "Compliance documentation burden", count: 41 },
+        { painPoint: "Remote collaboration difficulties", count: 38 }
+      ],
+      topProductMatches: [
+        { product: "SOLIDWORKS PDM", count: 78 },
+        { product: "SOLIDWORKS Simulation", count: 65 },
+        { product: "3DEXPERIENCE Platform", count: 52 },
+        { product: "SOLIDWORKS CAM", count: 44 },
+        { product: "DriveWorks", count: 31 }
+      ]
+    },
+    trends: {
+      callVolumeChange: 12.4,
+      conversionRateChange: 8.7,
+      avgScoreChange: 3.2
+    }
+  };
+}
+
+export function generateDemoExecutiveSummary(): ExecutiveSummary {
+  return {
+    narrative: `This week demonstrated strong momentum across your sales development team. The team completed 847 calls with a 92% completion rate, resulting in 89 qualified leads - a 12% increase from last week. Sofia Vargas continues to lead with exceptional performance, achieving a 92.3% coaching score and booking 23 meetings.\n\nNotably, the Manufacturing and Technology sectors showed the highest conversion rates at 34% and 31% respectively. The team's focus on value proposition articulation has paid off, with objection handling scores improving by 8% week-over-week. Research packet utilization reached an all-time high of 78%, correlating directly with improved qualification rates.\n\nWhile overall metrics trend positively, attention should be given to the afternoon calling window (2-4 PM) which shows 23% lower connect rates than morning hours. Additionally, James Wilson and Aisha Patel would benefit from targeted coaching sessions focused on objection handling and closing techniques.`,
+    keyWins: [
+      "89 leads qualified this week - 12% increase from previous week",
+      "Sofia Vargas booked 23 meetings with 92.3% coaching score",
+      "Manufacturing sector conversion rate reached 34%",
+      "Research packet utilization at all-time high of 78%",
+      "Objection handling scores improved 8% week-over-week"
+    ],
+    concerns: [
+      "Afternoon calling window (2-4 PM) shows 23% lower connect rates",
+      "James Wilson needs coaching on objection handling (62.5% score)",
+      "5 leads at risk of going cold - no contact in 10+ days",
+      "Cold Outreach source showing declining conversion trend"
+    ],
+    recommendations: [
+      "Shift calling focus to morning hours (9-11 AM) for 34% higher connect rates",
+      "Schedule 1:1 coaching sessions with James Wilson and Aisha Patel this week",
+      "Re-engage at-risk leads with personalized follow-up campaigns",
+      "Review top performer call recordings for team training material",
+      "Increase LinkedIn outreach which shows 28% higher qualification rate"
+    ],
+    generatedAt: new Date()
+  };
+}
+
+export function generateDemoAnomalies(): Anomaly[] {
+  return [
+    {
+      id: "anomaly-1",
+      type: "info",
+      category: "performance",
+      title: "Exceptional Performance Spike",
+      description: "Sofia Vargas achieved 156% of weekly target with 23 meetings booked. This represents her best week in the past quarter.",
+      metric: "Meetings Booked",
+      currentValue: 23,
+      expectedValue: 15,
+      deviation: 53.3,
+      suggestedAction: "Shadow Sofia's calls this week to capture best practices for team training.",
+      entityId: "demo-sdr-1",
+      entityType: "sdr",
+      detectedAt: new Date()
+    },
+    {
+      id: "anomaly-2",
+      type: "info",
+      category: "coaching",
+      title: "Coaching Impact Detected",
+      description: "Marcus Chen's objection handling score improved from 68% to 84% following last week's coaching session.",
+      metric: "Objection Score",
+      currentValue: 84,
+      expectedValue: 68,
+      deviation: 23.5,
+      suggestedAction: "Document the coaching approach used and replicate with other team members.",
+      entityId: "demo-sdr-2",
+      entityType: "sdr",
+      detectedAt: new Date()
+    },
+    {
+      id: "anomaly-3",
+      type: "warning",
+      category: "pipeline",
+      title: "Pipeline Velocity Attention Needed",
+      description: "Healthcare sector leads are taking 40% longer to move from contacted to qualified compared to other sectors.",
+      metric: "Days to Qualify",
+      currentValue: 8.4,
+      expectedValue: 6,
+      deviation: 40,
+      suggestedAction: "Review healthcare-specific talk tracks and consider industry-specific follow-up sequences.",
+      entityId: "healthcare",
+      entityType: "industry",
+      detectedAt: new Date()
+    }
+  ];
+}
+
+export function generateDemoPredictiveInsights(): PredictiveInsights {
+  return {
+    pipelineForecast: {
+      expectedQualified: { min: 82, max: 98 },
+      expectedConverted: { min: 9, max: 14 },
+      confidence: "high"
+    },
+    leadScorePredictions: [
+      {
+        leadId: "demo-lead-1",
+        companyName: "Aerospace Dynamics Inc",
+        predictedConversion: 87,
+        keyFactors: ["Active evaluation phase", "Budget confirmed for Q1", "Multiple stakeholder engagement"]
+      },
+      {
+        leadId: "demo-lead-2",
+        companyName: "Pacific Manufacturing Group",
+        predictedConversion: 79,
+        keyFactors: ["Pain points align with solution", "Positive sentiment in calls", "Decision timeline defined"]
+      },
+      {
+        leadId: "demo-lead-3",
+        companyName: "TechFlow Systems",
+        predictedConversion: 72,
+        keyFactors: ["Strong fit score", "Expressed urgency", "Previous vendor relationship ending"]
+      }
+    ],
+    sdrBurnoutRisk: [
+      {
+        sdrId: "demo-sdr-4",
+        name: "James Wilson",
+        riskLevel: "medium",
+        indicators: ["12% increase in call volume this month", "Slight decline in coaching scores", "Higher voicemail rate"]
+      },
+      {
+        sdrId: "demo-sdr-5",
+        name: "Aisha Patel",
+        riskLevel: "low",
+        indicators: ["Consistent performance metrics", "Balanced call distribution"]
+      }
+    ],
+    bestTimeToCall: [
+      {
+        industry: "Manufacturing",
+        bestHours: ["9:00 AM - 10:30 AM", "2:00 PM - 3:30 PM"],
+        bestDays: ["Tuesday", "Wednesday", "Thursday"]
+      },
+      {
+        industry: "Technology",
+        bestHours: ["10:00 AM - 11:30 AM", "3:30 PM - 5:00 PM"],
+        bestDays: ["Tuesday", "Wednesday"]
+      },
+      {
+        industry: "Healthcare",
+        bestHours: ["8:00 AM - 9:30 AM", "1:00 PM - 2:30 PM"],
+        bestDays: ["Monday", "Thursday"]
+      },
+      {
+        industry: "Financial Services",
+        bestHours: ["9:30 AM - 11:00 AM", "2:30 PM - 4:00 PM"],
+        bestDays: ["Tuesday", "Thursday"]
+      },
+      {
+        industry: "Energy",
+        bestHours: ["8:30 AM - 10:00 AM", "1:30 PM - 3:00 PM"],
+        bestDays: ["Wednesday", "Thursday"]
+      }
+    ],
+    atRiskLeads: [
+      {
+        leadId: "demo-lead-at-risk-1",
+        companyName: "Industrial Solutions Corp",
+        daysSinceContact: 14,
+        riskReason: "No response to last 3 outreach attempts"
+      },
+      {
+        leadId: "demo-lead-at-risk-2",
+        companyName: "Precision Engineering Ltd",
+        daysSinceContact: 11,
+        riskReason: "Stakeholder went silent after pricing discussion"
+      },
+      {
+        leadId: "demo-lead-at-risk-3",
+        companyName: "NextGen Automation",
+        daysSinceContact: 10,
+        riskReason: "Requested proposal but no follow-up scheduled"
+      }
+    ]
+  };
+}
+
+export function generateDemoComparativeAnalytics(): ComparativeAnalytics {
+  return {
+    sdrRankings: [
+      { sdrId: "demo-sdr-1", name: "Sofia Vargas", rank: 1, callVolume: 178, conversionRate: 34.2, avgScore: 92.3, trend: "up" },
+      { sdrId: "demo-sdr-2", name: "Marcus Chen", rank: 2, callVolume: 165, conversionRate: 29.8, avgScore: 87.8, trend: "up" },
+      { sdrId: "demo-sdr-3", name: "Emma Rodriguez", rank: 3, callVolume: 172, conversionRate: 26.4, avgScore: 84.2, trend: "stable" },
+      { sdrId: "demo-sdr-4", name: "James Wilson", rank: 4, callVolume: 168, conversionRate: 21.3, avgScore: 76.5, trend: "down" },
+      { sdrId: "demo-sdr-5", name: "Aisha Patel", rank: 5, callVolume: 164, conversionRate: 19.8, avgScore: 74.1, trend: "stable" }
+    ],
+    industryPerformance: [
+      { industry: "Manufacturing", leadCount: 89, conversionRate: 34.2, avgFitScore: 78.4, trend: "up" },
+      { industry: "Technology", leadCount: 76, conversionRate: 31.4, avgFitScore: 82.1, trend: "up" },
+      { industry: "Healthcare", leadCount: 54, conversionRate: 24.8, avgFitScore: 71.3, trend: "down" },
+      { industry: "Financial Services", leadCount: 67, conversionRate: 27.6, avgFitScore: 75.8, trend: "stable" },
+      { industry: "Energy", leadCount: 56, conversionRate: 28.9, avgFitScore: 73.2, trend: "up" }
+    ],
+    sourceEffectiveness: [
+      { source: "Website", leadCount: 98, qualificationRate: 32.4, avgTimeToQualify: 4.2 },
+      { source: "LinkedIn", leadCount: 87, qualificationRate: 28.7, avgTimeToQualify: 5.1 },
+      { source: "Referral", leadCount: 62, qualificationRate: 45.2, avgTimeToQualify: 2.8 },
+      { source: "Cold Outreach", leadCount: 55, qualificationRate: 18.9, avgTimeToQualify: 7.3 },
+      { source: "Trade Show", leadCount: 40, qualificationRate: 38.5, avgTimeToQualify: 3.5 }
+    ],
+    weekOverWeek: [
+      { metric: "Total Calls", thisWeek: 847, lastWeek: 754, change: 12.3, aiCommentary: "Strong momentum with 12% increase in call activity. Team is executing well on outreach targets." },
+      { metric: "Qualified Leads", thisWeek: 89, lastWeek: 79, change: 12.7, aiCommentary: "Qualification rate improving due to better research utilization and targeted prospecting." },
+      { metric: "Meetings Booked", thisWeek: 67, lastWeek: 58, change: 15.5, aiCommentary: "Excellent week for demos. Sofia and Marcus driving majority of bookings." },
+      { metric: "Avg Coaching Score", thisWeek: 78.5, lastWeek: 76.2, change: 3.0, aiCommentary: "Coaching investments paying off. Objection handling showing particular improvement." },
+      { metric: "Connect Rate", thisWeek: 42.3, lastWeek: 40.8, change: 3.7, aiCommentary: "Morning calling strategy contributing to improved connect rates." }
+    ]
+  };
+}
+
+export function generateDemoCoachingIntelligence(sdrId: string): CoachingIntelligence | null {
+  const demoSdrs: Record<string, { name: string; data: CoachingIntelligence }> = {
+    "demo-sdr-1": {
+      name: "Sofia Vargas",
+      data: {
+        sdrId: "demo-sdr-1",
+        sdrName: "Sofia Vargas",
+        skillHeatmap: [
+          { dimension: "Opening", currentScore: 94, trend: "improving", percentileRank: 98 },
+          { dimension: "Discovery", currentScore: 91, trend: "stable", percentileRank: 95 },
+          { dimension: "Listening", currentScore: 96, trend: "improving", percentileRank: 99 },
+          { dimension: "Objection Handling", currentScore: 88, trend: "improving", percentileRank: 92 },
+          { dimension: "Value Proposition", currentScore: 92, trend: "stable", percentileRank: 96 },
+          { dimension: "Closing", currentScore: 89, trend: "improving", percentileRank: 93 }
+        ],
+        patterns: [
+          { observation: "Consistently personalizes opening based on research", frequency: "87% of calls", impact: "positive" },
+          { observation: "Uses silence effectively to let prospects elaborate", frequency: "92% of calls", impact: "positive" },
+          { observation: "Strong at connecting pain points to product value", frequency: "85% of calls", impact: "positive" }
+        ],
+        developmentPlan: [
+          { priority: 1, skill: "Objection Handling", currentLevel: "Advanced", targetLevel: "Expert", suggestedActions: ["Practice advanced reframing techniques", "Study competitor objection responses"] }
+        ],
+        progressSummary: "Sofia continues to be a top performer. Her coaching scores have improved 8% this quarter with particular growth in objection handling. She is an excellent candidate for peer coaching and mentorship roles."
+      }
+    },
+    "demo-sdr-2": {
+      name: "Marcus Chen",
+      data: {
+        sdrId: "demo-sdr-2",
+        sdrName: "Marcus Chen",
+        skillHeatmap: [
+          { dimension: "Opening", currentScore: 86, trend: "stable", percentileRank: 85 },
+          { dimension: "Discovery", currentScore: 89, trend: "improving", percentileRank: 90 },
+          { dimension: "Listening", currentScore: 82, trend: "stable", percentileRank: 78 },
+          { dimension: "Objection Handling", currentScore: 84, trend: "improving", percentileRank: 82 },
+          { dimension: "Value Proposition", currentScore: 91, trend: "improving", percentileRank: 94 },
+          { dimension: "Closing", currentScore: 88, trend: "stable", percentileRank: 88 }
+        ],
+        patterns: [
+          { observation: "Excellent at technical value articulation", frequency: "91% of calls", impact: "positive" },
+          { observation: "Sometimes moves to solution too quickly", frequency: "34% of calls", impact: "negative" },
+          { observation: "Strong closing on qualified opportunities", frequency: "88% of calls", impact: "positive" }
+        ],
+        developmentPlan: [
+          { priority: 1, skill: "Listening", currentLevel: "Intermediate", targetLevel: "Advanced", suggestedActions: ["Practice SPIN questioning methodology", "Allow more pause time before responding"] },
+          { priority: 2, skill: "Discovery", currentLevel: "Advanced", targetLevel: "Expert", suggestedActions: ["Develop industry-specific question sets", "Focus on uncovering emotional drivers"] }
+        ],
+        progressSummary: "Marcus shows strong technical knowledge and closing ability. Focus this month on deeper discovery and active listening. His objection handling has improved 23% since last coaching session."
+      }
+    }
+  };
+
+  const sdr = demoSdrs[sdrId];
+  return sdr?.data || null;
+}
+
+export function generateDemoResearchROI(): ResearchROI {
+  return {
+    overallEffectiveness: 78,
+    intelUsageRate: 72,
+    conversionByIntelType: [
+      { intelType: "Company Research", usageRate: 85, conversionRate: 38 },
+      { intelType: "Pain Points", usageRate: 78, conversionRate: 42 },
+      { intelType: "Product Matches", usageRate: 68, conversionRate: 45 },
+      { intelType: "Competitive Intel", usageRate: 52, conversionRate: 35 },
+      { intelType: "Industry Trends", usageRate: 45, conversionRate: 29 }
+    ],
+    winningTalkTracks: [
+      { industry: "Manufacturing", talkTrack: "ROI-focused: 30% faster design cycles", successRate: 42 },
+      { industry: "Technology", talkTrack: "Innovation narrative: Stay ahead of competition", successRate: 38 },
+      { industry: "Healthcare", talkTrack: "Compliance-first: FDA documentation simplified", successRate: 35 },
+      { industry: "Energy", talkTrack: "Sustainability angle: Reduce material waste", successRate: 33 }
+    ],
+    topPerformingPainPoints: [
+      { painPoint: "Manual data entry inefficiencies", mentionRate: 45, conversionRate: 48 },
+      { painPoint: "Legacy system integration", mentionRate: 38, conversionRate: 42 },
+      { painPoint: "Collaboration across teams", mentionRate: 32, conversionRate: 39 },
+      { painPoint: "Time to market pressure", mentionRate: 28, conversionRate: 36 }
+    ]
+  };
+}
+
+// ============================================================================
 // DATA AGGREGATION FUNCTIONS
 // ============================================================================
 
@@ -253,6 +676,12 @@ export async function aggregateReportData(
     storage.getAllResearchPackets(),
     storage.getAllLiveCoachingSessions()
   ]);
+
+  // Return demo data if database is empty
+  if (allCalls.length === 0 && allLeads.length === 0 && allSdrs.length === 0) {
+    console.log("[ReportsAnalysis] Database is empty, returning demo data");
+    return generateDemoReportData(periodDays);
+  }
 
   // Filter current period data
   const periodCalls = allCalls.filter(c =>
