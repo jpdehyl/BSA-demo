@@ -713,7 +713,7 @@ function formatUserDataForPrompt(data: UserContextData, intent: DataIntent, user
     }
     
     formatted += `All reports include:\n`;
-    formatted += `- Hawk Ridge Systems professional branding\n`;
+    formatted += `- BSA Solutions professional branding\n`;
     formatted += `- Date and time of generation\n`;
     formatted += `- Your name as the report generator\n`;
     formatted += `- Key metrics and insights\n\n`;

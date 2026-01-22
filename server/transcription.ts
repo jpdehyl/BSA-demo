@@ -105,15 +105,15 @@ async function generateCoachingTip(transcript: string, sessionId: string): Promi
     const knowledgeBase = await getKnowledgeBase();
     console.log("[CoachingTip] Knowledge base length:", knowledgeBase.length);
     
-    const prompt = `You are an expert sales coach for Hawk Ridge Systems analyzing a live sales call. Based on the transcript and company guidelines, provide ONE brief, actionable coaching tip. Keep it under 50 words and make it immediately actionable.
+    const prompt = `You are an expert sales coach for BSA Solutions analyzing a live sales call. Based on the transcript and company guidelines, provide ONE brief, actionable coaching tip. Keep it under 50 words and make it immediately actionable.
 
 ${knowledgeBase ? `## Company Sales Guidelines:\n${knowledgeBase.slice(0, 2000)}\n\n` : ""}## Live Call Transcript:
 ${transcript}
 
 ## Instructions:
 - Focus on what the SDR should do RIGHT NOW or in the next few seconds
-- Be specific and actionable (e.g., "Ask about their current CAD workflow" not "Ask more questions")
-- Reference Hawk Ridge products (SOLIDWORKS, CAMWorks, 3D printing, PDM) when relevant
+- Be specific and actionable (e.g., "Ask about their current staffing needs" not "Ask more questions")
+- Reference BSA Solutions services (offshore talent, dedicated teams, cost-effective scaling) when relevant
 - Keep it encouraging but direct
 
 Provide only the coaching tip, no preamble.`;

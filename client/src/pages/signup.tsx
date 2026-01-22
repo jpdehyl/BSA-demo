@@ -29,7 +29,7 @@ type SignupForm = z.infer<typeof signupSchema>;
 function AnimatedBackground() {
   return (
     <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0a1628] via-[#132743] to-[#0d2137]" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#14202E] via-[#1a2d42] to-[#14202E]" />
       {Array.from({ length: 60 }).map((_, i) => (
         <div
           key={i}
@@ -37,7 +37,7 @@ function AnimatedBackground() {
           style={{
             width: `${Math.random() * 3 + 1}px`,
             height: `${Math.random() * 3 + 1}px`,
-            backgroundColor: Math.random() > 0.7 ? "#F26419" : "#2C88C9",
+            backgroundColor: Math.random() > 0.7 ? "#E5C100" : "#ffd54f",
             left: `${Math.random() * 50}%`,
             top: `${Math.random() * 100}%`,
             opacity: Math.random() * 0.5 + 0.2,
@@ -227,7 +227,7 @@ export default function SignupPage() {
 
                 <Button 
                   type="submit" 
-                  className="w-full h-11 bg-[#2C88C9] hover:bg-[#2C88C9]/90" 
+                  className="w-full h-11 bg-[#E5C100] hover:bg-[#d4b100] text-[#14202E]" 
                   disabled={isLoading}
                   data-testid="button-submit"
                 >
@@ -245,7 +245,7 @@ export default function SignupPage() {
             <CardFooter className="flex flex-col gap-4 pt-0">
               <div className="text-center text-sm text-muted-foreground">
                 Already have an account?{" "}
-                <Link href="/login" className="text-[#F26419] hover:underline font-medium" data-testid="link-login">
+                <Link href="/login" className="text-[#E5C100] hover:underline font-medium" data-testid="link-login">
                   Sign in
                 </Link>
               </div>

@@ -30,7 +30,7 @@ This document provides comprehensive guidance for AI assistants working on the L
 
 ## Project Overview
 
-**Lead Intel** is an AI-powered Sales Intelligence & Coaching Platform for Hawk Ridge Systems. It combines:
+**Lead Intel** is an AI-powered Sales Intelligence & Coaching Platform for BSA Solutions. It combines:
 
 - **Automated Lead Research**: Multi-source intelligence gathering using Google Gemini AI
 - **Real-Time Call Coaching**: Live coaching tips during calls via Twilio browser softphone

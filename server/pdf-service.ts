@@ -377,7 +377,7 @@ function generateTeamSummaryHtml(data: TeamSummaryData, metadata: ReportMetadata
       <div class="report-container">
         <div class="header">
           <div>
-            ${logoBase64 ? `<img src="${logoBase64}" class="header-logo" alt="Hawk Ridge Systems">` : '<div style="font-size:18pt;font-weight:bold;">HAWK RIDGE SYSTEMS</div>'}
+            ${logoBase64 ? `<img src="${logoBase64}" class="header-logo" alt="BSA Solutions">` : '<div style="font-size:18pt;font-weight:bold;">BSA SOLUTIONS</div>'}
             <h1 class="header-title">${metadata.title}</h1>
             ${metadata.subtitle ? `<div class="header-subtitle">${metadata.subtitle}</div>` : ''}
           </div>
@@ -445,8 +445,8 @@ function generateTeamSummaryHtml(data: TeamSummaryData, metadata: ReportMetadata
         
         <div class="footer">
           <div class="footer-left">
-            ${logoBase64 ? `<img src="${logoBase64}" class="footer-logo" alt="Hawk Ridge Systems">` : ''}
-            <span>Lead Intel by Hawk Ridge Systems</span>
+            ${logoBase64 ? `<img src="${logoBase64}" class="footer-logo" alt="BSA Solutions">` : ''}
+            <span>Lead Intel by BSA Solutions</span>
           </div>
           <div class="confidential">Confidential</div>
           <div>Page 1 of 1</div>
@@ -483,7 +483,7 @@ function generateCallAnalysisHtml(data: CallAnalysisData, metadata: ReportMetada
       <div class="report-container">
         <div class="header">
           <div>
-            ${logoBase64 ? `<img src="${logoBase64}" class="header-logo" alt="Hawk Ridge Systems">` : '<div style="font-size:18pt;font-weight:bold;">HAWK RIDGE SYSTEMS</div>'}
+            ${logoBase64 ? `<img src="${logoBase64}" class="header-logo" alt="BSA Solutions">` : '<div style="font-size:18pt;font-weight:bold;">BSA SOLUTIONS</div>'}
             <h1 class="header-title">${metadata.title}</h1>
             ${metadata.subtitle ? `<div class="header-subtitle">${metadata.subtitle}</div>` : ''}
           </div>
@@ -578,8 +578,8 @@ function generateCallAnalysisHtml(data: CallAnalysisData, metadata: ReportMetada
         
         <div class="footer">
           <div class="footer-left">
-            ${logoBase64 ? `<img src="${logoBase64}" class="footer-logo" alt="Hawk Ridge Systems">` : ''}
-            <span>Lead Intel by Hawk Ridge Systems</span>
+            ${logoBase64 ? `<img src="${logoBase64}" class="footer-logo" alt="BSA Solutions">` : ''}
+            <span>Lead Intel by BSA Solutions</span>
           </div>
           <div class="confidential">Confidential</div>
           <div>Page 1 of 1</div>
@@ -621,7 +621,7 @@ function generateSdrPerformanceHtml(sdr: SdrPerformanceData, calls: any[], metad
       <div class="report-container">
         <div class="header">
           <div>
-            ${logoBase64 ? `<img src="${logoBase64}" class="header-logo" alt="Hawk Ridge Systems">` : '<div style="font-size:18pt;font-weight:bold;">HAWK RIDGE SYSTEMS</div>'}
+            ${logoBase64 ? `<img src="${logoBase64}" class="header-logo" alt="BSA Solutions">` : '<div style="font-size:18pt;font-weight:bold;">BSA SOLUTIONS</div>'}
             <h1 class="header-title">${metadata.title}</h1>
             ${metadata.subtitle ? `<div class="header-subtitle">${metadata.subtitle}</div>` : ''}
           </div>
@@ -689,8 +689,8 @@ function generateSdrPerformanceHtml(sdr: SdrPerformanceData, calls: any[], metad
         
         <div class="footer">
           <div class="footer-left">
-            ${logoBase64 ? `<img src="${logoBase64}" class="footer-logo" alt="Hawk Ridge Systems">` : ''}
-            <span>Lead Intel by Hawk Ridge Systems</span>
+            ${logoBase64 ? `<img src="${logoBase64}" class="footer-logo" alt="BSA Solutions">` : ''}
+            <span>Lead Intel by BSA Solutions</span>
           </div>
           <div class="confidential">Confidential</div>
           <div>Page 1 of 1</div>

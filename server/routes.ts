@@ -3321,7 +3321,7 @@ export async function registerRoutes(
               </div>
               
               <div class="footer">
-                <p>Sent via Lead Intel - Hawk Ridge Systems</p>
+                <p>Sent via Lead Intel - BSA Solutions</p>
               </div>
             </div>
           </body>

@@ -57,27 +57,28 @@ export interface DeepResearchData {
   websiteDeep: CompanyWebsiteData | null;
 }
 
-const HAWK_RIDGE_CONTEXT = `
-Hawk Ridge Systems is a leading provider of 3D design, manufacturing, and product data management solutions.
+const BSA_SOLUTIONS_CONTEXT = `
+BSA Solutions Inc. is a premium provider of offshore talent outsourcing in the Philippines.
 
 ${getProductCatalogPrompt()}
 
 TARGET INDUSTRIES:
-- Aerospace & Defense
-- Medical Devices
-- Industrial Machinery
-- Consumer Products
-- Automotive
-- Electronics
+- Technology & Software
+- Finance & Accounting
+- Healthcare
+- E-commerce
+- Professional Services
 - Manufacturing
+- Customer Service
 
 IDEAL FIT SIGNALS:
-- Uses legacy CAD (AutoCAD 2D, Pro/E, Inventor) - ready to upgrade
-- Growing engineering team - need collaboration tools
-- Manufacturing in-house or planning to - need CAM software
-- Rapid prototyping needs - 3D printing opportunity
-- Compliance requirements (FDA, AS9100) - need PDM
-- Design bottlenecks - simulation and optimization
+- Growing teams needing to scale efficiently
+- Looking for cost-effective labor solutions
+- Need dedicated offshore professionals
+- Seeking administrative and customer support
+- IT and engineering talent requirements
+- Finance and accounting needs
+- Seeking high retention remote workforce
 `;
 
 export interface ProductMatch {
@@ -92,7 +93,7 @@ export interface ProductMatch {
 export interface PainPoint {
   pain: string;
   severity: "high" | "medium" | "low";
-  hawkRidgeSolution: string;
+  bsaSolution: string;
 }
 
 export interface CareerHistoryItem {
@@ -442,9 +443,9 @@ ${scraped.scoringParams.substring(0, 4000)}` : "";
     ? "\n\n🔬 RESEARCH MODE: DEEP - Enhanced intelligence gathered via headless browser scraping. Use this additional data to provide more detailed insights.\n"
     : "";
 
-  const prompt = `You are an expert B2B sales intelligence analyst preparing a COMPREHENSIVE dossier for a sales call to sell Hawk Ridge Systems solutions.${researchModeNote}
+  const prompt = `You are an expert B2B sales intelligence analyst preparing a COMPREHENSIVE dossier for a sales call to sell BSA Solutions services.${researchModeNote}
 
-${HAWK_RIDGE_CONTEXT}
+${BSA_SOLUTIONS_CONTEXT}
 
 ## LEAD INFORMATION:
 - Contact Name: ${lead.contactName}
@@ -486,9 +487,9 @@ Return a JSON object with these EXACT keys:
   ],
   
   "painPoints": [
-    {"pain": "Specific challenge they face based on their industry/size", "severity": "high", "hawkRidgeSolution": "SOLIDWORKS Premium with Simulation"},
-    {"pain": "Another pain point", "severity": "medium", "hawkRidgeSolution": "CAMWorks"},
-    {"pain": "Third pain point", "severity": "low", "hawkRidgeSolution": "SOLIDWORKS PDM"}
+    {"pain": "Specific challenge they face based on their industry/size", "severity": "high", "bsaSolution": "Dedicated offshore team"},
+    {"pain": "Another pain point", "severity": "medium", "bsaSolution": "Finance and Accounting Support"},
+    {"pain": "Third pain point", "severity": "low", "bsaSolution": "IT and Engineering Specialists"}
   ],
   
   "productMatches": [
@@ -741,7 +742,7 @@ export async function researchLead(
   ].join("\n");
 
   const painSignals = dossier.painPoints.map(p => 
-    `[${p.severity.toUpperCase()}] ${p.pain} → ${p.hawkRidgeSolution}`
+    `[${p.severity.toUpperCase()}] ${p.pain} → ${p.bsaSolution}`
   ).join("\n");
 
   const fitAnalysis = [

@@ -130,7 +130,7 @@ export function buildAgentSystemPrompt(
 
   // Add platform context
   systemPrompt += `\n\n## Platform Context
-You are operating within Lead Intel, an AI-powered Sales Intelligence & Coaching Platform for Hawk Ridge Systems.
+You are operating within Lead Intel, an AI-powered Sales Intelligence & Coaching Platform for BSA Solutions.
 
 Key features you can reference:
 - Lead Research: Multi-source intelligence gathering

@@ -50,7 +50,7 @@ function isWebGLAvailable(): boolean {
 function AnimatedBackground() {
   return (
     <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0a1628] via-[#132743] to-[#0d2137]" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#14202E] via-[#1a2d42] to-[#14202E]" />
       {Array.from({ length: 100 }).map((_, i) => (
         <div
           key={i}
@@ -58,7 +58,7 @@ function AnimatedBackground() {
           style={{
             width: `${Math.random() * 3 + 1}px`,
             height: `${Math.random() * 3 + 1}px`,
-            backgroundColor: Math.random() > 0.7 ? "#F26419" : "#2C88C9",
+            backgroundColor: Math.random() > 0.7 ? "#E5C100" : "#ffd54f",
             left: `${Math.random() * 100}%`,
             top: `${Math.random() * 100}%`,
             opacity: Math.random() * 0.5 + 0.2,
@@ -86,10 +86,10 @@ function generateSupernova(count: number): { positions: Float32Array; colors: Fl
   const colors = new Float32Array(count * 3);
   
   const colorCore = new THREE.Color("#ffffff");
-  const colorBlue = new THREE.Color("#2C88C9");
-  const colorCyan = new THREE.Color("#00d4ff");
-  const colorOrange = new THREE.Color("#F26419");
-  const colorYellow = new THREE.Color("#ffd700");
+  const colorBlue = new THREE.Color("#14202E");
+  const colorCyan = new THREE.Color("#ffd54f");
+  const colorOrange = new THREE.Color("#E5C100");
+  const colorYellow = new THREE.Color("#E5C100");
   
   for (let i = 0; i < count; i++) {
     const i3 = i * 3;
@@ -279,7 +279,7 @@ export default function LandingPage() {
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0a1628] via-[#132743] to-[#0d2137]">
+      <div className="absolute inset-0 bg-gradient-to-br from-[#14202E] via-[#1a2d42] to-[#14202E]">
         {webglSupported ? (
           <WebGLErrorBoundary fallback={<AnimatedBackground />}>
             <Canvas
@@ -287,8 +287,8 @@ export default function LandingPage() {
               dpr={[1, 2]}
               gl={{ antialias: true, alpha: true }}
             >
-              <color attach="background" args={['#0a1628']} />
-              <fog attach="fog" args={['#0a1628', 5, 15]} />
+              <color attach="background" args={['#14202E']} />
+              <fog attach="fog" args={['#14202E', 5, 15]} />
               <ambientLight intensity={0.5} />
               <GalaxyParticles particleCount={15000} />
               <CameraController />
@@ -327,7 +327,7 @@ export default function LandingPage() {
 
         <button
           onClick={handleLogin}
-          className="group relative px-10 py-4 bg-transparent border-2 border-[#2C88C9] rounded-full text-white font-medium text-lg transition-all duration-500 hover:bg-[#2C88C9]/20 hover:border-[#F26419] hover:shadow-[0_0_40px_rgba(44,136,201,0.4)]"
+          className="group relative px-10 py-4 bg-transparent border-2 border-[#E5C100] rounded-full text-white font-medium text-lg transition-all duration-500 hover:bg-[#E5C100]/20 hover:border-[#ffd54f] hover:shadow-[0_0_40px_rgba(229,193,0,0.4)]"
           data-testid="button-enter"
           style={{ fontFamily: "Montserrat, sans-serif" }}
         >

@@ -22,7 +22,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 function AnimatedBackground() {
   return (
     <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0a1628] via-[#132743] to-[#0d2137]" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#14202E] via-[#1a2d42] to-[#14202E]" />
       {Array.from({ length: 60 }).map((_, i) => (
         <div
           key={i}
@@ -30,7 +30,7 @@ function AnimatedBackground() {
           style={{
             width: `${Math.random() * 3 + 1}px`,
             height: `${Math.random() * 3 + 1}px`,
-            backgroundColor: Math.random() > 0.7 ? "#F26419" : "#2C88C9",
+            backgroundColor: Math.random() > 0.7 ? "#E5C100" : "#ffd54f",
             left: `${Math.random() * 50}%`,
             top: `${Math.random() * 100}%`,
             opacity: Math.random() * 0.5 + 0.2,
@@ -122,7 +122,7 @@ export default function LoginPage() {
                     type="email"
                     placeholder="you@company.com"
                     autoComplete="email"
-                    className="h-12 text-base transition-all duration-200 focus:ring-2 focus:ring-[#2C88C9]/20"
+                    className="h-12 text-base transition-all duration-200 focus:ring-2 focus:ring-[#E5C100]/20"
                     {...form.register("email")}
                     data-testid="input-email"
                   />
@@ -139,7 +139,7 @@ export default function LoginPage() {
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
                       autoComplete="current-password"
-                      className="h-12 pr-12 text-base transition-all duration-200 focus:ring-2 focus:ring-[#2C88C9]/20"
+                      className="h-12 pr-12 text-base transition-all duration-200 focus:ring-2 focus:ring-[#E5C100]/20"
                       {...form.register("password")}
                       data-testid="input-password"
                     />
@@ -159,7 +159,7 @@ export default function LoginPage() {
 
                 <Button
                   type="submit"
-                  className="w-full h-12 text-base font-semibold bg-[#2C88C9] hover:bg-[#2477AD] transition-all duration-200 hover:shadow-lg"
+                  className="w-full h-12 text-base font-semibold bg-[#E5C100] hover:bg-[#d4b100] text-[#14202E] transition-all duration-200 hover:shadow-lg"
                   disabled={isLoading}
                   data-testid="button-submit"
                 >
@@ -177,7 +177,7 @@ export default function LoginPage() {
             <CardFooter className="flex flex-col gap-4 pt-6 px-0">
               <div className="text-center text-sm text-muted-foreground">
                 Don't have an account?{" "}
-                <Link href="/signup" className="text-[#2C88C9] hover:text-[#2477AD] hover:underline font-semibold transition-colors" data-testid="link-signup">
+                <Link href="/signup" className="text-[#E5C100] hover:text-[#d4b100] hover:underline font-semibold transition-colors" data-testid="link-signup">
                   Sign up
                 </Link>
               </div>

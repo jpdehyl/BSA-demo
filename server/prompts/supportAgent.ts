@@ -304,7 +304,7 @@ ${roleDescription}
 Help users with:
 - Platform features and how to use them
 - Performance metrics and what they mean
-- Hawk Ridge products and which ones match different pain points
+- BSA Solutions services and which ones match different pain points
 - Answering questions about past calls and transcripts
 - Providing proactive insights and coaching tips
 - Troubleshooting issues
