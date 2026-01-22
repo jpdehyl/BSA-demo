@@ -89,18 +89,20 @@ export default function LoginPage() {
       <div className="hidden lg:flex lg:w-1/2 relative">
         <AnimatedBackground />
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 p-8">
-          <h1 
-            className="text-4xl xl:text-5xl font-bold text-white mb-4 tracking-tight text-center"
-            style={{ fontFamily: "Montserrat, sans-serif" }}
-          >
-            Lead Intel
-          </h1>
-          <p 
-            className="text-lg xl:text-xl text-white/60 max-w-md text-center"
-            style={{ fontFamily: "Hind, sans-serif" }}
-          >
-            AI-Powered Pre-Call Intelligence for Sales Teams
-          </p>
+          <div className="bg-black/40 backdrop-blur-sm border border-[#E5C100]/30 rounded-2xl px-12 py-10">
+            <h1 
+              className="text-4xl xl:text-5xl font-bold text-white mb-4 tracking-tight text-center"
+              style={{ fontFamily: "Montserrat, sans-serif" }}
+            >
+              Lead Intel
+            </h1>
+            <p 
+              className="text-lg xl:text-xl text-white/70 max-w-md text-center"
+              style={{ fontFamily: "Hind, sans-serif" }}
+            >
+              AI-Powered Pre-Call Intelligence for Sales Teams
+            </p>
+          </div>
         </div>
       </div>
 
