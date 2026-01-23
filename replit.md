@@ -43,6 +43,9 @@ Preferred communication style: Simple, everyday language.
 - User roles: admin, manager, sdr, account_specialist
 - Auth middleware protects routes, but Twilio webhooks must remain unprotected
 - Critical: Build Twilio integration before auth to prevent webhook interference
+- **Password Reset**: Email-based password reset with secure tokens (1-hour expiration, single-use)
+  - Routes: `/forgot-password`, `/reset-password?token=...`
+  - API: `POST /api/auth/forgot-password`, `POST /api/auth/reset-password`
 
 ### Database Schema (Key Tables)
 - `session` - PostgreSQL session storage for connect-pg-simple (sid, sess, expire)
