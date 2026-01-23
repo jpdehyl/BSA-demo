@@ -20,6 +20,16 @@ Preferred communication style: Simple, everyday language.
 - **Styling**: Tailwind CSS with custom CSS variables for theming (light/dark mode support)
 - **3D Graphics**: Three.js via @react-three/fiber and @react-three/drei for landing page effects
 - **Path Aliases**: `@/` for client source, `@shared/` for shared code, `@assets/` for attached assets
+- **Mobile Optimization**: Fully responsive with mobile-first breakpoints, iOS safe-area support, and mobile bottom navigation
+
+### Mobile Experience
+- **Touch Targets**: All interactive elements have minimum 44px touch targets on mobile (WCAG 2.1 compliance)
+- **Landing Page**: Particle count reduced from 15k to 5k on mobile, lower DPR/antialiasing for performance
+- **Navigation**: Mobile bottom navigation bar with role-based filtering, desktop uses sidebar
+- **Tables**: Horizontal scrolling with compact text/padding, min-width ensures readability
+- **Cards**: Reduced padding (p-4 vs p-6) on mobile for better content density
+- **Safe Areas**: CSS utilities for iOS notch/home indicator support via viewport-fit=cover
+- **Breakpoints**: Uses `sm:` prefix for desktop overrides (mobile-first approach)
 
 ### Backend Architecture
 - **Framework**: Express.js with TypeScript
