@@ -247,13 +247,13 @@ export default function DashboardPage() {
   const totalDispositions = pieData.reduce((sum, d) => sum + d.value, 0);
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2 animate-fade-in-down">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-4xl font-display font-bold tracking-tight" data-testid="text-greeting">
+    <div className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-1 sm:mb-2 animate-fade-in-down">
+        <div className="flex flex-col gap-1 sm:gap-2">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold tracking-tight" data-testid="text-greeting">
             {getGreeting()}, {user?.name?.split(" ")[0]}
           </h1>
-          <p className="text-muted-foreground text-lg">
+          <p className="text-muted-foreground text-sm sm:text-base md:text-lg">
             {metrics?.isPrivileged
               ? "Your team's performance at a glance"
               : "Your sales performance at a glance"}
@@ -307,36 +307,36 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-primary mb-1">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+              <div className="text-center p-2 sm:p-0">
+                <div className="text-2xl sm:text-3xl font-bold text-primary mb-1">
                   {metrics.hero.callsInRange}
                 </div>
-                <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                <div className="text-[10px] sm:text-xs text-muted-foreground font-medium uppercase tracking-wide">
                   Total Calls
                 </div>
               </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-600 mb-1">
+              <div className="text-center p-2 sm:p-0">
+                <div className="text-2xl sm:text-3xl font-bold text-green-600 mb-1">
                   {metrics.hero.qualifiedLeads}
                 </div>
-                <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                <div className="text-[10px] sm:text-xs text-muted-foreground font-medium uppercase tracking-wide">
                   Qualified
                 </div>
               </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600 mb-1">
+              <div className="text-center p-2 sm:p-0">
+                <div className="text-2xl sm:text-3xl font-bold text-blue-600 mb-1">
                   {metrics.hero.meetingsBooked}
                 </div>
-                <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                <div className="text-[10px] sm:text-xs text-muted-foreground font-medium uppercase tracking-wide">
                   Meetings
                 </div>
               </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-amber-600 mb-1">
+              <div className="text-center p-2 sm:p-0">
+                <div className="text-2xl sm:text-3xl font-bold text-amber-600 mb-1">
                   {metrics.hero.conversionRate.toFixed(1)}%
                 </div>
-                <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                <div className="text-[10px] sm:text-xs text-muted-foreground font-medium uppercase tracking-wide">
                   Conv. Rate
                 </div>
               </div>
@@ -572,7 +572,7 @@ export default function DashboardPage() {
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
           ) : (
-            <div className="flex items-end gap-4 py-4">
+            <div className="flex flex-wrap sm:flex-nowrap items-end gap-2 sm:gap-4 py-2 sm:py-4 overflow-x-auto">
               <FunnelStage
                 label="Total Calls"
                 value={metrics?.funnel.totalCalls || 0}
@@ -580,7 +580,7 @@ export default function DashboardPage() {
                 color="hsl(var(--primary))"
                 onClick={() => setDrillDown({ type: "funnel", filter: "total", label: "Total Calls" })}
               />
-              <div className="text-muted-foreground">
+              <div className="text-muted-foreground hidden sm:block">
                 <ChevronRight className="h-5 w-5" />
               </div>
               <FunnelStage
@@ -590,7 +590,7 @@ export default function DashboardPage() {
                 color="#8b5cf6"
                 onClick={() => setDrillDown({ type: "funnel", filter: "connected", label: "Connected" })}
               />
-              <div className="text-muted-foreground">
+              <div className="text-muted-foreground hidden sm:block">
                 <ChevronRight className="h-5 w-5" />
               </div>
               <FunnelStage
@@ -600,7 +600,7 @@ export default function DashboardPage() {
                 color="#22c55e"
                 onClick={() => setDrillDown({ type: "funnel", filter: "qualified", label: "Qualified" })}
               />
-              <div className="text-muted-foreground">
+              <div className="text-muted-foreground hidden sm:block">
                 <ChevronRight className="h-5 w-5" />
               </div>
               <FunnelStage

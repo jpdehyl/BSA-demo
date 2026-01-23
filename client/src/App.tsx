@@ -11,6 +11,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { NotificationBell } from "@/components/notification-bell";
 import { SupportChat } from "@/components/SupportChat";
+import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { ErrorBoundary } from "@/components/error-boundary";
 import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/landing";
@@ -120,9 +121,10 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
               <ThemeToggle />
             </div>
           </header>
-          <main className="flex-1 overflow-auto">
+          <main className="flex-1 overflow-auto pb-20 md:pb-0">
             {children}
           </main>
+          <MobileBottomNav />
         </div>
       </div>
     </SidebarProvider>

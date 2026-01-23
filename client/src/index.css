@@ -367,4 +367,31 @@
   .shadow-primary-glow {
     box-shadow: var(--shadow-primary-glow);
   }
+
+  /* Safe area support for iOS devices */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  /* Hide scrollbar on mobile for cleaner look */
+  @media (max-width: 640px) {
+    .hide-scrollbar-mobile::-webkit-scrollbar {
+      display: none;
+    }
+    .hide-scrollbar-mobile {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  }
+
+  /* Touch-friendly spacing for mobile */
+  @media (max-width: 640px) {
+    .touch-spacing > * + * {
+      margin-top: 0.75rem;
+    }
+  }
 }

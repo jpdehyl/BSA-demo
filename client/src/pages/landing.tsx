@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { useLocation } from "wouter";
 import { ChevronRight } from "lucide-react";
 import logoPath from "@assets/bsa-logo.png";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -266,6 +267,7 @@ export default function LandingPage() {
   const [, setLocation] = useLocation();
   const [showLogin, setShowLogin] = useState(false);
   const [webglSupported, setWebglSupported] = useState(true);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     setWebglSupported(isWebGLAvailable());
@@ -277,6 +279,8 @@ export default function LandingPage() {
     setLocation("/login");
   };
 
+  const particleCount = isMobile ? 5000 : 15000;
+
   return (
     <div className="relative w-full h-screen overflow-hidden">
       <div className="absolute inset-0 bg-[#2a2a2a]">
@@ -284,13 +288,13 @@ export default function LandingPage() {
           <WebGLErrorBoundary fallback={<AnimatedBackground />}>
             <Canvas
               camera={{ position: [0, 2, 6], fov: 60 }}
-              dpr={[1, 2]}
-              gl={{ antialias: true, alpha: true }}
+              dpr={isMobile ? [1, 1.5] : [1, 2]}
+              gl={{ antialias: !isMobile, alpha: true }}
             >
               <color attach="background" args={['#2a2a2a']} />
               <fog attach="fog" args={['#2a2a2a', 5, 15]} />
               <ambientLight intensity={0.5} />
-              <GalaxyParticles particleCount={15000} />
+              <GalaxyParticles particleCount={particleCount} />
               <CameraController />
             </Canvas>
           </WebGLErrorBoundary>
@@ -299,31 +303,30 @@ export default function LandingPage() {
         )}
       </div>
 
-      <div className="absolute top-0 left-0 right-0 p-6 flex items-center z-10">
-        <div className="bg-white/95 backdrop-blur-sm rounded-lg p-2 border border-gray-200 shadow-md">
-          <img src={logoPath} alt="BSA Solutions" className="h-10" data-testid="img-logo" />
+      <div className="absolute top-0 left-0 right-0 p-4 sm:p-6 flex items-center z-10">
+        <div className="bg-white/95 backdrop-blur-sm rounded-lg p-1.5 sm:p-2 border border-gray-200 shadow-md">
+          <img src={logoPath} alt="BSA Solutions" className="h-8 sm:h-10" data-testid="img-logo" />
         </div>
       </div>
 
-      {/* Gradient overlay for depth */}
       <div className="absolute inset-0 bg-gradient-to-t from-[#2a2a2a] via-transparent to-transparent pointer-events-none z-[5]" />
       <div className="absolute inset-0 bg-gradient-to-b from-[#2a2a2a]/50 via-transparent to-transparent pointer-events-none z-[5]" />
 
       <div
-        className={`absolute inset-0 flex flex-col items-center justify-center z-10 transition-all duration-1000 ${
+        className={`absolute inset-0 flex flex-col items-center justify-center z-10 transition-all duration-1000 px-4 ${
           showLogin ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
         }`}
       >
-        <div className="text-center mb-12">
+        <div className="text-center mb-8 sm:mb-12">
           <h1
-            className="text-6xl md:text-8xl font-display font-bold text-white mb-6 tracking-tighter animate-fade-in-up drop-shadow-[0_4px_20px_rgba(0,0,0,0.8)]"
+            className="text-5xl sm:text-6xl md:text-8xl font-display font-bold text-white mb-4 sm:mb-6 tracking-tighter animate-fade-in-up drop-shadow-[0_4px_20px_rgba(0,0,0,0.8)]"
             style={{ textShadow: '0 2px 10px rgba(0,0,0,0.9), 0 4px 30px rgba(0,0,0,0.7)' }}
             data-testid="text-headline"
           >
             Lead Intel
           </h1>
           <p
-            className="text-xl md:text-2xl text-white max-w-xl mx-auto px-4 font-sans animate-fade-in-up animate-stagger-1"
+            className="text-lg sm:text-xl md:text-2xl text-white max-w-xl mx-auto px-4 font-sans animate-fade-in-up animate-stagger-1"
             style={{ textShadow: '0 2px 8px rgba(0,0,0,0.9), 0 4px 20px rgba(0,0,0,0.6)' }}
             data-testid="text-subheadline"
           >
@@ -333,14 +336,13 @@ export default function LandingPage() {
 
         <button
           onClick={handleLogin}
-          className="group relative px-12 py-5 bg-gradient-to-r from-[#E5C100] to-[#ffd54f] rounded-full text-[#14202E] font-display font-semibold text-lg transition-all duration-500 hover:shadow-[0_0_60px_rgba(229,193,0,0.5)] hover:scale-105 active:scale-[0.98] animate-scale-in animate-stagger-2"
+          className="group relative px-8 sm:px-12 py-4 sm:py-5 bg-gradient-to-r from-[#E5C100] to-[#ffd54f] rounded-full text-[#14202E] font-display font-semibold text-base sm:text-lg transition-all duration-500 hover:shadow-[0_0_60px_rgba(229,193,0,0.5)] hover:scale-105 active:scale-[0.98] animate-scale-in animate-stagger-2 min-h-[48px]"
           data-testid="button-enter"
         >
-          <span className="relative z-10 flex items-center gap-3">
+          <span className="relative z-10 flex items-center gap-2 sm:gap-3">
             Enter
             <ChevronRight className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-2" />
           </span>
-          {/* Shimmer effect overlay */}
           <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-shimmer" />
         </button>
       </div>

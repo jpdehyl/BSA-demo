@@ -4,12 +4,11 @@ import { cn } from "@/lib/utils"
 
 const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
   ({ className, type, ...props }, ref) => {
-    // h-9 to match icon buttons and default buttons.
     return (
       <input
         type={type}
         className={cn(
-          "flex h-10 w-full rounded-lg border border-input bg-background px-4 py-2 " +
+          "flex min-h-11 sm:min-h-10 w-full rounded-lg border border-input bg-background px-4 py-2 " +
           "text-base ring-offset-background transition-all duration-200 " +
           "file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground " +
           "placeholder:text-muted-foreground/60 " +
