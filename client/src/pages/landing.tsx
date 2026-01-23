@@ -316,13 +316,15 @@ export default function LandingPage() {
       >
         <div className="text-center mb-12">
           <h1
-            className="text-6xl md:text-8xl font-display font-bold text-white mb-6 tracking-tighter animate-fade-in-up"
+            className="text-6xl md:text-8xl font-display font-bold text-white mb-6 tracking-tighter animate-fade-in-up drop-shadow-[0_4px_20px_rgba(0,0,0,0.8)]"
+            style={{ textShadow: '0 2px 10px rgba(0,0,0,0.9), 0 4px 30px rgba(0,0,0,0.7)' }}
             data-testid="text-headline"
           >
             Lead Intel
           </h1>
           <p
-            className="text-xl md:text-2xl text-white/60 max-w-xl mx-auto px-4 font-sans animate-fade-in-up animate-stagger-1"
+            className="text-xl md:text-2xl text-white max-w-xl mx-auto px-4 font-sans animate-fade-in-up animate-stagger-1"
+            style={{ textShadow: '0 2px 8px rgba(0,0,0,0.9), 0 4px 20px rgba(0,0,0,0.6)' }}
             data-testid="text-subheadline"
           >
             AI-Powered Pre-Call Intelligence
