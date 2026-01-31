@@ -1,0 +1,1898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lead Intel - Client Discovery Survey | BSA Solutions</title>
+    <style>
+        :root {
+            --primary: #E5C100;
+            --primary-dark: #c9a900;
+            --primary-light: #ffd54f;
+            --accent: #14202E;
+            --accent-light: #1a2d3d;
+            --bg: #F3F4F5;
+            --white: #ffffff;
+            --gray-50: #fafafa;
+            --gray-100: #f7f7f7;
+            --gray-200: #e5e5e5;
+            --gray-300: #d4d4d4;
+            --gray-500: #888888;
+            --gray-600: #666666;
+            --gray-700: #444444;
+            --success: #22c55e;
+            --success-dark: #16a34a;
+            --warning: #f59e0b;
+            --info: #3b82f6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+            min-height: 100vh;
+            padding: 1.5rem;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: var(--white);
+        }
+
+        .logo-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            opacity: 0.9;
+        }
+
+        .logo-divider {
+            width: 4px;
+            height: 4px;
+            background: var(--primary);
+            border-radius: 50%;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, var(--primary), var(--primary-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header .subtitle {
+            opacity: 0.85;
+            font-size: 1.05rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Progress */
+        .progress-container {
+            margin-bottom: 1.5rem;
+        }
+
+        .progress-bar {
+            background: rgba(255,255,255,0.15);
+            border-radius: 10px;
+            height: 10px;
+            overflow: hidden;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, var(--primary), var(--primary-light));
+            height: 100%;
+            width: 0%;
+            transition: width 0.5s ease;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(229, 193, 0, 0.5);
+        }
+
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 0.75rem;
+            color: var(--white);
+            font-size: 0.9rem;
+        }
+
+        .progress-text {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .progress-steps {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .step-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .step-dot.active {
+            background: var(--primary);
+            box-shadow: 0 0 8px rgba(229, 193, 0, 0.6);
+        }
+
+        .step-dot.completed {
+            background: var(--success);
+        }
+
+        /* Sections */
+        .section {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+            animation: slideIn 0.4s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--gray-200);
+        }
+
+        .section-number {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: var(--accent);
+            min-width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.3rem;
+            box-shadow: 0 2px 8px rgba(229, 193, 0, 0.3);
+        }
+
+        .section-header-text h2 {
+            color: var(--accent);
+            font-size: 1.4rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .section-header-text p {
+            color: var(--gray-600);
+            font-size: 0.9rem;
+        }
+
+        /* Questions */
+        .question {
+            margin-bottom: 1.75rem;
+        }
+
+        .question:last-of-type {
+            margin-bottom: 0;
+        }
+
+        .question-label {
+            display: block;
+            color: var(--accent);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .question-number {
+            color: var(--primary-dark);
+            font-weight: 700;
+            margin-right: 0.5rem;
+        }
+
+        .question-hint {
+            color: var(--gray-500);
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+            font-style: italic;
+        }
+
+        .required-star {
+            color: #ef4444;
+            margin-left: 2px;
+        }
+
+        /* Form Controls */
+        .checkbox-group, .radio-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 0.6rem;
+        }
+
+        .checkbox-group.single-col, .radio-group.single-col {
+            grid-template-columns: 1fr;
+        }
+
+        .checkbox-item, .radio-item {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.7rem 1rem;
+            background: var(--gray-50);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+            font-size: 0.95rem;
+        }
+
+        .checkbox-item:hover, .radio-item:hover {
+            background: var(--gray-100);
+            border-color: var(--gray-300);
+        }
+
+        .checkbox-item.selected, .radio-item.selected {
+            background: rgba(229, 193, 0, 0.1);
+            border-color: var(--primary);
+        }
+
+        .checkbox-item input, .radio-item input {
+            accent-color: var(--primary);
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+
+        .text-input, .textarea-input, select {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: all 0.2s ease;
+            background: var(--white);
+        }
+
+        .text-input:focus, .textarea-input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(229, 193, 0, 0.15);
+        }
+
+        .textarea-input {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+
+        .input-group label {
+            font-size: 0.85rem;
+            color: var(--gray-600);
+            font-weight: 500;
+        }
+
+        /* Priority Ranking */
+        .ranking-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .ranking-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            background: var(--gray-50);
+            border-radius: 8px;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .ranking-label {
+            flex: 1;
+            min-width: 200px;
+            font-size: 0.95rem;
+            color: var(--gray-700);
+        }
+
+        .priority-select {
+            display: flex;
+            gap: 0.4rem;
+        }
+
+        .priority-btn {
+            width: 36px;
+            height: 36px;
+            border: 2px solid var(--gray-300);
+            border-radius: 8px;
+            background: var(--white);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--gray-600);
+        }
+
+        .priority-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary-dark);
+        }
+
+        .priority-btn.selected {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: var(--accent);
+        }
+
+        /* Tables */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.5rem;
+        }
+
+        .data-table th {
+            text-align: left;
+            padding: 0.75rem;
+            background: var(--gray-100);
+            color: var(--accent);
+            font-weight: 600;
+            font-size: 0.9rem;
+            border-bottom: 2px solid var(--gray-200);
+        }
+
+        .data-table td {
+            padding: 0.5rem;
+            border-bottom: 1px solid var(--gray-100);
+        }
+
+        .data-table input {
+            width: 100%;
+            padding: 0.6rem 0.75rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: border-color 0.2s;
+        }
+
+        .data-table input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* Info Box */
+        .info-box {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05));
+            border-left: 4px solid var(--info);
+            padding: 1rem 1.25rem;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 1.5rem;
+        }
+
+        .info-box p {
+            color: var(--gray-700);
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        .info-box strong {
+            color: var(--info);
+        }
+
+        /* Navigation */
+        .navigation {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--gray-200);
+            gap: 1rem;
+        }
+
+        .nav-hint {
+            color: var(--gray-500);
+            font-size: 0.85rem;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.75rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-secondary {
+            background: var(--gray-200);
+            color: var(--accent);
+        }
+
+        .btn-secondary:hover {
+            background: var(--gray-300);
+        }
+
+        .btn-primary {
+            background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+            color: var(--accent);
+            box-shadow: 0 2px 8px rgba(229, 193, 0, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(229, 193, 0, 0.4);
+        }
+
+        .btn-submit {
+            background: linear-gradient(90deg, var(--success), var(--success-dark));
+            color: var(--white);
+            box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+        }
+
+        /* Summary */
+        .summary-grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .summary-category {
+            background: var(--gray-50);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }
+
+        .summary-category h3 {
+            color: var(--accent);
+            font-size: 1.1rem;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .summary-category h3::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--primary);
+            border-radius: 2px;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--gray-200);
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .summary-item:last-child {
+            border-bottom: none;
+        }
+
+        .summary-label {
+            color: var(--gray-600);
+            font-size: 0.9rem;
+        }
+
+        .summary-value {
+            color: var(--accent);
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-align: right;
+            flex: 1;
+        }
+
+        .summary-text-block {
+            background: var(--white);
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            color: var(--gray-700);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        /* Success State */
+        .success-banner {
+            text-align: center;
+            padding: 2rem;
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05));
+            border-radius: 12px;
+            margin-top: 1.5rem;
+        }
+
+        .success-icon {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .success-banner h3 {
+            color: var(--accent);
+            font-size: 1.4rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .success-banner p {
+            color: var(--gray-600);
+            margin-bottom: 0.5rem;
+        }
+
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            margin-top: 2rem;
+            color: rgba(255,255,255,0.7);
+            font-size: 0.85rem;
+        }
+
+        .footer a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .section {
+                padding: 1.5rem;
+            }
+
+            .checkbox-group, .radio-group {
+                grid-template-columns: 1fr;
+            }
+
+            .input-row {
+                grid-template-columns: 1fr;
+            }
+
+            .ranking-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .navigation {
+                flex-direction: column;
+            }
+
+            .nav-hint {
+                order: 2;
+                text-align: center;
+            }
+
+            .nav-buttons {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .btn {
+                flex: 1;
+                justify-content: center;
+            }
+
+            .data-table {
+                font-size: 0.85rem;
+            }
+
+            .data-table th, .data-table td {
+                padding: 0.4rem;
+            }
+        }
+
+        /* Print Styles */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .section {
+                box-shadow: none;
+                border: 1px solid #ddd;
+                page-break-inside: avoid;
+            }
+
+            .navigation, .progress-container, .btn {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo-row">
+                <span>GROUND GAME</span>
+                <div class="logo-divider"></div>
+                <span>LEAD INTEL PLATFORM</span>
+            </div>
+            <h1>Client Discovery Survey</h1>
+            <p class="subtitle">Help us understand your client so we can create a compelling, customized demo that shows exactly how Lead Intel solves their problems.</p>
+        </div>
+
+        <!-- Progress -->
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-info">
+                <span class="progress-text" id="progressText">Section 1 of 8</span>
+                <div class="progress-steps" id="progressSteps"></div>
+            </div>
+        </div>
+
+        <!-- Section 1: The Demo Client -->
+        <div class="section active" id="section1">
+            <div class="section-header">
+                <div class="section-number">1</div>
+                <div class="section-header-text">
+                    <h2>The Demo Client</h2>
+                    <p>Tell us about the specific client you want to demo Lead Intel for</p>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <p><strong>Why this matters:</strong> We'll customize the entire demo around this client — their industry, their prospects, their pain points. The more specific, the more compelling the demo.</p>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">1.1</span> Client company name <span class="required-star">*</span></label>
+                <input type="text" class="text-input" id="clientName" placeholder="e.g., TechFlow Solutions">
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">1.2</span> What industry are they in? <span class="required-star">*</span></label>
+                <div class="checkbox-group">
+                    <label class="checkbox-item"><input type="checkbox" name="clientIndustry" value="saas"> SaaS / Technology</label>
+                    <label class="checkbox-item"><input type="checkbox" name="clientIndustry" value="ecommerce"> E-Commerce / Retail</label>
+                    <label class="checkbox-item"><input type="checkbox" name="clientIndustry" value="financial"> Financial Services</label>
+                    <label class="checkbox-item"><input type="checkbox" name="clientIndustry" value="healthcare"> Healthcare / Medical</label>
+                    <label class="checkbox-item"><input type="checkbox" name="clientIndustry" value="realestate"> Real Estate</label>
+                    <label class="checkbox-item"><input type="checkbox" name="clientIndustry" value="professional"> Professional Services</label>
+                    <label class="checkbox-item"><input type="checkbox" name="clientIndustry" value="manufacturing"> Manufacturing</label>
+                    <label class="checkbox-item"><input type="checkbox" name="clientIndustry" value="other"> Other</label>
+                </div>
+                <input type="text" class="text-input" id="clientIndustryOther" placeholder="If other, please specify..." style="margin-top: 0.5rem;">
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">1.3</span> Company size</label>
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Employee count</label>
+                        <select id="clientSize">
+                            <option value="">Select...</option>
+                            <option value="1-50">1-50 employees</option>
+                            <option value="51-200">51-200 employees</option>
+                            <option value="201-500">201-500 employees</option>
+                            <option value="501-1000">501-1,000 employees</option>
+                            <option value="1000+">1,000+ employees</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Revenue range (if known)</label>
+                        <select id="clientRevenue">
+                            <option value="">Select...</option>
+                            <option value="<1M">Under $1M</option>
+                            <option value="1-10M">$1M - $10M</option>
+                            <option value="10-50M">$10M - $50M</option>
+                            <option value="50-100M">$50M - $100M</option>
+                            <option value="100M+">$100M+</option>
+                            <option value="unknown">Don't know</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">1.4</span> Geographic regions they sell into</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-item"><input type="checkbox" name="clientRegion" value="us"> United States</label>
+                    <label class="checkbox-item"><input type="checkbox" name="clientRegion" value="canada"> Canada</label>
+                    <label class="checkbox-item"><input type="checkbox" name="clientRegion" value="aunz"> Australia / New Zealand</label>
+                    <label class="checkbox-item"><input type="checkbox" name="clientRegion" value="uk"> United Kingdom</label>
+                    <label class="checkbox-item"><input type="checkbox" name="clientRegion" value="europe"> Europe</label>
+                    <label class="checkbox-item"><input type="checkbox" name="clientRegion" value="asia"> Asia Pacific</label>
+                    <label class="checkbox-item"><input type="checkbox" name="clientRegion" value="latam"> Latin America</label>
+                    <label class="checkbox-item"><input type="checkbox" name="clientRegion" value="global"> Global</label>
+                </div>
+            </div>
+
+            <div class="navigation">
+                <span class="nav-hint">All fields help us personalize the demo</span>
+                <div class="nav-buttons">
+                    <button class="btn btn-primary" onclick="nextSection()">Next Section →</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Sales Team Structure -->
+        <div class="section" id="section2">
+            <div class="section-header">
+                <div class="section-number">2</div>
+                <div class="section-header-text">
+                    <h2>Sales Team Structure</h2>
+                    <p>Understanding their team helps us show the right dashboards and workflows</p>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">2.1</span> Does this client have an internal SDR/BDR team?</label>
+                <div class="radio-group">
+                    <label class="radio-item"><input type="radio" name="hasSDR" value="yes"> Yes, internal team</label>
+                    <label class="radio-item"><input type="radio" name="hasSDR" value="outsourced"> Outsourced (BPO)</label>
+                    <label class="radio-item"><input type="radio" name="hasSDR" value="hybrid"> Hybrid (both)</label>
+                    <label class="radio-item"><input type="radio" name="hasSDR" value="no"> No dedicated SDRs</label>
+                    <label class="radio-item"><input type="radio" name="hasSDR" value="building"> Building a team</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">2.2</span> How many SDRs/BDRs do they have?</label>
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Current headcount</label>
+                        <input type="text" class="text-input" id="sdrCount" placeholder="e.g., 8">
+                    </div>
+                    <div class="input-group">
+                        <label>Planned growth (next 12 months)</label>
+                        <input type="text" class="text-input" id="sdrGrowth" placeholder="e.g., +5 more">
+                    </div>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">2.3</span> Do they have separate Account Executives (AEs)?</label>
+                <div class="radio-group">
+                    <label class="radio-item"><input type="radio" name="hasAE" value="yes"> Yes</label>
+                    <label class="radio-item"><input type="radio" name="hasAE" value="no"> No, SDRs close deals</label>
+                    <label class="radio-item"><input type="radio" name="hasAE" value="partial"> Some deals, depends on size</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">2.4</span> Is there a sales manager who oversees SDR performance?</label>
+                <div class="radio-group">
+                    <label class="radio-item"><input type="radio" name="hasManager" value="yes"> Yes, dedicated manager</label>
+                    <label class="radio-item"><input type="radio" name="hasManager" value="partial"> Part-time / wearing multiple hats</label>
+                    <label class="radio-item"><input type="radio" name="hasManager" value="no"> No direct oversight</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">2.5</span> Describe the sales team structure</label>
+                <p class="question-hint">E.g., "5 SDRs → 1 Team Lead → Sales Director" or "Flat structure, everyone reports to VP Sales"</p>
+                <textarea class="textarea-input" id="teamStructure" placeholder="Describe how the sales org is structured..."></textarea>
+            </div>
+
+            <div class="navigation">
+                <span class="nav-hint">Section 2 of 8</span>
+                <div class="nav-buttons">
+                    <button class="btn btn-secondary" onclick="prevSection()">← Back</button>
+                    <button class="btn btn-primary" onclick="nextSection()">Next Section →</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: Current Tech Stack -->
+        <div class="section" id="section3">
+            <div class="section-header">
+                <div class="section-number">3</div>
+                <div class="section-header-text">
+                    <h2>Current Sales Tools & Technology</h2>
+                    <p>This helps us show relevant integrations and migration paths</p>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">3.1</span> What CRM does this client use? <span class="required-star">*</span></label>
+                <div class="checkbox-group">
+                    <label class="checkbox-item"><input type="checkbox" name="crm" value="salesforce"> Salesforce</label>
+                    <label class="checkbox-item"><input type="checkbox" name="crm" value="hubspot"> HubSpot</label>
+                    <label class="checkbox-item"><input type="checkbox" name="crm" value="zoho"> Zoho CRM</label>
+                    <label class="checkbox-item"><input type="checkbox" name="crm" value="pipedrive"> Pipedrive</label>
+                    <label class="checkbox-item"><input type="checkbox" name="crm" value="monday"> Monday.com</label>
+                    <label class="checkbox-item"><input type="checkbox" name="crm" value="dynamics"> Microsoft Dynamics</label>
+                    <label class="checkbox-item"><input type="checkbox" name="crm" value="spreadsheets"> Spreadsheets only</label>
+                    <label class="checkbox-item"><input type="checkbox" name="crm" value="none"> None</label>
+                </div>
+                <input type="text" class="text-input" id="crmOther" placeholder="Other CRM (specify)..." style="margin-top: 0.5rem;">
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">3.2</span> How do SDRs currently make outbound calls?</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-item"><input type="checkbox" name="phone" value="desk"> Desk phones</label>
+                    <label class="checkbox-item"><input type="checkbox" name="phone" value="softphone"> Softphone / VoIP</label>
+                    <label class="checkbox-item"><input type="checkbox" name="phone" value="mobile"> Mobile phones</label>
+                    <label class="checkbox-item"><input type="checkbox" name="phone" value="zoom"> Zoom Phone</label>
+                    <label class="checkbox-item"><input type="checkbox" name="phone" value="ringcentral"> RingCentral</label>
+                    <label class="checkbox-item"><input type="checkbox" name="phone" value="dialpad"> Dialpad</label>
+                    <label class="checkbox-item"><input type="checkbox" name="phone" value="aircall"> Aircall</label>
+                    <label class="checkbox-item"><input type="checkbox" name="phone" value="outreach"> Outreach Voice</label>
+                </div>
+                <input type="text" class="text-input" id="phoneOther" placeholder="Other phone system (specify)..." style="margin-top: 0.5rem;">
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">3.3</span> Do they record sales calls?</label>
+                <div class="radio-group">
+                    <label class="radio-item"><input type="radio" name="recording" value="all"> Yes, all calls</label>
+                    <label class="radio-item"><input type="radio" name="recording" value="some"> Some calls</label>
+                    <label class="radio-item"><input type="radio" name="recording" value="no"> No recording</label>
+                    <label class="radio-item"><input type="radio" name="recording" value="unknown"> Don't know</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">3.4</span> Do they use call transcription?</label>
+                <div class="radio-group">
+                    <label class="radio-item"><input type="radio" name="transcription" value="yes"> Yes</label>
+                    <label class="radio-item"><input type="radio" name="transcription" value="no"> No</label>
+                    <label class="radio-item"><input type="radio" name="transcription" value="unknown"> Don't know</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">3.5</span> Sales intelligence tools they currently use</label>
+                <p class="question-hint">These are tools Lead Intel would complement or replace</p>
+                <div class="checkbox-group">
+                    <label class="checkbox-item"><input type="checkbox" name="salesIntel" value="zoominfo"> ZoomInfo</label>
+                    <label class="checkbox-item"><input type="checkbox" name="salesIntel" value="apollo"> Apollo.io</label>
+                    <label class="checkbox-item"><input type="checkbox" name="salesIntel" value="linkedin"> LinkedIn Sales Navigator</label>
+                    <label class="checkbox-item"><input type="checkbox" name="salesIntel" value="lusha"> Lusha</label>
+                    <label class="checkbox-item"><input type="checkbox" name="salesIntel" value="cognism"> Cognism</label>
+                    <label class="checkbox-item"><input type="checkbox" name="salesIntel" value="seamless"> Seamless.ai</label>
+                    <label class="checkbox-item"><input type="checkbox" name="salesIntel" value="none"> None</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">3.6</span> Conversation intelligence tools</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-item"><input type="checkbox" name="convIntel" value="gong"> Gong</label>
+                    <label class="checkbox-item"><input type="checkbox" name="convIntel" value="chorus"> Chorus</label>
+                    <label class="checkbox-item"><input type="checkbox" name="convIntel" value="clari"> Clari</label>
+                    <label class="checkbox-item"><input type="checkbox" name="convIntel" value="salesloft"> Salesloft</label>
+                    <label class="checkbox-item"><input type="checkbox" name="convIntel" value="outreach"> Outreach</label>
+                    <label class="checkbox-item"><input type="checkbox" name="convIntel" value="none"> None</label>
+                </div>
+            </div>
+
+            <div class="navigation">
+                <span class="nav-hint">Section 3 of 8</span>
+                <div class="nav-buttons">
+                    <button class="btn btn-secondary" onclick="prevSection()">← Back</button>
+                    <button class="btn btn-primary" onclick="nextSection()">Next Section →</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: SDR Process & Pain Points -->
+        <div class="section" id="section4">
+            <div class="section-header">
+                <div class="section-number">4</div>
+                <div class="section-header-text">
+                    <h2>SDR Process & Pain Points</h2>
+                    <p>This is where we identify the problems Lead Intel will solve</p>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">4.1</span> How do SDRs currently prepare before calling a lead?</label>
+                <textarea class="textarea-input" id="prepProcess" placeholder="Describe their pre-call research workflow..."></textarea>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">4.2</span> How long does pre-call research typically take?</label>
+                <div class="radio-group">
+                    <label class="radio-item"><input type="radio" name="researchTime" value="none"> They don't research</label>
+                    <label class="radio-item"><input type="radio" name="researchTime" value="<5"> Less than 5 minutes</label>
+                    <label class="radio-item"><input type="radio" name="researchTime" value="5-15"> 5-15 minutes</label>
+                    <label class="radio-item"><input type="radio" name="researchTime" value="15-30"> 15-30 minutes</label>
+                    <label class="radio-item"><input type="radio" name="researchTime" value="30+"> 30+ minutes</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">4.3</span> Where do their leads come from?</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-item"><input type="checkbox" name="leadSource" value="marketing"> Marketing (inbound)</label>
+                    <label class="checkbox-item"><input type="checkbox" name="leadSource" value="events"> Events / Trade shows</label>
+                    <label class="checkbox-item"><input type="checkbox" name="leadSource" value="inbound"> Website inquiries</label>
+                    <label class="checkbox-item"><input type="checkbox" name="leadSource" value="purchased"> Purchased lists</label>
+                    <label class="checkbox-item"><input type="checkbox" name="leadSource" value="prospecting"> Manual prospecting</label>
+                    <label class="checkbox-item"><input type="checkbox" name="leadSource" value="referrals"> Referrals</label>
+                    <label class="checkbox-item"><input type="checkbox" name="leadSource" value="partners"> Partner channels</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">4.4</span> What are the biggest challenges SDRs face? <span class="required-star">*</span></label>
+                <p class="question-hint">Select all that apply — these become demo talking points</p>
+                <div class="checkbox-group">
+                    <label class="checkbox-item"><input type="checkbox" name="challenge" value="research"> Not enough time for research</label>
+                    <label class="checkbox-item"><input type="checkbox" name="challenge" value="quality"> Poor lead quality</label>
+                    <label class="checkbox-item"><input type="checkbox" name="challenge" value="messaging"> Don't know what to say</label>
+                    <label class="checkbox-item"><input type="checkbox" name="challenge" value="objections"> Can't handle objections</label>
+                    <label class="checkbox-item"><input type="checkbox" name="challenge" value="connect"> Low connect rates</label>
+                    <label class="checkbox-item"><input type="checkbox" name="challenge" value="inconsistent"> Inconsistent process</label>
+                    <label class="checkbox-item"><input type="checkbox" name="challenge" value="visibility"> Manager lacks visibility</label>
+                    <label class="checkbox-item"><input type="checkbox" name="challenge" value="training"> Training / ramping new SDRs</label>
+                    <label class="checkbox-item"><input type="checkbox" name="challenge" value="data"> Data entry / CRM updates</label>
+                    <label class="checkbox-item"><input type="checkbox" name="challenge" value="motivation"> SDR motivation / burnout</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">4.5</span> How are qualified leads handed off to AEs?</label>
+                <textarea class="textarea-input" id="handoffProcess" placeholder="Describe the handoff process..."></textarea>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">4.6</span> What qualification criteria do they use?</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-item"><input type="checkbox" name="qualification" value="bant"> BANT</label>
+                    <label class="checkbox-item"><input type="checkbox" name="qualification" value="meddic"> MEDDIC / MEDDPICC</label>
+                    <label class="checkbox-item"><input type="checkbox" name="qualification" value="spin"> SPIN</label>
+                    <label class="checkbox-item"><input type="checkbox" name="qualification" value="custom"> Custom criteria</label>
+                    <label class="checkbox-item"><input type="checkbox" name="qualification" value="none"> No formal criteria</label>
+                </div>
+                <input type="text" class="text-input" id="qualificationOther" placeholder="If custom, describe briefly..." style="margin-top: 0.5rem;">
+            </div>
+
+            <div class="navigation">
+                <span class="nav-hint">Section 4 of 8</span>
+                <div class="nav-buttons">
+                    <button class="btn btn-secondary" onclick="prevSection()">← Back</button>
+                    <button class="btn btn-primary" onclick="nextSection()">Next Section →</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 5: Manager & Coaching -->
+        <div class="section" id="section5">
+            <div class="section-header">
+                <div class="section-number">5</div>
+                <div class="section-header-text">
+                    <h2>Manager & Coaching Needs</h2>
+                    <p>Manager dashboards are a big selling point — let's tailor them</p>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">5.1</span> How do managers currently review SDR calls?</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-item"><input type="checkbox" name="callReview" value="recordings"> Listen to recordings</label>
+                    <label class="checkbox-item"><input type="checkbox" name="callReview" value="live"> Live monitoring / barging</label>
+                    <label class="checkbox-item"><input type="checkbox" name="callReview" value="transcripts"> Read transcripts</label>
+                    <label class="checkbox-item"><input type="checkbox" name="callReview" value="shadow"> Sit with SDRs (shadowing)</label>
+                    <label class="checkbox-item"><input type="checkbox" name="callReview" value="none"> They don't review calls</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">5.2</span> How often are calls reviewed?</label>
+                <div class="radio-group">
+                    <label class="radio-item"><input type="radio" name="reviewFreq" value="every"> Every call</label>
+                    <label class="radio-item"><input type="radio" name="reviewFreq" value="daily"> Daily sample</label>
+                    <label class="radio-item"><input type="radio" name="reviewFreq" value="weekly"> Weekly</label>
+                    <label class="radio-item"><input type="radio" name="reviewFreq" value="rarely"> Rarely</label>
+                    <label class="radio-item"><input type="radio" name="reviewFreq" value="never"> Never</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">5.3</span> Is there a structured scoring system for calls?</label>
+                <div class="radio-group">
+                    <label class="radio-item"><input type="radio" name="scoring" value="yes"> Yes, formal scorecard</label>
+                    <label class="radio-item"><input type="radio" name="scoring" value="informal"> Informal feedback</label>
+                    <label class="radio-item"><input type="radio" name="scoring" value="no"> No scoring</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">5.4</span> How is coaching delivered to SDRs?</label>
+                <textarea class="textarea-input" id="coachingMethod" placeholder="E.g., weekly 1:1s, group sessions, ad-hoc feedback..."></textarea>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">5.5</span> What metrics are used to evaluate SDR performance?</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-item"><input type="checkbox" name="metric" value="calls"> Calls made</label>
+                    <label class="checkbox-item"><input type="checkbox" name="metric" value="connects"> Connect rate</label>
+                    <label class="checkbox-item"><input type="checkbox" name="metric" value="conversations"> Conversations / Talk time</label>
+                    <label class="checkbox-item"><input type="checkbox" name="metric" value="meetings"> Meetings booked</label>
+                    <label class="checkbox-item"><input type="checkbox" name="metric" value="sqls"> SQLs generated</label>
+                    <label class="checkbox-item"><input type="checkbox" name="metric" value="pipeline"> Pipeline value</label>
+                    <label class="checkbox-item"><input type="checkbox" name="metric" value="conversion"> Conversion rate</label>
+                    <label class="checkbox-item"><input type="checkbox" name="metric" value="quality"> Call quality scores</label>
+                </div>
+            </div>
+
+            <div class="navigation">
+                <span class="nav-hint">Section 5 of 8</span>
+                <div class="nav-buttons">
+                    <button class="btn btn-secondary" onclick="prevSection()">← Back</button>
+                    <button class="btn btn-primary" onclick="nextSection()">Next Section →</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 6: Client's Products & ICP -->
+        <div class="section" id="section6">
+            <div class="section-header">
+                <div class="section-number">6</div>
+                <div class="section-header-text">
+                    <h2>Client's Products & Value Proposition</h2>
+                    <p>This lets us configure the AI to recommend the right talking points</p>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">6.1</span> What products/services does this client sell? <span class="required-star">*</span></label>
+                <textarea class="textarea-input" id="clientProducts" placeholder="Describe their main offerings..."></textarea>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">6.2</span> Who is their ideal customer? <span class="required-star">*</span></label>
+                <p class="question-hint">Industry, company size, decision-maker role</p>
+                <textarea class="textarea-input" id="clientICP" placeholder="E.g., Mid-market SaaS companies, 100-500 employees, VP of Sales or RevOps leaders"></textarea>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">6.3</span> What pain points does their product solve?</label>
+                <textarea class="textarea-input" id="clientPainPoints" placeholder="What problems do they solve for their customers?"></textarea>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">6.4</span> What differentiates them from competitors?</label>
+                <textarea class="textarea-input" id="clientDifferentiators" placeholder="Key competitive advantages..."></textarea>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">6.5</span> Common objections SDRs hear</label>
+                <p class="question-hint">We'll show how Lead Intel helps handle these</p>
+                <textarea class="textarea-input" id="clientObjections" placeholder='E.g., "We already have a solution", "Too expensive", "Not a priority right now"...'></textarea>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">6.6</span> Example companies their SDRs would call on</label>
+                <p class="question-hint">We'll use these to show realistic AI research in the demo</p>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 35%">Company Name</th>
+                            <th style="width: 25%">Industry</th>
+                            <th style="width: 40%">Why They're a Target</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><input type="text" id="target1company" placeholder="e.g., Acme Corp"></td>
+                            <td><input type="text" id="target1industry" placeholder="e.g., FinTech"></td>
+                            <td><input type="text" id="target1reason" placeholder="e.g., Series B, scaling sales team"></td>
+                        </tr>
+                        <tr>
+                            <td><input type="text" id="target2company" placeholder="Company 2"></td>
+                            <td><input type="text" id="target2industry" placeholder="Industry"></td>
+                            <td><input type="text" id="target2reason" placeholder="Why target them"></td>
+                        </tr>
+                        <tr>
+                            <td><input type="text" id="target3company" placeholder="Company 3"></td>
+                            <td><input type="text" id="target3industry" placeholder="Industry"></td>
+                            <td><input type="text" id="target3reason" placeholder="Why target them"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="navigation">
+                <span class="nav-hint">Section 6 of 8</span>
+                <div class="nav-buttons">
+                    <button class="btn btn-secondary" onclick="prevSection()">← Back</button>
+                    <button class="btn btn-primary" onclick="nextSection()">Next Section →</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 7: Technical & Business -->
+        <div class="section" id="section7">
+            <div class="section-header">
+                <div class="section-number">7</div>
+                <div class="section-header-text">
+                    <h2>Technical Environment & Business Context</h2>
+                    <p>For addressing IT concerns and understanding the deal</p>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">7.1</span> Where are they hosted?</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-item"><input type="checkbox" name="hosting" value="aws"> AWS</label>
+                    <label class="checkbox-item"><input type="checkbox" name="hosting" value="azure"> Microsoft Azure</label>
+                    <label class="checkbox-item"><input type="checkbox" name="hosting" value="gcp"> Google Cloud</label>
+                    <label class="checkbox-item"><input type="checkbox" name="hosting" value="onprem"> On-premise</label>
+                    <label class="checkbox-item"><input type="checkbox" name="hosting" value="hybrid"> Hybrid</label>
+                    <label class="checkbox-item"><input type="checkbox" name="hosting" value="unknown"> Don't know</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">7.2</span> Do they have IT resources for integrations?</label>
+                <div class="radio-group">
+                    <label class="radio-item"><input type="radio" name="itResources" value="internal"> Internal IT team</label>
+                    <label class="radio-item"><input type="radio" name="itResources" value="contractors"> Contractors / MSP</label>
+                    <label class="radio-item"><input type="radio" name="itResources" value="limited"> Limited resources</label>
+                    <label class="radio-item"><input type="radio" name="itResources" value="none"> None</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">7.3</span> Security/compliance requirements</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-item"><input type="checkbox" name="compliance" value="soc2"> SOC 2</label>
+                    <label class="checkbox-item"><input type="checkbox" name="compliance" value="hipaa"> HIPAA</label>
+                    <label class="checkbox-item"><input type="checkbox" name="compliance" value="gdpr"> GDPR</label>
+                    <label class="checkbox-item"><input type="checkbox" name="compliance" value="ccpa"> CCPA</label>
+                    <label class="checkbox-item"><input type="checkbox" name="compliance" value="iso27001"> ISO 27001</label>
+                    <label class="checkbox-item"><input type="checkbox" name="compliance" value="none"> None specific</label>
+                    <label class="checkbox-item"><input type="checkbox" name="compliance" value="unknown"> Don't know</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">7.4</span> SSO requirements?</label>
+                <div class="radio-group">
+                    <label class="radio-item"><input type="radio" name="sso" value="required"> Yes, required</label>
+                    <label class="radio-item"><input type="radio" name="sso" value="preferred"> Preferred but not required</label>
+                    <label class="radio-item"><input type="radio" name="sso" value="no"> No</label>
+                    <label class="radio-item"><input type="radio" name="sso" value="unknown"> Don't know</label>
+                </div>
+            </div>
+
+            <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--gray-200);">
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">7.5</span> Who would be the decision maker for this purchase?</label>
+                <input type="text" class="text-input" id="decisionMaker" placeholder="e.g., VP of Sales, CRO, CEO">
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">7.6</span> What's their typical budget for sales tools?</label>
+                <div class="radio-group">
+                    <label class="radio-item"><input type="radio" name="budget" value="<5k"> Under $5k/year</label>
+                    <label class="radio-item"><input type="radio" name="budget" value="5-15k"> $5k - $15k/year</label>
+                    <label class="radio-item"><input type="radio" name="budget" value="15-50k"> $15k - $50k/year</label>
+                    <label class="radio-item"><input type="radio" name="budget" value="50k+"> $50k+/year</label>
+                    <label class="radio-item"><input type="radio" name="budget" value="unknown"> Unknown</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">7.7</span> Timeline for decision?</label>
+                <div class="radio-group">
+                    <label class="radio-item"><input type="radio" name="timeline" value="immediate"> Immediate need (< 1 month)</label>
+                    <label class="radio-item"><input type="radio" name="timeline" value="quarter"> This quarter</label>
+                    <label class="radio-item"><input type="radio" name="timeline" value="6months"> 3-6 months</label>
+                    <label class="radio-item"><input type="radio" name="timeline" value="future"> Future planning</label>
+                    <label class="radio-item"><input type="radio" name="timeline" value="unknown"> Unknown</label>
+                </div>
+            </div>
+
+            <div class="navigation">
+                <span class="nav-hint">Section 7 of 8</span>
+                <div class="nav-buttons">
+                    <button class="btn btn-secondary" onclick="prevSection()">← Back</button>
+                    <button class="btn btn-primary" onclick="nextSection()">Next Section →</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 8: Demo Strategy & BSA's Role -->
+        <div class="section" id="section8">
+            <div class="section-header">
+                <div class="section-number">8</div>
+                <div class="section-header-text">
+                    <h2>Demo Strategy & BSA's Role</h2>
+                    <p>Final details to make this demo a winner</p>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">8.1</span> Rank the features by importance to this client</label>
+                <p class="question-hint">1 = Must show first, 5 = Nice to have</p>
+                <div class="ranking-container">
+                    <div class="ranking-row">
+                        <span class="ranking-label">AI-powered lead research (instant intel dossiers)</span>
+                        <div class="priority-select" data-feature="research">
+                            <button class="priority-btn" data-value="1">1</button>
+                            <button class="priority-btn" data-value="2">2</button>
+                            <button class="priority-btn" data-value="3">3</button>
+                            <button class="priority-btn" data-value="4">4</button>
+                            <button class="priority-btn" data-value="5">5</button>
+                        </div>
+                    </div>
+                    <div class="ranking-row">
+                        <span class="ranking-label">Real-time coaching during live calls</span>
+                        <div class="priority-select" data-feature="coaching">
+                            <button class="priority-btn" data-value="1">1</button>
+                            <button class="priority-btn" data-value="2">2</button>
+                            <button class="priority-btn" data-value="3">3</button>
+                            <button class="priority-btn" data-value="4">4</button>
+                            <button class="priority-btn" data-value="5">5</button>
+                        </div>
+                    </div>
+                    <div class="ranking-row">
+                        <span class="ranking-label">Post-call analysis and scoring</span>
+                        <div class="priority-select" data-feature="analysis">
+                            <button class="priority-btn" data-value="1">1</button>
+                            <button class="priority-btn" data-value="2">2</button>
+                            <button class="priority-btn" data-value="3">3</button>
+                            <button class="priority-btn" data-value="4">4</button>
+                            <button class="priority-btn" data-value="5">5</button>
+                        </div>
+                    </div>
+                    <div class="ranking-row">
+                        <span class="ranking-label">Manager dashboards and team visibility</span>
+                        <div class="priority-select" data-feature="dashboard">
+                            <button class="priority-btn" data-value="1">1</button>
+                            <button class="priority-btn" data-value="2">2</button>
+                            <button class="priority-btn" data-value="3">3</button>
+                            <button class="priority-btn" data-value="4">4</button>
+                            <button class="priority-btn" data-value="5">5</button>
+                        </div>
+                    </div>
+                    <div class="ranking-row">
+                        <span class="ranking-label">CRM integration (Salesforce / HubSpot sync)</span>
+                        <div class="priority-select" data-feature="crm">
+                            <button class="priority-btn" data-value="1">1</button>
+                            <button class="priority-btn" data-value="2">2</button>
+                            <button class="priority-btn" data-value="3">3</button>
+                            <button class="priority-btn" data-value="4">4</button>
+                            <button class="priority-btn" data-value="5">5</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">8.2</span> What would make this client say "I need this"?</label>
+                <textarea class="textarea-input" id="needThis" placeholder="The one thing that would close the deal..."></textarea>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">8.3</span> What concerns might they have about adopting this?</label>
+                <textarea class="textarea-input" id="concerns" placeholder="Objections we should be ready to address..."></textarea>
+            </div>
+
+            <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--gray-200);">
+            <p style="color: var(--gray-600); font-size: 0.9rem; margin-bottom: 1rem;"><strong>BSA's Role</strong></p>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">8.4</span> How would BSA position this to the client?</label>
+                <div class="radio-group single-col">
+                    <label class="radio-item"><input type="radio" name="bsaRole" value="reseller"> Reseller (BSA sells, Ground Game delivers)</label>
+                    <label class="radio-item"><input type="radio" name="bsaRole" value="implementation"> Implementation partner (help with setup & training)</label>
+                    <label class="radio-item"><input type="radio" name="bsaRole" value="managed"> Managed service (BSA runs it for them)</label>
+                    <label class="radio-item"><input type="radio" name="bsaRole" value="whitelabel"> White-label (BSA-branded solution)</label>
+                    <label class="radio-item"><input type="radio" name="bsaRole" value="referral"> Referral only</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">8.5</span> Would BSA provide ongoing support/training?</label>
+                <div class="radio-group">
+                    <label class="radio-item"><input type="radio" name="bsaSupport" value="yes"> Yes</label>
+                    <label class="radio-item"><input type="radio" name="bsaSupport" value="no"> No</label>
+                    <label class="radio-item"><input type="radio" name="bsaSupport" value="tbd"> To be determined</label>
+                </div>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">8.6</span> Any existing relationships at this client we should leverage?</label>
+                <textarea class="textarea-input" id="relationships" placeholder="Champions, contacts, previous work together..."></textarea>
+            </div>
+
+            <div class="question">
+                <label class="question-label"><span class="question-number">8.7</span> Anything else that would help us create an amazing demo?</label>
+                <textarea class="textarea-input" id="additionalNotes" placeholder="Any other context, special requests, or things to avoid..."></textarea>
+            </div>
+
+            <div class="navigation">
+                <span class="nav-hint">Final section!</span>
+                <div class="nav-buttons">
+                    <button class="btn btn-secondary" onclick="prevSection()">← Back</button>
+                    <button class="btn btn-submit" onclick="submitForm()">✓ Submit & Review</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Section -->
+        <div class="section" id="summarySection">
+            <div class="section-header">
+                <div class="section-number" style="background: linear-gradient(135deg, var(--success), var(--success-dark));">✓</div>
+                <div class="section-header-text">
+                    <h2>Discovery Summary</h2>
+                    <p>Review the information before we prepare your demo</p>
+                </div>
+            </div>
+
+            <div class="summary-grid" id="summaryContent"></div>
+
+            <div class="success-banner">
+                <div class="success-icon">🎯</div>
+                <h3>Thank You!</h3>
+                <p>We have everything we need to create an incredible demo.</p>
+                <p style="font-size: 0.9rem; color: var(--gray-500);">Juan will reach out to schedule the demo session.</p>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn btn-secondary" onclick="editForm()">← Edit Responses</button>
+                <button class="btn btn-primary" onclick="copyToClipboard()">📋 Copy to Clipboard</button>
+                <button class="btn btn-primary" onclick="downloadJSON()">💾 Download JSON</button>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>Ground Game • Lead Intel Platform</p>
+            <p><a href="mailto:jp@dehyl.ca">jp@dehyl.ca</a> • 604.600.9654</p>
+        </div>
+    </div>
+
+    <script>
+        let currentSection = 1;
+        const totalSections = 8;
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            initProgressDots();
+            initPriorityButtons();
+            initFormControls();
+            updateProgress();
+        });
+
+        function initProgressDots() {
+            const container = document.getElementById('progressSteps');
+            for (let i = 1; i <= totalSections; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'step-dot' + (i === 1 ? ' active' : '');
+                dot.onclick = () => {
+                    if (i <= getCompletedSections() + 1) {
+                        showSection(i);
+                    }
+                };
+                container.appendChild(dot);
+            }
+        }
+
+        function getCompletedSections() {
+            return currentSection - 1;
+        }
+
+        function initPriorityButtons() {
+            document.querySelectorAll('.priority-select').forEach(group => {
+                group.querySelectorAll('.priority-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        group.querySelectorAll('.priority-btn').forEach(b => b.classList.remove('selected'));
+                        btn.classList.add('selected');
+                    });
+                });
+            });
+        }
+
+        function initFormControls() {
+            document.querySelectorAll('.checkbox-item, .radio-item').forEach(item => {
+                const input = item.querySelector('input');
+                input.addEventListener('change', () => {
+                    if (input.type === 'radio') {
+                        item.closest('.radio-group').querySelectorAll('.radio-item').forEach(i => i.classList.remove('selected'));
+                    }
+                    item.classList.toggle('selected', input.checked);
+                });
+            });
+        }
+
+        function updateProgress() {
+            const progress = (currentSection / totalSections) * 100;
+            document.getElementById('progressFill').style.width = `${progress}%`;
+            document.getElementById('progressText').textContent = `Section ${currentSection} of ${totalSections}`;
+            
+            document.querySelectorAll('.step-dot').forEach((dot, i) => {
+                dot.classList.remove('active', 'completed');
+                if (i + 1 === currentSection) {
+                    dot.classList.add('active');
+                } else if (i + 1 < currentSection) {
+                    dot.classList.add('completed');
+                }
+            });
+        }
+
+        function showSection(num) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            const section = document.getElementById(`section${num}`);
+            if (section) {
+                section.classList.add('active');
+                currentSection = num;
+                updateProgress();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        function nextSection() {
+            if (currentSection < totalSections) {
+                showSection(currentSection + 1);
+            }
+        }
+
+        function prevSection() {
+            if (currentSection > 1) {
+                showSection(currentSection - 1);
+            }
+        }
+
+        function collectFormData() {
+            const data = {};
+            
+            // Helper to get checked values
+            const getChecked = (name) => {
+                return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`))
+                    .map(cb => cb.parentElement.textContent.trim());
+            };
+            
+            // Helper to get radio value
+            const getRadio = (name) => {
+                const checked = document.querySelector(`input[name="${name}"]:checked`);
+                return checked ? checked.parentElement.textContent.trim() : '';
+            };
+            
+            // Helper to get text value
+            const getText = (id) => {
+                const el = document.getElementById(id);
+                return el ? el.value.trim() : '';
+            };
+
+            // Section 1: Demo Client
+            data.client = {
+                name: getText('clientName'),
+                industry: getChecked('clientIndustry'),
+                industryOther: getText('clientIndustryOther'),
+                size: getText('clientSize') ? document.getElementById('clientSize').options[document.getElementById('clientSize').selectedIndex].text : '',
+                revenue: getText('clientRevenue') ? document.getElementById('clientRevenue').options[document.getElementById('clientRevenue').selectedIndex].text : '',
+                regions: getChecked('clientRegion')
+            };
+
+            // Section 2: Team Structure
+            data.team = {
+                hasSDR: getRadio('hasSDR'),
+                sdrCount: getText('sdrCount'),
+                sdrGrowth: getText('sdrGrowth'),
+                hasAE: getRadio('hasAE'),
+                hasManager: getRadio('hasManager'),
+                structure: getText('teamStructure')
+            };
+
+            // Section 3: Tech Stack
+            data.tech = {
+                crm: getChecked('crm'),
+                crmOther: getText('crmOther'),
+                phone: getChecked('phone'),
+                phoneOther: getText('phoneOther'),
+                recording: getRadio('recording'),
+                transcription: getRadio('transcription'),
+                salesIntel: getChecked('salesIntel'),
+                convIntel: getChecked('convIntel')
+            };
+
+            // Section 4: Process & Pain Points
+            data.process = {
+                prepProcess: getText('prepProcess'),
+                researchTime: getRadio('researchTime'),
+                leadSources: getChecked('leadSource'),
+                challenges: getChecked('challenge'),
+                handoff: getText('handoffProcess'),
+                qualification: getChecked('qualification'),
+                qualificationOther: getText('qualificationOther')
+            };
+
+            // Section 5: Manager & Coaching
+            data.coaching = {
+                callReview: getChecked('callReview'),
+                reviewFreq: getRadio('reviewFreq'),
+                scoring: getRadio('scoring'),
+                coachingMethod: getText('coachingMethod'),
+                metrics: getChecked('metric')
+            };
+
+            // Section 6: Products & ICP
+            data.products = {
+                offerings: getText('clientProducts'),
+                icp: getText('clientICP'),
+                painPoints: getText('clientPainPoints'),
+                differentiators: getText('clientDifferentiators'),
+                objections: getText('clientObjections'),
+                targets: []
+            };
+            
+            for (let i = 1; i <= 3; i++) {
+                const company = getText(`target${i}company`);
+                if (company) {
+                    data.products.targets.push({
+                        company,
+                        industry: getText(`target${i}industry`),
+                        reason: getText(`target${i}reason`)
+                    });
+                }
+            }
+
+            // Section 7: Technical & Business
+            data.technical = {
+                hosting: getChecked('hosting'),
+                itResources: getRadio('itResources'),
+                compliance: getChecked('compliance'),
+                sso: getRadio('sso'),
+                decisionMaker: getText('decisionMaker'),
+                budget: getRadio('budget'),
+                timeline: getRadio('timeline')
+            };
+
+            // Section 8: Demo Strategy
+            data.demo = {
+                priorities: {},
+                needThis: getText('needThis'),
+                concerns: getText('concerns'),
+                bsaRole: getRadio('bsaRole'),
+                bsaSupport: getRadio('bsaSupport'),
+                relationships: getText('relationships'),
+                additionalNotes: getText('additionalNotes')
+            };
+
+            document.querySelectorAll('.priority-select').forEach(group => {
+                const selected = group.querySelector('.priority-btn.selected');
+                if (selected) {
+                    data.demo.priorities[group.dataset.feature] = selected.dataset.value;
+                }
+            });
+
+            return data;
+        }
+
+        function generateSummary(data) {
+            let html = '';
+
+            // Client Overview
+            html += `<div class="summary-category">
+                <h3>Demo Client</h3>
+                <div class="summary-item"><span class="summary-label">Company:</span><span class="summary-value">${data.client.name || 'Not provided'}</span></div>
+                <div class="summary-item"><span class="summary-label">Industry:</span><span class="summary-value">${data.client.industry.join(', ') || 'Not specified'}</span></div>
+                <div class="summary-item"><span class="summary-label">Size:</span><span class="summary-value">${data.client.size || 'Not specified'}</span></div>
+                <div class="summary-item"><span class="summary-label">Regions:</span><span class="summary-value">${data.client.regions.join(', ') || 'Not specified'}</span></div>
+            </div>`;
+
+            // Team Structure
+            html += `<div class="summary-category">
+                <h3>Sales Team</h3>
+                <div class="summary-item"><span class="summary-label">SDR Team:</span><span class="summary-value">${data.team.hasSDR || 'Not specified'}</span></div>
+                <div class="summary-item"><span class="summary-label">SDR Count:</span><span class="summary-value">${data.team.sdrCount || 'Not specified'}</span></div>
+                <div class="summary-item"><span class="summary-label">Has AEs:</span><span class="summary-value">${data.team.hasAE || 'Not specified'}</span></div>
+                <div class="summary-item"><span class="summary-label">Has Manager:</span><span class="summary-value">${data.team.hasManager || 'Not specified'}</span></div>
+            </div>`;
+
+            // Tech Stack
+            html += `<div class="summary-category">
+                <h3>Technology Stack</h3>
+                <div class="summary-item"><span class="summary-label">CRM:</span><span class="summary-value">${data.tech.crm.join(', ') || 'Not specified'}</span></div>
+                <div class="summary-item"><span class="summary-label">Phone:</span><span class="summary-value">${data.tech.phone.join(', ') || 'Not specified'}</span></div>
+                <div class="summary-item"><span class="summary-label">Sales Intel:</span><span class="summary-value">${data.tech.salesIntel.join(', ') || 'None'}</span></div>
+                <div class="summary-item"><span class="summary-label">Conv Intel:</span><span class="summary-value">${data.tech.convIntel.join(', ') || 'None'}</span></div>
+            </div>`;
+
+            // Pain Points
+            if (data.process.challenges.length > 0) {
+                html += `<div class="summary-category">
+                    <h3>Key Challenges</h3>
+                    <div class="summary-text-block">${data.process.challenges.join(' • ')}</div>
+                </div>`;
+            }
+
+            // Products & ICP
+            html += `<div class="summary-category">
+                <h3>Client's Business</h3>
+                ${data.products.offerings ? `<div class="summary-item"><span class="summary-label">Products:</span><span class="summary-value">${data.products.offerings}</span></div>` : ''}
+                ${data.products.icp ? `<div class="summary-item"><span class="summary-label">ICP:</span><span class="summary-value">${data.products.icp}</span></div>` : ''}
+            </div>`;
+
+            // Demo Priorities
+            const featureNames = {
+                research: 'Lead Research',
+                coaching: 'Real-time Coaching',
+                analysis: 'Post-call Analysis',
+                dashboard: 'Manager Dashboard',
+                crm: 'CRM Integration'
+            };
+            
+            if (Object.keys(data.demo.priorities).length > 0) {
+                html += `<div class="summary-category"><h3>Feature Priorities</h3>`;
+                for (const [key, value] of Object.entries(data.demo.priorities)) {
+                    html += `<div class="summary-item"><span class="summary-label">${featureNames[key]}:</span><span class="summary-value">Priority ${value}</span></div>`;
+                }
+                html += '</div>';
+            }
+
+            // Business Context
+            html += `<div class="summary-category">
+                <h3>Deal Context</h3>
+                <div class="summary-item"><span class="summary-label">Decision Maker:</span><span class="summary-value">${data.technical.decisionMaker || 'Unknown'}</span></div>
+                <div class="summary-item"><span class="summary-label">Budget:</span><span class="summary-value">${data.technical.budget || 'Unknown'}</span></div>
+                <div class="summary-item"><span class="summary-label">Timeline:</span><span class="summary-value">${data.technical.timeline || 'Unknown'}</span></div>
+                <div class="summary-item"><span class="summary-label">BSA Role:</span><span class="summary-value">${data.demo.bsaRole || 'Not specified'}</span></div>
+            </div>`;
+
+            // What would close the deal
+            if (data.demo.needThis) {
+                html += `<div class="summary-category">
+                    <h3>What Would Close the Deal</h3>
+                    <div class="summary-text-block">${data.demo.needThis}</div>
+                </div>`;
+            }
+
+            return html;
+        }
+
+        async function submitForm() {
+            const data = collectFormData();
+            data.submittedAt = new Date().toISOString();
+            window.formData = data;
+            
+            // Show loading state
+            const submitBtn = document.querySelector('.btn-submit');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '⏳ Submitting...';
+            submitBtn.disabled = true;
+            
+            let submissionSuccess = false;
+            
+            // Send to Google Sheets
+            try {
+                const response = await fetch('https://script.google.com/macros/s/AKfycbzEuTVPv3Kexcn6jWpBDDB-WK8QGIO5Sl9boGFD8SNbcy7_YS6E4kE7CVCOK7pT6-sOLA/exec', {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                // With no-cors, we can't read the response, but if no error thrown, it likely worked
+                submissionSuccess = true;
+                console.log('✓ Submitted to Google Sheets');
+            } catch (error) {
+                console.error('Submission error:', error);
+                submissionSuccess = false;
+            }
+            
+            // Reset button
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+            
+            const summaryHtml = generateSummary(data);
+            document.getElementById('summaryContent').innerHTML = summaryHtml;
+            
+            // Update success message based on submission status
+            const successBanner = document.querySelector('.success-banner');
+            if (submissionSuccess) {
+                successBanner.innerHTML = `
+                    <div class="success-icon">🎯</div>
+                    <h3>Submitted Successfully!</h3>
+                    <p>Your responses have been sent to the Ground Game team.</p>
+                    <p style="font-size: 0.9rem; color: var(--gray-500);">Juan will reach out to schedule the demo session.</p>
+                `;
+            } else {
+                successBanner.innerHTML = `
+                    <div class="success-icon">⚠️</div>
+                    <h3>Almost There!</h3>
+                    <p style="color: var(--gray-600);">Couldn't auto-submit (you may be viewing this in a restricted environment).</p>
+                    <p style="font-size: 0.9rem; color: var(--gray-500); margin-top: 0.5rem;"><strong>Please click "Copy to Clipboard"</strong> and email to <a href="mailto:jp@dehyl.ca" style="color: var(--primary-dark);">jp@dehyl.ca</a></p>
+                `;
+            }
+
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById('summarySection').classList.add('active');
+            document.getElementById('progressFill').style.width = '100%';
+            document.getElementById('progressText').textContent = 'Complete!';
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function editForm() {
+            showSection(1);
+        }
+
+        function copyToClipboard() {
+            const data = window.formData;
+            let text = `=== LEAD INTEL DEMO - CLIENT DISCOVERY ===
+Generated: ${new Date().toLocaleString()}
+
+## DEMO CLIENT
+Company: ${data.client.name || 'Not provided'}
+Industry: ${data.client.industry.join(', ') || 'Not specified'}
+Size: ${data.client.size || 'Not specified'} | Revenue: ${data.client.revenue || 'Unknown'}
+Regions: ${data.client.regions.join(', ') || 'Not specified'}
+
+## SALES TEAM
+SDR Team: ${data.team.hasSDR || 'Not specified'}
+Headcount: ${data.team.sdrCount || 'Unknown'} | Growth: ${data.team.sdrGrowth || 'Unknown'}
+Has AEs: ${data.team.hasAE || 'Unknown'} | Has Manager: ${data.team.hasManager || 'Unknown'}
+Structure: ${data.team.structure || 'Not described'}
+
+## TECHNOLOGY STACK
+CRM: ${data.tech.crm.join(', ') || 'Not specified'} ${data.tech.crmOther || ''}
+Phone: ${data.tech.phone.join(', ') || 'Not specified'} ${data.tech.phoneOther || ''}
+Recording: ${data.tech.recording || 'Unknown'} | Transcription: ${data.tech.transcription || 'Unknown'}
+Sales Intel Tools: ${data.tech.salesIntel.join(', ') || 'None'}
+Conv Intel Tools: ${data.tech.convIntel.join(', ') || 'None'}
+
+## PROCESS & PAIN POINTS
+Pre-call Research: ${data.process.prepProcess || 'Not described'}
+Research Time: ${data.process.researchTime || 'Unknown'}
+Lead Sources: ${data.process.leadSources.join(', ') || 'Not specified'}
+Key Challenges: ${data.process.challenges.join(', ') || 'Not specified'}
+Handoff Process: ${data.process.handoff || 'Not described'}
+Qualification: ${data.process.qualification.join(', ') || 'Not specified'}
+
+## MANAGER & COACHING
+Call Review: ${data.coaching.callReview.join(', ') || 'Not specified'}
+Review Frequency: ${data.coaching.reviewFreq || 'Unknown'}
+Scoring System: ${data.coaching.scoring || 'Unknown'}
+Coaching Method: ${data.coaching.coachingMethod || 'Not described'}
+Key Metrics: ${data.coaching.metrics.join(', ') || 'Not specified'}
+
+## CLIENT'S PRODUCTS & ICP
+Products/Services: ${data.products.offerings || 'Not described'}
+Ideal Customer: ${data.products.icp || 'Not described'}
+Pain Points Solved: ${data.products.painPoints || 'Not described'}
+Differentiators: ${data.products.differentiators || 'Not described'}
+Common Objections: ${data.products.objections || 'Not described'}
+
+Target Companies:
+${data.products.targets.map((t, i) => `${i + 1}. ${t.company} (${t.industry}) - ${t.reason}`).join('\n') || 'None provided'}
+
+## TECHNICAL ENVIRONMENT
+Hosting: ${data.technical.hosting.join(', ') || 'Unknown'}
+IT Resources: ${data.technical.itResources || 'Unknown'}
+Compliance: ${data.technical.compliance.join(', ') || 'None specified'}
+SSO Required: ${data.technical.sso || 'Unknown'}
+
+## DEAL CONTEXT
+Decision Maker: ${data.technical.decisionMaker || 'Unknown'}
+Budget: ${data.technical.budget || 'Unknown'}
+Timeline: ${data.technical.timeline || 'Unknown'}
+
+## DEMO STRATEGY
+Feature Priorities:
+${Object.entries(data.demo.priorities).map(([k, v]) => `- ${k}: Priority ${v}`).join('\n') || 'Not ranked'}
+
+What would close the deal: ${data.demo.needThis || 'Not specified'}
+Concerns to address: ${data.demo.concerns || 'Not specified'}
+
+## BSA'S ROLE
+Positioning: ${data.demo.bsaRole || 'Not specified'}
+Ongoing Support: ${data.demo.bsaSupport || 'TBD'}
+Relationships: ${data.demo.relationships || 'None mentioned'}
+
+## ADDITIONAL NOTES
+${data.demo.additionalNotes || 'None'}
+
+---
+End of Discovery Summary
+`;
+
+            navigator.clipboard.writeText(text).then(() => {
+                alert('✓ Copied to clipboard!');
+            }).catch(() => {
+                // Fallback
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                alert('✓ Copied to clipboard!');
+            });
+        }
+
+        function downloadJSON() {
+            const data = window.formData;
+            data.generatedAt = new Date().toISOString();
+            data.surveyVersion = '2.0';
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `lead-intel-discovery-${data.client.name?.replace(/\s+/g, '-').toLowerCase() || 'client'}-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
